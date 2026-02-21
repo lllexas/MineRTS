@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!78 &1
+TagManager:
+  serializedVersion: 2
+  tags: []
+  layers:
+  - Default
+  - TransparentFX
+  - Ignore Raycast
+  - 
+  - Water
+  - UI
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  m_SortingLayers:
+  - name: Default
+    uniqueID: 0
+    locked: 0
+  - name: Floor
+    uniqueID: 3386196731
+    locked: 0
+  - name: PathPreview
+    uniqueID: 3422774745
+    locked: 0
+  - name: Conveyor
+    uniqueID: 2455313081
+    locked: 0
+  - name: Item
+    uniqueID: 17786935
+    locked: 0
+  - name: Units
+    uniqueID: 1653389221
+    locked: 0
+  - name: Power
+    uniqueID: 1180547995
+    locked: 0
+  - name: Number
+    uniqueID: 3463710767
+    locked: 0
+  - name: UI
+    uniqueID: 1879000201
+    locked: 0

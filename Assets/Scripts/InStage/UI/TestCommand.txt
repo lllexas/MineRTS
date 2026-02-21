@@ -1,0 +1,16 @@
+﻿clear; map_load; spawn miner 0,6 1 3 0,1; spawn conveyor 0,4 1 3 0,-1; spawn buffer 1,3 1 3 1,0; spawn conveyor 0,3 1 3 0,-1; spawn conveyor 0,2 1 3 0,-1; spawn conveyor 0,1 1 3 0,-1; spawn seller 0,-1 1 3 0,1; spawn generator -2,3 1 3 0,1; spawn battery -2,8 1 3 0,1; spawn power_pole -2,6 1 3 0,1; net_rebuild; net_info
+clear; map_load; spawn x_dog 0,0 1; spawn x_drone 0,2 1; spawn c_believer 2,0 1; spawn c_purifier 2,2 1; spawn g_maggot 4,0 2; spawn g_broodmother 4,2 2
+clear; map_load; army x_dog 0,0 20,20 1
+clear; map_load; spawn g_broodmother 0,5 2; spawn c_believer 5,5 1; army x_dog 0,0 5,5 3
+
+save_new TestPlayer
+enter Level_Test
+cam_sync; cam_reset; cam_home
+mission_load Missions/Test_Missions
+spawn seller 0,-1 1
+spawn hero_jin_proto -3,5 1
+cheat_gold 999
+army x_dog 0,0 20,20 1
+
+
+nav_info

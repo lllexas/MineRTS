@@ -1,0 +1,95 @@
+{
+    "PackID": "",
+    "Missions": [
+        {
+            "MissionID": "dde5aea2-7de1-44cb-8a90-62655306f1e0",
+            "Title": "测试任务：赚钱",
+            "Description": "先赚100块",
+            "Priority": 0,
+            "EditorPosition": {
+                "x": 116.79999542236328,
+                "y": 14.39999771118164
+            },
+            "IsActive": true,
+            "IsCompleted": false,
+            "IsFailed": false,
+            "Goals": [
+                {
+                    "Type": 5,
+                    "TargetKey": "Gold",
+                    "RequiredAmount": 100,
+                    "CurrentAmount": 0
+                }
+            ],
+            "Reward": {
+                "Money": 0,
+                "TechPoints": 0,
+                "Blueprints": []
+            },
+            "RewardID": "b73fc2a1-3a9b-4985-a687-a7edbff0b616",
+            "NextMissionID": ""
+        }
+    ],
+    "Rewards": [
+        {
+            "RewardID": "b73fc2a1-3a9b-4985-a687-a7edbff0b616",
+            "Position": {
+                "x": 420.0,
+                "y": 28.799999237060548
+            },
+            "Data": {
+                "Money": 0,
+                "TechPoints": 0,
+                "Blueprints": []
+            }
+        }
+    ],
+    "ScenarioEvents": [
+        {
+            "EventID": "e14d0a51-2c50-472b-b5fb-987d2dcb9b99",
+            "EditorPosition": {
+                "x": 148.8000030517578,
+                "y": 346.3999938964844
+            },
+            "Trigger": 1,
+            "TriggerParam": "dde5aea2-7de1-44cb-8a90-62655306f1e0",
+            "HasTriggered": false,
+            "NextSpawnID": "5527f84f-7f77-4f65-9413-71d43f22f0e0"
+        }
+    ],
+    "SpawnActions": [
+        {
+            "SpawnID": "5527f84f-7f77-4f65-9413-71d43f22f0e0",
+            "EditorPosition": {
+                "x": 374.4000244140625,
+                "y": 348.0
+            },
+            "Team": 2,
+            "SpawnPos": {
+                "x": -50,
+                "y": 70
+            },
+            "Units": [
+                {
+                    "BlueprintId": "g_maggot",
+                    "Count": 10
+                }
+            ],
+            "AttachAIBrainID": "d11a2f59-af84-46e5-b321-ec429440acde"
+        }
+    ],
+    "AIBrainActions": [
+        {
+            "BrainNodeID": "d11a2f59-af84-46e5-b321-ec429440acde",
+            "EditorPosition": {
+                "x": 651.2000122070313,
+                "y": 348.0
+            },
+            "BrainIdentifier": "Red_Dot_Wave",
+            "TargetPos": {
+                "x": 0,
+                "y": 0
+            }
+        }
+    ]
+}
