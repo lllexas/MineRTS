@@ -50,10 +50,12 @@ public class CameraController : SingletonMono<CameraController>
     {
         Vector3 moveInput = Vector3.zero;
 
-        // --- 1. 小箭头/方向键推屏 (Arrow Keys / WASD) ---
-        // Unity 默认 Input Manager 的 Horizontal/Vertical 包含了方向键喵
-        moveInput.x += Input.GetAxisRaw("Horizontal");
-        moveInput.y += Input.GetAxisRaw("Vertical");
+        // --- 1. 小箭头/方向键推屏 (Arrow Keys) ---
+        // 改为只使用方向键，避免与A键冲突
+        if (Input.GetKey(KeyCode.UpArrow)) moveInput.y += 1;
+        if (Input.GetKey(KeyCode.DownArrow)) moveInput.y -= 1;
+        if (Input.GetKey(KeyCode.LeftArrow)) moveInput.x -= 1;
+        if (Input.GetKey(KeyCode.RightArrow)) moveInput.x += 1;
 
         // --- 2. 鼠标推屏 (Edge Scrolling) ---
         if (useEdgeScrolling && !Input.GetMouseButton(2)) // 抓屏时禁用推屏，防止冲突

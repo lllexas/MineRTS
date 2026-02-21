@@ -635,6 +635,65 @@ public partial class GridSystem : SingletonMono<GridSystem>
         return id != -1 && _allNodes.ContainsKey(id) ? _allNodes[id] : null;
     }
 
+    /// <summary>
+    /// Bresenham 视线回退法：当目标点在墙内或建筑内时，沿着从目标点到起点的直线回退，
+    /// 找到第一个合法的格子作为修正后的目标点。
+    /// </summary>
+    /// <param name="targetPos">非法的目标点（墙内/建筑内）</param>
+    /// <param name="startPos">单位所在的起点</param>
+    /// <returns>修正后的合法目标点，如果找不到则返回起点</returns>
+    public Vector2Int GetValidTargetByLineOfSight(Vector2Int targetPos, Vector2Int startPos)
+    {
+        // 如果目标点本身就是合法的，直接返回
+        if (GetNodeAt(targetPos) != null)
+            return targetPos;
+
+        // 标准 Bresenham 算法参数
+        int dx = Mathf.Abs(targetPos.x - startPos.x);
+        int dy = Mathf.Abs(targetPos.y - startPos.y);
+        int sx = targetPos.x < startPos.x ? 1 : -1; // 从目标点向起点移动，方向与正常相反
+        int sy = targetPos.y < startPos.y ? 1 : -1;
+        int err = dx - dy;
+
+        Vector2Int current = targetPos;
+
+        // 最大步数限制，避免无限循环
+        int maxSteps = dx + dy + 10;
+        int steps = 0;
+
+        while (steps < maxSteps)
+        {
+            // 如果已经到达起点，停止搜索
+            if (current == startPos)
+                break;
+
+            // 标准 Bresenham 算法：决定移动方向
+            int e2 = 2 * err;
+            bool moveX = e2 > -dy;
+            bool moveY = e2 < dx;
+
+            if (moveX)
+            {
+                err -= dy;
+                current.x += sx; // 向起点方向移动
+            }
+            if (moveY)
+            {
+                err += dx;
+                current.y += sy; // 向起点方向移动
+            }
+
+            // 检查移动后的格子是否合法
+            if (GetNodeAt(current) != null)
+                return current;
+
+            steps++;
+        }
+
+        // 如果整条线上都没有合法格子，返回起点（理论上不应该发生）
+        return startPos;
+    }
+
     // --- 核心：全局/局部重剖逻辑 ---
 
     /// <summary>

@@ -145,7 +145,7 @@ namespace AIBrain
                 int idx = EntitySystem.Instance.GetIndex(handle);
                 if (idx != -1)
                 {
-                    whole.aiComponent[idx].CurrentCommand = UnitCommand.None;
+                    AutoAISystem.Instance.RequestStop(handle);
                 }
             }
             return true;

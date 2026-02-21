@@ -103,7 +103,27 @@ public partial class PathfindingSystem : SingletonMono<PathfindingSystem>
             }
         }
 
-        // --- 2. 节点有效性检查 ---
+        // --- 2. 终点抢救逻辑 (Bresenham 视线回退法) ---
+        if (endNode == null)
+        {
+            if (showSearchLogs) Debug.LogWarning($"<color=orange>[Pathfinding]</color> 单位 {idx} 终点格 {endPos} 在墙内/建筑内，尝试视线回退抢救...");
+
+            // 使用 Bresenham 视线回退法寻找最近的合法格子
+            Vector2Int correctedEndPos = GridSystem.Instance.GetValidTargetByLineOfSight(endPos, startPos);
+            if (correctedEndPos != endPos)
+            {
+                if (showSearchLogs) Debug.Log($"<color=cyan>[Pathfinding]</color> 终点修正: {endPos} -> {correctedEndPos}");
+
+                // 更新目标位置
+                endPos = correctedEndPos;
+                move.TargetGridPosition = correctedEndPos;
+
+                // 重新获取终点节点
+                endNode = GridSystem.Instance.GetNodeAt(correctedEndPos);
+            }
+        }
+
+        // --- 3. 节点有效性检查 ---
         if (startNode == null || endNode == null)
         {
             if (showSearchLogs)
@@ -663,6 +683,20 @@ public partial class PathfindingSystem : SingletonMono<PathfindingSystem>
     {
         NavNode startNode = GridSystem.Instance.GetNodeAt(start);
         NavNode endNode = GridSystem.Instance.GetNodeAt(end);
+
+        // 终点抢救逻辑 (Bresenham 视线回退法)
+        if (endNode == null)
+        {
+            // 使用 Bresenham 视线回退法寻找最近的合法格子
+            Vector2Int correctedEnd = GridSystem.Instance.GetValidTargetByLineOfSight(end, start);
+            if (correctedEnd != end)
+            {
+                // 更新终点位置
+                end = correctedEnd;
+                // 重新获取终点节点
+                endNode = GridSystem.Instance.GetNodeAt(end);
+            }
+        }
 
         if (startNode == null || endNode == null)
             return null;

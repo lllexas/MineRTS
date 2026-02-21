@@ -5,6 +5,7 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
 {
     [Header("设置")]
     public LayerMask groundLayer; // 地面图层（如果有点选碰撞体的话）
+    public int playerTeam = 1; // 可供玩家选择的队伍，默认为1
     private bool _isAttackMoving = false; // 是否处于 A 键瞄准模式
     public Texture2D cursorAttack; // 请在 Inspector 里拖一个红色瞄准光标图片！
 
@@ -15,6 +16,9 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
     private Vector2 _boxStartPos;
     private bool _isDragging = false;
     private Camera _mainCam;
+
+    // 防止攻击模式左键点击后误触发选择清除
+    private bool _skipSelectionThisFrame = false;
 
     // 获取当前选中的所有单位
     public List<EntityHandle> SelectedEntities => _selectedHandles;
@@ -43,9 +47,19 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
 
     private void HandleSelection()
     {
+        // 如果标记为跳过选择（攻击模式左键点击后）
+        if (_skipSelectionThisFrame)
+        {
+            // 只有在抬起鼠标后，才彻底关闭这个拦截开关喵
+            if (Input.GetMouseButtonUp(0)) _skipSelectionThisFrame = false;
+            _isDragging = false;
+            return;
+        }
+
         // 按下左键：记录起始点
         if (Input.GetMouseButtonDown(0))
         {
+            // 只有非攻击模式下，按下左键才开启“拖拽合法状态”
             _isDragging = true;
             _boxStartPos = Input.mousePosition;
         }
@@ -53,6 +67,9 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
         // 释放左键：执行选择
         if (Input.GetMouseButtonUp(0))
         {
+            // 🔥 核心修正：如果不是从 Down 状态过来的合法拖拽，不许执行选择逻辑
+            if (!_isDragging) return;
+
             _isDragging = false;
 
             // 如果拖拽距离极小，视为“点选”
@@ -78,7 +95,13 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
             EntityHandle handle = EntitySystem.Instance.GetHandleFromId(occupantId);
             if (EntitySystem.Instance.IsValid(handle))
             {
-                AddToSelection(handle);
+                // 检查单位队伍是否匹配玩家队伍
+                int idx = EntitySystem.Instance.GetIndex(handle);
+                var whole = EntitySystem.Instance.wholeComponent;
+                if (whole.coreComponent[idx].Team == playerTeam)
+                {
+                    AddToSelection(handle);
+                }
             }
         }
     }
@@ -96,7 +119,7 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
         for (int i = 0; i < whole.entityCount; i++)
         {
             ref var core = ref whole.coreComponent[i];
-            if (!core.Active || core.Team != 1 || (core.Type & UnitType.Projectile) != 0) continue;
+            if (!core.Active || core.Team != playerTeam || (core.Type & UnitType.Projectile) != 0) continue;
 
             // --- 【核心修改：计算单位的世界占用矩形】 ---
             Vector2Int size = core.LogicSize;
@@ -136,41 +159,8 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
 
     private void IssueCommand(EntityHandle handle, Vector2Int targetGrid, EntityHandle targetEntity)
     {
-        if (!EntitySystem.Instance.IsValid(handle)) return;
-        int idx = EntitySystem.Instance.GetIndex(handle);
-        var whole = EntitySystem.Instance.wholeComponent;
-
-        if ((whole.coreComponent[idx].Type & UnitType.Building) != 0) return;
-
-        // Debug.Log($"<color=orange>[Command]</color> 玩家右键指令 -> 单位ID: {idx}, 目标格: {targetGrid}");
-        ref var ai = ref whole.aiComponent[idx];
-        ref var move = ref whole.moveComponent[idx];
-        ref var atk = ref whole.attackComponent[idx];
-
-        // 1. 状态重置
-        atk.TargetEntityId = -1;
-        ai.TargetEntity = EntityHandle.None;
-        ai.CurrentState = AIState.Moving;
-
-        // 2. 🔥【废除旧优化】无论目的地是否相同，只要玩家点了，就执行完整的重置
-        move.TargetGridPosition = targetGrid;
-
-        // 彻底洗脑：让 Boids 认为单位是刚出生的，没有任何移动惯性和折返阻尼
-        move.PreviousLogicalPosition = move.LogicalPosition;
-        move.NextStepTile = move.LogicalPosition;
-        move.HasNextStep = false;
-
-        // 3. 寻路重置与强制请求
-        move.Waypoints = null;
-        move.WaypointIndex = 0;
-        move.IsBlocked = false;
-        move.TargetPortalExit = null;
-        move.StuckTimerTicks = 0; // 顺便把卡死计时也清了
-
-        // 🔥 即使 IsPathPending 是 true，我们也应该允许重新覆盖请求
-        // 或者至少确保如果 Waypoints 是空的，就一定要请求
-        move.IsPathPending = false; // 强制解锁，确保 RequestPath 必成
-        PathfindingSystem.Instance.RequestPath(idx);
+        // 使用AutoAISystem的统一API
+        AutoAISystem.Instance.RequestMove(handle, targetGrid);
     }
 
     private void HandleHotkeys()
@@ -180,26 +170,7 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
         {
             foreach (var handle in _selectedHandles)
             {
-                if (!EntitySystem.Instance.IsValid(handle)) continue;
-                int idx = EntitySystem.Instance.GetIndex(handle);
-                var whole = EntitySystem.Instance.wholeComponent;
-
-                ref var ai = ref whole.aiComponent[idx];
-                ref var move = ref whole.moveComponent[idx];
-
-                ai.CurrentState = AIState.Idle;
-                ai.TargetEntity = EntityHandle.None;
-
-                // 🔥【核心修正：停止即洗脑】
-                // 目标设为当前位置
-                move.TargetGridPosition = move.LogicalPosition;
-                // 清除折返记忆
-                move.PreviousLogicalPosition = move.LogicalPosition;
-                // 取消待执行指令
-                move.HasNextStep = false;
-
-                // 路径也清掉
-                move.Waypoints = null;
+                AutoAISystem.Instance.RequestStop(handle);
             }
         }
         // >>>>>>>>>>> [新增：A键触发] >>>>>>>>>>>
@@ -237,60 +208,19 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
         if (index != -1)
             EntitySystem.Instance.wholeComponent.drawComponent[index].IsSelected = highlight;
     }
-    private void IssueAttackCommand(EntityHandle handle, Vector2Int targetGrid, EntityHandle targetEntity)
+    public void IssueAttackCommand(EntityHandle handle, Vector2Int targetGrid, EntityHandle targetEntity)
     {
-        if (!EntitySystem.Instance.IsValid(handle)) return;
-        int idx = EntitySystem.Instance.GetIndex(handle);
-        var whole = EntitySystem.Instance.wholeComponent;
-
-        // 只有战斗单位能攻击
-        if ((whole.coreComponent[idx].Type & (UnitType.Minion | UnitType.Hero)) == 0) return;
-
-        ref var ai = ref whole.aiComponent[idx];
-        ref var move = ref whole.moveComponent[idx];
-        ref var atk = ref whole.attackComponent[idx];
-
-        // 1. 判定是 A地板 还是 A人
+        // 使用AutoAISystem的统一API
         if (EntitySystem.Instance.IsValid(targetEntity))
         {
-            // --- 情况 A: A人 (AttackTarget) ---
-            // 只有当目标是敌军时才锁定攻击
-            int tIdx = EntitySystem.Instance.GetIndex(targetEntity);
-            if (whole.coreComponent[tIdx].Team != whole.coreComponent[idx].Team)
-            {
-                ai.CurrentCommand = UnitCommand.AttackTarget;
-                ai.TargetEntity = targetEntity;
-                Debug.Log($"<color=red>[Command]</color> 锁定攻击 -> 目标ID: {targetEntity.Id}");
-            }
-            else
-            {
-                // 如果A了友军，变成跟随或者普通的移动
-                ai.CurrentCommand = UnitCommand.Move;
-                move.TargetGridPosition = targetGrid;
-            }
+            // 攻击特定目标
+            AutoAISystem.Instance.RequestAttackTarget(handle, targetGrid, targetEntity);
         }
         else
         {
-            // --- 情况 B: A地板 (AttackMove) ---
-            ai.CurrentCommand = UnitCommand.AttackMove;
-            ai.CommandPos = targetGrid;
-
-            // 下达移动相关的重置逻辑 (复用 IssueCommand 的逻辑)
-            move.TargetGridPosition = targetGrid;
-            move.PreviousLogicalPosition = move.LogicalPosition;
-            move.NextStepTile = move.LogicalPosition;
-            move.HasNextStep = false;
-            move.Waypoints = null;
-            move.WaypointIndex = 0;
-            move.IsBlocked = false;
-            move.IsPathPending = false;
-            PathfindingSystem.Instance.RequestPath(idx);
-
-            Debug.Log($"<color=red>[Command]</color> 攻击移动 -> 目标格: {targetGrid}");
+            // 攻击移动（A地板）
+            AutoAISystem.Instance.RequestAttackMove(handle, targetGrid);
         }
-
-        // 无论哪种情况，都先把状态设为 Moving，让 AutoAI 去接管
-        ai.CurrentState = AIState.Moving;
     }
     // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     // >>>>>>>>>>> [新增：A键模式处理逻辑] >>>>>>>>>>>
@@ -311,6 +241,9 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
             EntityHandle targetHandle = EntityHandle.None;
             if (targetId != -1) targetHandle = EntitySystem.Instance.GetHandleFromId(targetId);
 
+            // 标记跳过下一帧的选择处理，防止攻击模式左键点击误触发选择清除
+            _skipSelectionThisFrame = true;
+
             // 无论有没有点中敌人，都把指令发下去
             // 如果点中了敌人， targetHandle 有效，就是 AttackTarget
             // 如果点中了地板， targetHandle 无效，就是 AttackMove
@@ -319,8 +252,10 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
                 IssueAttackCommand(handle, gridPos, targetHandle);
             }
 
-            // 发完指令退出模式
-            ExitAttackMode();
+            // 发完指令退出模式，但不清除跳过标志，因为需要在鼠标抬起时拦截选择逻辑
+            _isAttackMoving = false;
+            Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
+            // 注意：_skipSelectionThisFrame 保持为 true，将在 HandleSelection 中鼠标抬起后清除
         }
     }
 
@@ -335,6 +270,9 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
     {
         _isAttackMoving = false;
         Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
+        // 清除攻击模式相关的跳过标志
+        _skipSelectionThisFrame = false;
+        // 注意：_skipLeftButtonRelease 在左键释放处理中清除
     }
     // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 

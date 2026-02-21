@@ -7,10 +7,14 @@ save_new TestPlayer
 enter Level_Test
 cam_sync; cam_reset; cam_home
 mission_load Missions/Test_Missions
-spawn seller 0,-1 1
+spawn seller 5,-1 1
 spawn hero_jin_proto -3,5 1
+spawn x_dog -7,-5 2
+
 cheat_gold 999
+
 army x_dog 0,0 20,20 1
 
+army x_dog -5,-5 5,5 2
 
 nav_info
