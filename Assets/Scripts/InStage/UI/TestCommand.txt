@@ -13,8 +13,11 @@ spawn x_dog -7,-5 2
 
 cheat_gold 999
 
+army x_dog -5,-5 5,5 2
+
+cheat_gold 999
+
 army x_dog 0,0 20,20 1
 
-army x_dog -5,-5 5,5 2
 
 nav_info

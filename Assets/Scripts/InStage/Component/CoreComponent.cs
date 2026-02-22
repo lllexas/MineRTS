@@ -121,10 +121,25 @@ public struct AttackComponent
     // --- 攻击属性 (从蓝图复制，可能被Buff修改) ---
     public float AttackRange;
     public float AttackDamage;
-    public float AttackCooldown;
+
+    // --- Tick化攻击属性 ---
+    public int AttackCooldownTicks;  // 攻击冷却tick数
+    public long LastAttackTick;      // 上次攻击的tick
+
+    // --- 兼容性属性 (秒为单位) ---
+    public float AttackCooldown
+    {
+        get => AttackCooldownTicks * TimeTicker.SecondsPerTick;
+        set => AttackCooldownTicks = TimeTicker.ToTicks(value);
+    }
+
+    public float LastAttackTime
+    {
+        get => LastAttackTick * TimeTicker.SecondsPerTick;
+        set => LastAttackTick = TimeTicker.ToTicks(value); // ToTicks返回int，隐式转换为long
+    }
 
     // --- 状态控制 ---
-    public float LastAttackTime;    // 上次攻击时间
     public float WindUpTimer;       // 前摇计时 (可选，用于更细腻的手感)
 
     // --- 子弹模式 ---
@@ -470,4 +485,23 @@ public class PowerNet
         TotalStorage = 0;
         // CurrentStorage 保持持续
     }
+}
+
+/// <summary>
+/// 围棋规则组件
+/// 标记单位是否参与围棋规则，并记录当前气数
+/// </summary>
+public struct GoComponent
+{
+    /// <summary>
+    /// 是否参与围棋规则
+    /// 地面单位和建筑为true，飞行单位、子弹、掉落物等为false
+    /// </summary>
+    public bool IsGoPiece;
+
+    /// <summary>
+    /// 当前这块棋的气数（空相邻格子数量）
+    /// 供UI显示或AI逃跑参考
+    /// </summary>
+    public int CurrentLiberties;
 }

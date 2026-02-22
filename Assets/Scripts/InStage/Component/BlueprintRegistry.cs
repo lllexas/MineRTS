@@ -418,8 +418,8 @@ public static class BlueprintRegistry
 
             MoveInterval = 0.8f,        // 慢
             AttackRange = 1.1f,         // 贴脸
-            AttackDamage = 60.0f,       // 极高伤害
-            AttackCooldown = 0.0f,      // 一次性
+            AttackDamage = 5.0f,        // 一般
+            AttackCooldown = 1.0f,      
             ProjectileSpriteId = -1,
 
             ExplodeOnDeath = true,      // 自爆的核心逻辑

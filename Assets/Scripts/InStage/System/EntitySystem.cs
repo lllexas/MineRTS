@@ -30,7 +30,7 @@ public static class TimeTicker
         }
         return mask;
     }
-    public static int ToTicks(float seconds) => Mathf.Max(1, Mathf.RoundToInt(seconds * TicksPerSecond));
+    public static int ToTicks(float seconds) => Mathf.Max(0, Mathf.RoundToInt(seconds * TicksPerSecond));
 }
 
 
@@ -81,6 +81,9 @@ public class EntitySystem : SingletonMono<EntitySystem>
             // --- 【战斗辅助】 ---
             projectileComponent = new ProjectileComponent[maxEntityCount],
 
+            // --- 【围棋规则】 ---
+            goComponent = new GoComponent[maxEntityCount],
+
             groundMap = new int[mapWidth * mapHeight],
             gridMap = new int[mapWidth * mapHeight],
             effectMap = new int[mapWidth * mapHeight]
@@ -103,6 +106,10 @@ public class EntitySystem : SingletonMono<EntitySystem>
 
         if (GridSystem.Instance != null)
             GridSystem.Instance.Initialize(minX, minY, cellSize);
+
+        // 初始化围棋规则系统
+        if (GoRuleSystem.Instance != null)
+            GoRuleSystem.Instance.Initialize(mapWidth, mapHeight, minX, minY);
 
         _nextCreationIndex = 0;
         this._initialized = true;
@@ -330,7 +337,9 @@ public class EntitySystem : SingletonMono<EntitySystem>
             ref var attack = ref whole.attackComponent[index];
             attack.AttackRange = bp.AttackRange;
             attack.AttackDamage = bp.AttackDamage;
-            attack.AttackCooldown = bp.AttackCooldown;
+            // ⚠️ 修改：将秒转换为tick
+            attack.AttackCooldownTicks = TimeTicker.ToTicks(bp.AttackCooldown);
+            attack.LastAttackTick = 0; // 初始化为0，表示从未攻击
             attack.ProjectileSpriteId = bp.ProjectileSpriteId;
             attack.ProjectileSpeed = bp.ProjectileSpeed;
             attack.TargetEntityId = -1; // 确保初始没有锁定奇怪的目标
@@ -352,6 +361,11 @@ public class EntitySystem : SingletonMono<EntitySystem>
             health.MaxHealth = bp.MaxHealth;
             health.Health = bp.MaxHealth;
             health.ExplodeOnDeath = bp.ExplodeOnDeath; // 自爆虫需要这个
+
+            // 6. 初始化围棋组件
+            ref var go = ref whole.goComponent[index];
+            go.IsGoPiece = ShouldParticipateInGo(bp.UnitType);
+            go.CurrentLiberties = 0;
 
             // 库存属性
 
@@ -391,6 +405,22 @@ public class EntitySystem : SingletonMono<EntitySystem>
 
         return handle;
     }
+
+    /// <summary>
+    /// 判断单位类型是否参与围棋规则
+    /// 地面单位和建筑参与，飞行单位、子弹、掉落物不参与
+    /// </summary>
+    private bool ShouldParticipateInGo(int unitType)
+    {
+        // 飞行单位、子弹、掉落物不参与围棋
+        if ((unitType & UnitType.Flyer) != 0) return false;
+        if ((unitType & UnitType.Projectile) != 0) return false;
+        if ((unitType & UnitType.ResourceItem) != 0) return false;
+
+        // 地面单位、建筑参与
+        return (unitType & (UnitType.Hero | UnitType.Minion | UnitType.Building)) != 0;
+    }
+
     // =========================================================
     // 工具方法
     // =========================================================
@@ -637,7 +667,10 @@ public class EntitySystem : SingletonMono<EntitySystem>
 
     private void UpdateSystem(float deltaTime)
     {
-        // 🔥 第一步：检查物流脏标记。
+        // 🔥 第一步：更新游戏tick（必须首先调用）
+        TimeSystem.Instance.UpdateGameTick(deltaTime);
+
+        // 🔥 第二步：检查物流脏标记。
         // 如果上一帧发生了 Swap-back，这里会立即修正所有 Index 映射。
         TransportSystem.Instance.RebuildIfDirty(wholeComponent);
         PowerSystem.Instance.UpdatePower(wholeComponent, deltaTime);
@@ -656,7 +689,14 @@ public class EntitySystem : SingletonMono<EntitySystem>
         BoidsSystem.Instance.UpdateTacticalBoids(wholeComponent);
         MoveSystem.Instance.UpdateMovement(wholeComponent, deltaTime);
 
-        // 4. 表现层渲染
+        // 4. 围棋规则结算（必须在移动之后，渲染之前）
+        // 只有在发生逻辑Tick时才跑围棋管线（节省CPU）
+        if (TimeSystem.Instance.TicksProcessedThisFrame > 0)
+        {
+            GoRuleSystem.Instance.UpdateGoRules(wholeComponent);
+        }
+
+        // 5. 表现层渲染
         // 先画基础单位（建筑、小兵）
         DrawSystem.Instance.UpdateDraws(wholeComponent, deltaTime);
 
@@ -695,6 +735,9 @@ public class WholeComponent
     // --- 【战斗辅助】 ---
     public ProjectileComponent[] projectileComponent;
 
+    // --- 【围棋规则】 ---
+    public GoComponent[] goComponent;
+
     public int[] groundMap;
     public int[] gridMap;
     public int[] effectMap;
@@ -727,6 +770,9 @@ public class WholeComponent
             powerComponent = (PowerComponent[])this.powerComponent.Clone(),
 
             projectileComponent = (ProjectileComponent[])this.projectileComponent.Clone(),
+
+            // --- 克隆围棋组件 ---
+            goComponent = (GoComponent[])this.goComponent.Clone(),
 
             groundMap = (this.groundMap != null) ? (int[])this.groundMap.Clone() : null,
             gridMap = (this.gridMap != null) ? (int[])this.gridMap.Clone() : null,

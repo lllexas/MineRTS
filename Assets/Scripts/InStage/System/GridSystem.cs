@@ -1177,4 +1177,20 @@ public partial class GridSystem
             }
         }
     }
+
+    /// <summary>
+    /// 【极速通道】专供围棋系统 (GoRuleSystem) 验证物理气眼。
+    /// O(1) 纯数组查询，没有任何装箱或 Handle 解析。
+    /// 注意：这里只查地形阻挡。单位和建筑阻挡由围棋系统的 _gridTeam 负责。
+    /// </summary>
+    public bool IsTerrainWalkableFast(int index)
+    {
+        // 越界保护
+        if (index < 0 || index >= EntitySystem.Instance.wholeComponent.groundMap.Length)
+            return false;
+
+        // 直接裸读地面数组，验证百科全书
+        int tileId = EntitySystem.Instance.wholeComponent.groundMap[index];
+        return MapRegistry.IsWalkable(tileId);
+    }
 }

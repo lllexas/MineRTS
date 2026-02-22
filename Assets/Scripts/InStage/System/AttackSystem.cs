@@ -33,8 +33,8 @@ public class AttackSystem : SingletonMono<AttackSystem>
             // 1. 基础检查
             if (attack.TargetEntityId == -1) continue;
 
-            // 2. 检查冷却
-            if (Time.time < attack.LastAttackTime + attack.AttackCooldown) continue;
+            // 2. 检查冷却 (使用tick)
+            if (TimeTicker.GlobalTick < attack.LastAttackTick + attack.AttackCooldownTicks) continue;
 
             // 3. 验证目标有效性
             EntityHandle targetHandle = entitySystem.GetHandleFromId(attack.TargetEntityId);
@@ -90,8 +90,8 @@ public class AttackSystem : SingletonMono<AttackSystem>
                     SpawnProjectile(whole, i, targetIndex);
                 }
 
-                // C. 重置冷却
-                attack.LastAttackTime = Time.time;
+                // C. 重置冷却 (使用tick)
+                attack.LastAttackTick = TimeTicker.GlobalTick;
             }
         }
     }

@@ -2,24 +2,12 @@
 
 public class MoveSystem : SingletonMono<MoveSystem>
 {
-    private const float TICK_INTERVAL = TimeTicker.SecondsPerTick;
-    private float _tickAccumulator = 0f;
-
     public void UpdateMovement(WholeComponent whole, float deltaTime)
     {
         var gridSystem = GridSystem.Instance;
 
-        // 1. 时间累积与 Global Tick 推进
-        _tickAccumulator += deltaTime;
-        int ticksToProcess = 0;
-        while (_tickAccumulator >= TICK_INTERVAL)
-        {
-            ticksToProcess++;
-            _tickAccumulator -= TICK_INTERVAL;
-            TimeTicker.GlobalTick++;
-            GridSystem.Instance.AdvanceNavMeshTick(TimeTicker.GlobalTick);
-        }
-        TimeTicker.SubTickOffset = _tickAccumulator;
+        // 1. 从TimeSystem获取本帧需要处理的tick数量
+        int ticksToProcess = TimeSystem.Instance.TicksProcessedThisFrame;
 
         // 2. 遍历实体
         for (int i = 0; i < whole.entityCount; i++)
@@ -121,8 +109,8 @@ public class MoveSystem : SingletonMono<MoveSystem>
             if (move.MoveIntervalTicks > 0)
             {
                 // 计算平滑因子
-                float remainingTime = move.MoveTimerTicks * TICK_INTERVAL - TimeTicker.SubTickOffset;
-                t = 1.0f - Mathf.Clamp01(remainingTime / (move.MoveIntervalTicks * TICK_INTERVAL));
+                float remainingTime = move.MoveTimerTicks * TimeTicker.SecondsPerTick - TimeTicker.SubTickOffset;
+                t = 1.0f - Mathf.Clamp01(remainingTime / (move.MoveIntervalTicks * TimeTicker.SecondsPerTick));
             }
 
             // 只有当正在移动中(Timer > 0)或者刚移动完，才进行插值
