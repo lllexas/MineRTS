@@ -16,7 +16,7 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
 
     // --- 核心DSU数据结构 ---
     private int[] _dsuParent;      // 并查集父节点数组
-    private int[] _gridTeam;       // 格子阵营：-1=空格/墙壁，0/1/2=阵营
+    private int[] _gridTeam;       // 格子状态：-1=空气（可通行），-2=墙壁（建筑/障碍），≥0=单位（阵营ID）
     private Dictionary<int, HashSet<int>> _rootLiberties; // 每个根节点的气眼集合
 
     // --- 对象池复用（避免GC）---
@@ -84,7 +84,7 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
     /// </summary>
     private void ProjectEntitiesToGrid(WholeComponent whole)
     {
-        // 重置网格阵营为-1（空格/墙壁）
+        // 重置网格状态为-1（空气）
         for (int i = 0; i < _totalCells; i++)
         {
             _gridTeam[i] = -1;
@@ -102,9 +102,9 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
             ref var core = ref whole.coreComponent[i];
             if (!core.Active) continue;
 
-            // 检查是否为参与围棋的单位
-            // 飞行单位、子弹、掉落物不参与围棋规则
-            if (!ShouldParticipateInGo(core.Type)) continue;
+            // 检查是否应投影到围棋网格
+            // 地面单位（Hero/Minion）和建筑（Building）参与投影，飞行单位、子弹、掉落物不参与
+            if (!ShouldProjectToGrid(core.Type)) continue;
 
             // 获取实体逻辑位置和尺寸
             Vector2Int logicalPos = whole.moveComponent[i].LogicalPosition;
@@ -117,6 +117,7 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
             int startY = logicalPos.y - halfHeight;
 
             // 标记所有被占据的格子
+            int firstCellIndex = -1; // 记录该实体的第一个格子索引，用于强制连通多格子单位
             for (int dx = 0; dx < size.x; dx++)
             {
                 for (int dy = 0; dy < size.y; dy++)
@@ -125,13 +126,28 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
                     int index = GridPosToIndex(cellPos);
                     if (index >= 0 && index < _totalCells)
                     {
-                        _gridTeam[index] = core.Team;
-
-                        // 初始化GoComponent（如果还未初始化）
-                        if (whole.goComponent[i].IsGoPiece == false)
+                        // 根据实体类型设置格子状态：建筑为墙壁(-2)，单位为阵营ID(≥0)
+                        if ((core.Type & UnitType.Building) != 0)
                         {
-                            whole.goComponent[i].IsGoPiece = true;
-                            whole.goComponent[i].CurrentLiberties = 0;
+                            _gridTeam[index] = -2; // 墙壁
+                            // 建筑始终不是围棋棋子
+                            whole.goComponent[i].IsGoPiece = false;
+                        }
+                        else
+                        {
+                            _gridTeam[index] = core.Team; // 单位
+                            // 只有单位(Hero/Minion)才是围棋棋子
+                            whole.goComponent[i].IsGoPiece = (core.Type & (UnitType.Hero | UnitType.Minion)) != 0;
+
+                            // 强制连通同一个实体的所有格子，避免多格子单位"碎裂"
+                            if (firstCellIndex == -1)
+                            {
+                                firstCellIndex = index;
+                            }
+                            else if (whole.goComponent[i].IsGoPiece) // 只有围棋棋子才需要连通
+                            {
+                                Union(firstCellIndex, index);
+                            }
                         }
                     }
                 }
@@ -151,7 +167,7 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
             {
                 int index = y * _mapWidth + x;
                 int team = _gridTeam[index];
-                if (team == -1) continue; // 空格子跳过
+                if (team == -1 || team == -2) continue; // 空气或墙壁跳过，只处理单位(≥0)
 
                 // 检查右方邻居
                 if (x + 1 < _mapWidth)
@@ -199,7 +215,7 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
             for (int x = 0; x < _mapWidth; x++)
             {
                 int index = y * _mapWidth + x;
-                if (_gridTeam[index] == -1) continue; // 空格子跳过
+                if (_gridTeam[index] == -1 || _gridTeam[index] == -2) continue; // 空气或墙壁跳过，只处理单位(≥0)
 
                 int root = Find(index);
 
@@ -240,7 +256,7 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
     /// </summary>
     private void ExecuteCapture(WholeComponent whole)
     {
-        // 遍历所有参与围棋的实体
+        // 遍历所有参与围棋的实体（只有IsGoPiece=true的单位，建筑已被过滤）
         for (int i = 0; i < whole.entityCount; i++)
         {
             ref var core = ref whole.coreComponent[i];
@@ -268,8 +284,7 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
                 Debug.Log($"[GoRuleSystem] 单位 {i} (阵营{core.Team}) 被包围，执行吃子");
 
                 // 直接设置血量为0，让HealthSystem处理死亡
-                whole.healthComponent[i].Health = 0;
-                whole.healthComponent[i].IsAlive = false;
+                whole.healthComponent[i].Health -= 999; // 大幅伤
 
                 // 可选：添加被捕获标记，供特效系统使用
                 // 这里可以扩展，比如触发爆炸特效或播放声音
@@ -278,17 +293,20 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
     }
 
     /// <summary>
-    /// 判断单位类型是否参与围棋规则
-    /// 地面单位和建筑参与，飞行单位、子弹、掉落物不参与
+    /// 判断单位类型是否应投影到围棋网格
+    /// 地面单位（Hero/Minion）和建筑（Building）都参与投影，但处理方式不同：
+    /// - 单位：标记为阵营ID(≥0)，参与围棋规则（需要气）
+    /// - 建筑：标记为墙壁(-2)，不参与围棋规则（只需阻塞气）
+    /// 飞行单位、子弹、掉落物不参与投影
     /// </summary>
-    private bool ShouldParticipateInGo(int unitType)
+    private bool ShouldProjectToGrid(int unitType)
     {
-        // 飞行单位、子弹、掉落物不参与围棋
+        // 飞行单位、子弹、掉落物不参与投影
         if ((unitType & UnitType.Flyer) != 0) return false;
         if ((unitType & UnitType.Projectile) != 0) return false;
         if ((unitType & UnitType.ResourceItem) != 0) return false;
 
-        // 地面单位、建筑参与
+        // 地面单位（Hero/Minion）和建筑（Building）都参与投影
         return (unitType & (UnitType.Hero | UnitType.Minion | UnitType.Building)) != 0;
     }
 

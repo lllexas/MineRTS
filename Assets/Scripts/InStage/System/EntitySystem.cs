@@ -364,7 +364,10 @@ public class EntitySystem : SingletonMono<EntitySystem>
 
             // 6. 初始化围棋组件
             ref var go = ref whole.goComponent[index];
-            go.IsGoPiece = ShouldParticipateInGo(bp.UnitType);
+            // 只有地面单位（Hero/Minion）是围棋棋子，建筑不参与围棋规则
+            bool isHeroOrMinion = (bp.UnitType & (UnitType.Hero | UnitType.Minion)) != 0;
+            bool isBuilding = (bp.UnitType & UnitType.Building) != 0;
+            go.IsGoPiece = isHeroOrMinion && !isBuilding; // 英雄或小兵且不是建筑
             go.CurrentLiberties = 0;
 
             // 库存属性
@@ -406,20 +409,6 @@ public class EntitySystem : SingletonMono<EntitySystem>
         return handle;
     }
 
-    /// <summary>
-    /// 判断单位类型是否参与围棋规则
-    /// 地面单位和建筑参与，飞行单位、子弹、掉落物不参与
-    /// </summary>
-    private bool ShouldParticipateInGo(int unitType)
-    {
-        // 飞行单位、子弹、掉落物不参与围棋
-        if ((unitType & UnitType.Flyer) != 0) return false;
-        if ((unitType & UnitType.Projectile) != 0) return false;
-        if ((unitType & UnitType.ResourceItem) != 0) return false;
-
-        // 地面单位、建筑参与
-        return (unitType & (UnitType.Hero | UnitType.Minion | UnitType.Building)) != 0;
-    }
 
     // =========================================================
     // 工具方法
@@ -520,6 +509,48 @@ public class EntitySystem : SingletonMono<EntitySystem>
         if (this.wholeComponent.coreComponent != null)
             this.maxEntityCount = this.wholeComponent.coreComponent.Length;
 
+
+        // 初始化可能为null的组件数组（向后兼容旧存档）
+        // 核心组件数组
+        if (wholeComponent.coreComponent == null)
+            wholeComponent.coreComponent = new CoreComponent[maxEntityCount];
+        if (wholeComponent.moveComponent == null)
+            wholeComponent.moveComponent = new MoveComponent[maxEntityCount];
+        if (wholeComponent.attackComponent == null)
+            wholeComponent.attackComponent = new AttackComponent[maxEntityCount];
+        if (wholeComponent.healthComponent == null)
+            wholeComponent.healthComponent = new HealthComponent[maxEntityCount];
+        if (wholeComponent.spawnComponent == null)
+            wholeComponent.spawnComponent = new SpawnComponent[maxEntityCount];
+        if (wholeComponent.drawComponent == null)
+            wholeComponent.drawComponent = new DrawComponent[maxEntityCount];
+        if (wholeComponent.aiComponent == null)
+            wholeComponent.aiComponent = new AIComponent[maxEntityCount];
+        if (wholeComponent.userControlComponent == null)
+            wholeComponent.userControlComponent = new UserControlComponent[maxEntityCount];
+        // 新组件数组
+        if (wholeComponent.goComponent == null)
+            wholeComponent.goComponent = new GoComponent[maxEntityCount];
+        if (wholeComponent.powerComponent == null)
+            wholeComponent.powerComponent = new PowerComponent[maxEntityCount];
+        if (wholeComponent.projectileComponent == null)
+            wholeComponent.projectileComponent = new ProjectileComponent[maxEntityCount];
+        if (wholeComponent.resourceComponent == null)
+            wholeComponent.resourceComponent = new ResourceComponent[maxEntityCount];
+        if (wholeComponent.inventoryComponent == null)
+            wholeComponent.inventoryComponent = new InventoryComponent[maxEntityCount];
+        if (wholeComponent.workComponent == null)
+            wholeComponent.workComponent = new WorkComponent[maxEntityCount];
+        if (wholeComponent.conveyorComponent == null)
+            wholeComponent.conveyorComponent = new ConveyorComponent[maxEntityCount];
+        // 地图数组
+        int mapSize = wholeComponent.mapWidth * wholeComponent.mapHeight;
+        if (wholeComponent.groundMap == null)
+            wholeComponent.groundMap = new int[mapSize];
+        if (wholeComponent.gridMap == null)
+            wholeComponent.gridMap = new int[mapSize];
+        if (wholeComponent.effectMap == null)
+            wholeComponent.effectMap = new int[mapSize];
 
         // 3. 【至关重要】重建 ID 映射表 (Rehydration)
         RebuildRuntimeIndices();
@@ -753,26 +784,26 @@ public class WholeComponent
             minY = this.minY,
             sceneName = this.sceneName,
 
-            coreComponent = (CoreComponent[])this.coreComponent.Clone(),
-            moveComponent = (MoveComponent[])this.moveComponent.Clone(),
-            attackComponent = (AttackComponent[])this.attackComponent.Clone(),
-            healthComponent = (HealthComponent[])this.healthComponent.Clone(),
-            spawnComponent = (SpawnComponent[])this.spawnComponent.Clone(),
-            drawComponent = (DrawComponent[])this.drawComponent.Clone(),
-            aiComponent = (AIComponent[])this.aiComponent.Clone(),
-            userControlComponent = (UserControlComponent[])this.userControlComponent.Clone(),
+            coreComponent = (this.coreComponent != null) ? (CoreComponent[])this.coreComponent.Clone() : null,
+            moveComponent = (this.moveComponent != null) ? (MoveComponent[])this.moveComponent.Clone() : null,
+            attackComponent = (this.attackComponent != null) ? (AttackComponent[])this.attackComponent.Clone() : null,
+            healthComponent = (this.healthComponent != null) ? (HealthComponent[])this.healthComponent.Clone() : null,
+            spawnComponent = (this.spawnComponent != null) ? (SpawnComponent[])this.spawnComponent.Clone() : null,
+            drawComponent = (this.drawComponent != null) ? (DrawComponent[])this.drawComponent.Clone() : null,
+            aiComponent = (this.aiComponent != null) ? (AIComponent[])this.aiComponent.Clone() : null,
+            userControlComponent = (this.userControlComponent != null) ? (UserControlComponent[])this.userControlComponent.Clone() : null,
 
             // --- 克隆新组件 ---
-            resourceComponent = (ResourceComponent[])this.resourceComponent.Clone(),
-            inventoryComponent = (InventoryComponent[])this.inventoryComponent.Clone(),
-            workComponent = (WorkComponent[])this.workComponent.Clone(),
-            conveyorComponent = (ConveyorComponent[])this.conveyorComponent.Clone(),
-            powerComponent = (PowerComponent[])this.powerComponent.Clone(),
+            resourceComponent = (this.resourceComponent != null) ? (ResourceComponent[])this.resourceComponent.Clone() : null,
+            inventoryComponent = (this.inventoryComponent != null) ? (InventoryComponent[])this.inventoryComponent.Clone() : null,
+            workComponent = (this.workComponent != null) ? (WorkComponent[])this.workComponent.Clone() : null,
+            conveyorComponent = (this.conveyorComponent != null) ? (ConveyorComponent[])this.conveyorComponent.Clone() : null,
+            powerComponent = (this.powerComponent != null) ? (PowerComponent[])this.powerComponent.Clone() : null,
 
-            projectileComponent = (ProjectileComponent[])this.projectileComponent.Clone(),
+            projectileComponent = (this.projectileComponent != null) ? (ProjectileComponent[])this.projectileComponent.Clone() : null,
 
             // --- 克隆围棋组件 ---
-            goComponent = (GoComponent[])this.goComponent.Clone(),
+            goComponent = (this.goComponent != null) ? (GoComponent[])this.goComponent.Clone() : null,
 
             groundMap = (this.groundMap != null) ? (int[])this.groundMap.Clone() : null,
             gridMap = (this.gridMap != null) ? (int[])this.gridMap.Clone() : null,

@@ -489,13 +489,14 @@ public class PowerNet
 
 /// <summary>
 /// 围棋规则组件
-/// 标记单位是否参与围棋规则，并记录当前气数
+/// 标记实体是否为围棋棋子，并记录当前气数
+/// 注意：建筑虽然参与网格投影（作为墙壁），但IsGoPiece为false
 /// </summary>
 public struct GoComponent
 {
     /// <summary>
-    /// 是否参与围棋规则
-    /// 地面单位和建筑为true，飞行单位、子弹、掉落物等为false
+    /// 是否为围棋棋子（需要呼吸）
+    /// 地面单位（Hero/Minion）为true，建筑、飞行单位、子弹、掉落物等为false
     /// </summary>
     public bool IsGoPiece;
 
