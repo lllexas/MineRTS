@@ -1,6 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 /// <summary>
 /// 围棋规则系统
 /// 基于网格级DSU的围棋规则实现，用于处理单位包围与吃子
@@ -387,8 +391,174 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
     {
         if (_gridTeam == null) return;
 
-        // 这里可以添加Gizmos绘制逻辑
-        // 比如用不同颜色显示不同阵营的格子
-        // 或者显示每个棋块的气眼位置
+        // 缓存根节点颜色映射，避免每帧重复计算
+        Dictionary<int, Color> rootColors = new Dictionary<int, Color>();
+
+        // 非破坏性查找根节点（不进行路径压缩，避免影响游戏逻辑）
+        int FindRootWithoutCompression(int x)
+        {
+            while (_dsuParent[x] != x)
+                x = _dsuParent[x];
+            return x;
+        }
+
+        #if UNITY_EDITOR
+        // 步骤1：绘制潜在的气 - 所有可通行的空格子（绿色叉子）
+        DrawPotentialLiberties();
+        #endif
+
+        // 步骤2：绘制单位棋块（彩色方块）
+        for (int index = 0; index < _totalCells; index++)
+        {
+            int team = _gridTeam[index];
+
+            // 只绘制单位格子（阵营ID ≥ 0）
+            if (team >= 0)
+            {
+                // 找到这个格子所属的棋块根节点（使用非破坏性查找）
+                int root = FindRootWithoutCompression(index);
+
+                // 获取或生成这个根节点的颜色
+                if (!rootColors.TryGetValue(root, out Color color))
+                {
+                    // 使用根节点ID生成稳定且可区分的颜色
+                    // 使用HSV颜色空间，色相基于根节点ID，饱和度和亮度固定
+                    float hue = (root * 0.618f) % 1.0f; // 黄金比例分布
+                    color = Color.HSVToRGB(hue, 0.7f, 1.0f);
+                    color.a = 0.7f; // 半透明，方便看到底层网格
+                    rootColors[root] = color;
+                }
+
+                // 将格子索引转换为世界坐标
+                Vector2Int gridPos = IndexToGridPos(index);
+                Vector3 worldPos = new Vector3(gridPos.x + 0.5f, gridPos.y + 0.5f, 0);
+
+                // 设置Gizmos颜色并绘制方块
+                Gizmos.color = color;
+                Gizmos.DrawCube(worldPos, new Vector3(0.98f, 0.98f, 0.1f));
+
+                // 可选：显示气眼数量（编辑器模式下）
+                #if UNITY_EDITOR
+                if (_rootLiberties != null && _rootLiberties.TryGetValue(root, out var liberties))
+                {
+                    // 只在每个棋块的第一个格子上显示气眼数量
+                    if (root == index) // 根节点就是自己，说明这是棋块的"代表"格子
+                    {
+                        GUIStyle style = new GUIStyle();
+                        style.normal.textColor = Color.white;
+                        style.fontSize = 10;
+                        style.alignment = TextAnchor.MiddleCenter;
+
+                        // 使用Handles.Label显示文本
+                        Handles.Label(worldPos, liberties.Count.ToString(), style);
+                    }
+                }
+                #endif
+            }
+        }
+
+        #if UNITY_EDITOR
+        // 步骤3：绘制单位正在用的气 - 棋块实际拥有的气眼（圆周线圈）
+        DrawActualLibertiesCircles(rootColors);
+        #endif
+    }
+
+    #if UNITY_EDITOR
+    /// <summary>
+    /// 绘制潜在的气：所有可通行的空格子（绿色叉子）
+    /// </summary>
+    private void DrawPotentialLiberties()
+    {
+        // 获取GridSystem实例（可能为null，比如在非游戏运行时）
+        var gridSys = GridSystem.Instance;
+        if (gridSys == null) return;
+
+        // 使用深绿色，提高透明度以便更清晰
+        Gizmos.color = new Color(0.1f, 0.7f, 0.1f, 0.6f);
+
+        for (int index = 0; index < _totalCells; index++)
+        {
+            // 必须是空气格子（未被占据）
+            if (_gridTeam[index] != -1) continue;
+
+            // 地形必须可通行
+            if (!gridSys.IsTerrainWalkableFast(index)) continue;
+
+            // 转换为世界坐标
+            Vector2Int gridPos = IndexToGridPos(index);
+            Vector3 worldPos = new Vector3(gridPos.x + 0.5f, gridPos.y + 0.5f, 0);
+
+            // 绘制绿色叉子（两条交叉线）
+            float size = 0.3f;
+            Vector3 topLeft = worldPos + new Vector3(-size, size, 0);
+            Vector3 bottomRight = worldPos + new Vector3(size, -size, 0);
+            Vector3 topRight = worldPos + new Vector3(size, size, 0);
+            Vector3 bottomLeft = worldPos + new Vector3(-size, -size, 0);
+
+            Gizmos.DrawLine(topLeft, bottomRight);
+            Gizmos.DrawLine(topRight, bottomLeft);
+        }
+    }
+
+    /// <summary>
+    /// 绘制单位正在用的气：棋块实际拥有的气眼（圆周线圈）
+    /// </summary>
+    private void DrawActualLibertiesCircles(Dictionary<int, Color> rootColors)
+    {
+        if (_rootLiberties == null) return;
+
+        foreach (var kvp in _rootLiberties)
+        {
+            int root = kvp.Key;
+            var liberties = kvp.Value;
+
+            // 获取棋块颜色，如果没有则使用默认颜色
+            Color color;
+            if (!rootColors.TryGetValue(root, out color))
+            {
+                color = Color.yellow; // 默认黄色
+            }
+
+            // 设置Gizmos颜色（比棋块颜色更不透明，便于区分）
+            Gizmos.color = new Color(color.r, color.g, color.b, 0.8f);
+
+            // 绘制每个气眼格子的圆周线圈
+            foreach (int libertyIndex in liberties)
+            {
+                Vector2Int gridPos = IndexToGridPos(libertyIndex);
+                Vector3 worldPos = new Vector3(gridPos.x + 0.5f, gridPos.y + 0.5f, 0);
+
+                // 绘制圆周线圈（使用Gizmos.DrawWireSphere或画圆）
+                DrawCircle(worldPos, 0.35f, 16);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 绘制二维圆形（在XY平面）
+    /// </summary>
+    private void DrawCircle(Vector3 center, float radius, int segments)
+    {
+        float angleStep = 2 * Mathf.PI / segments;
+        Vector3 prevPoint = center + new Vector3(radius, 0, 0);
+
+        for (int i = 1; i <= segments; i++)
+        {
+            float angle = i * angleStep;
+            Vector3 nextPoint = center + new Vector3(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, 0);
+            Gizmos.DrawLine(prevPoint, nextPoint);
+            prevPoint = nextPoint;
+        }
+    }
+    #endif
+
+    /// <summary>
+    /// Unity编辑器Gizmos回调，自动绘制调试信息
+    /// </summary>
+    private void OnDrawGizmos()
+    {
+        #if UNITY_EDITOR
+        DrawDebugGizmos();
+        #endif
     }
 }

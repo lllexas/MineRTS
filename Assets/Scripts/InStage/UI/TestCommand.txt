@@ -12,7 +12,7 @@ spawn seller 5,-1 1
 spawn hero_jin_proto -3,5 1
 
 army x_dog 5,-5 5,5 1
-army x_dog -5,-5 5,5 2
+army x_dog -5,-5 2,2 2
 
 cheat_gold 999
 
