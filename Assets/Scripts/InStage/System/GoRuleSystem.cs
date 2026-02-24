@@ -26,6 +26,11 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
     // --- 对象池复用（避免GC）---
     private Stack<HashSet<int>> _hashSetPool = new Stack<HashSet<int>>();
 
+    // --- 调试开关 ---
+    [Header("调试设置")]
+    public bool enableDebugLog = true;
+    public bool showDebugGizmos = true;
+
     // --- 邻居方向偏移（4方向：右、上、左、下）---
     // 性能优化：使用整数数组代替Vector2Int，避免结构体分配
     private static readonly int[] _dx = { 1, 0, -1, 0 };
@@ -36,25 +41,49 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
     /// </summary>
     public void Initialize(int mapWidth, int mapHeight, int minX = -64, int minY = -64)
     {
+        // 直接调用 UpdateMapSize 统一处理地图参数更新
+        UpdateMapSize(mapWidth, mapHeight, minX, minY);
+        if (enableDebugLog) Debug.Log($"[GoRuleSystem] 初始化完成，地图尺寸：{mapWidth}x{mapHeight}，总格子数：{_totalCells}，坐标偏移：({minX},{minY})");
+    }
+
+    /// <summary>
+    /// 【新增】当加载新地图时，更新网格参数并重新分配缓存数组
+    /// </summary>
+    public void UpdateMapSize(int mapWidth, int mapHeight, int minX, int minY)
+    {
         _mapWidth = mapWidth;
         _mapHeight = mapHeight;
         _minX = minX;
         _minY = minY;
         _totalCells = mapWidth * mapHeight;
 
-        // 分配固定大小数组（0 GC）
+        // 重新分配固定大小数组，覆盖旧的
         _dsuParent = new int[_totalCells];
         _gridTeam = new int[_totalCells];
 
-        // 初始化并查集（每个节点都是自己的根）
+        // 重新初始化并查集
         for (int i = 0; i < _totalCells; i++)
         {
             _dsuParent[i] = i;
         }
 
-        _rootLiberties = new Dictionary<int, HashSet<int>>();
+        // 🔥【就是这里修复了报错！】清空对象池和现存气眼字典，如果为空则实例化
+        if (_rootLiberties != null)
+        {
+            foreach (var hashSet in _rootLiberties.Values)
+            {
+                hashSet.Clear();
+                _hashSetPool.Push(hashSet);
+            }
+            _rootLiberties.Clear();
+        }
+        else
+        {
+            // 之前的代码漏了这一句，导致它永远是 null 喵！
+            _rootLiberties = new Dictionary<int, HashSet<int>>();
+        }
 
-        Debug.Log($"[GoRuleSystem] 初始化完成，地图尺寸：{mapWidth}x{mapHeight}，总格子数：{_totalCells}，坐标偏移：({minX},{minY})");
+        if (enableDebugLog) Debug.Log($"<color=cyan>[GoRuleSystem]</color> 地图参数已更新喵: 尺寸({mapWidth}x{mapHeight}), 偏移({minX},{minY})");
     }
 
     /// <summary>
@@ -65,7 +94,7 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
     {
         if (_dsuParent == null || _gridTeam == null)
         {
-            Debug.LogWarning("[GoRuleSystem] 系统未初始化，跳过围棋规则更新");
+            if (enableDebugLog) Debug.LogWarning("[GoRuleSystem] 系统未初始化，跳过围棋规则更新");
             return;
         }
 
@@ -285,10 +314,13 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
             // 吃子判定：气数为0
             if (libertyCount == 0)
             {
-                Debug.Log($"[GoRuleSystem] 单位 {i} (阵营{core.Team}) 被包围，执行吃子");
+                if (enableDebugLog) Debug.Log($"[GoRuleSystem] 单位 {i} (阵营{core.Team}) 被包围，执行吃子");
 
-                // 直接设置血量为0，让HealthSystem处理死亡
-                whole.healthComponent[i].Health -= 999; // 大幅伤
+                // 直接设置死亡状态，交由DeathSystem处理后续清理
+                ref var health = ref whole.healthComponent[i];
+                health.Health = 0;
+                health.IsAlive = false;
+                health.LastAttackerFaction = -1; // 规则击杀，无具体攻击者
 
                 // 可选：添加被捕获标记，供特效系统使用
                 // 这里可以扩展，比如触发爆炸特效或播放声音
@@ -389,7 +421,7 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
     /// </summary>
     public void DrawDebugGizmos()
     {
-        if (_gridTeam == null) return;
+        if (!showDebugGizmos || _gridTeam == null) return;
 
         // 缓存根节点颜色映射，避免每帧重复计算
         Dictionary<int, Color> rootColors = new Dictionary<int, Color>();
@@ -473,8 +505,8 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
         var gridSys = GridSystem.Instance;
         if (gridSys == null) return;
 
-        // 使用深绿色，提高透明度以便更清晰
-        Gizmos.color = new Color(0.1f, 0.7f, 0.1f, 0.6f);
+        // 使用浅白色，提高透明度以便更清晰
+        Gizmos.color = new Color(0.5f, 0.9f, 0.5f, 0.8f);
 
         for (int index = 0; index < _totalCells; index++)
         {
@@ -558,6 +590,7 @@ public class GoRuleSystem : SingletonMono<GoRuleSystem>
     private void OnDrawGizmos()
     {
         #if UNITY_EDITOR
+        if (!showDebugGizmos) return;
         DrawDebugGizmos();
         #endif
     }

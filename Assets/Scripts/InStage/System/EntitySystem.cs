@@ -505,6 +505,15 @@ public class EntitySystem : SingletonMono<EntitySystem>
             // 告诉 GridSystem：这个地图是从 (realMinX, realMinY) 开始的
             GridSystem.Instance.UpdateMapSize(realMinX, realMinY, 1.0f);
         }
+
+        // 🔥 【核心修复】必须同步通知围棋系统更新它的坐标系和一维数组长度！
+        if (GoRuleSystem.Instance != null)
+        {
+            int realWidth = this.wholeComponent.mapWidth;
+            int realHeight = this.wholeComponent.mapHeight;
+            GoRuleSystem.Instance.UpdateMapSize(realWidth, realHeight, realMinX, realMinY);
+        }
+
         // 保证 maxEntityCount 与数据一致
         if (this.wholeComponent.coreComponent != null)
             this.maxEntityCount = this.wholeComponent.coreComponent.Length;
@@ -727,7 +736,10 @@ public class EntitySystem : SingletonMono<EntitySystem>
             GoRuleSystem.Instance.UpdateGoRules(wholeComponent);
         }
 
-        // 5. 表现层渲染
+        // 5. 死亡处理（必须在所有扣血系统之后，绘制之前）
+        DeathSystem.Instance.UpdateDeaths(wholeComponent, deltaTime);
+
+        // 6. 表现层渲染
         // 先画基础单位（建筑、小兵）
         DrawSystem.Instance.UpdateDraws(wholeComponent, deltaTime);
 

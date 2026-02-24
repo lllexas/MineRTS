@@ -156,6 +156,7 @@ public struct HealthComponent
     // --- 死亡行为 (从蓝图复制) ---
     public bool ExplodeOnDeath;     // 是否殉爆 (如: 自爆虫, 净化者)
     // 殉爆伤害通常直接取 AttackDamage，范围取 AttackRange
+    public int LastAttackerFaction;     // 最后造成伤害的阵营，用于任务广播
 }
 public struct ProjectileComponent
 {

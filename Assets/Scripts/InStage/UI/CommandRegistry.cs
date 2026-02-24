@@ -128,12 +128,34 @@ public static class CommandRegistry
     {
         console.AddCommand("clear", (args) =>
         {
-            // 重新初始化，保持原来的地图规格（默认 128x128）
+            // 先清理其他系统的状态，防止残留句柄引用
+            if (UserControlSystem.Instance != null)
+            {
+                UserControlSystem.Instance.ClearAllSelection();
+            }
+
+            if (AIBrainServer.Instance != null)
+            {
+                AIBrainServer.Instance.ClearAll();
+            }
+
+            // 清理GridSystem的NavMesh和占据状态
+            if (GridSystem.Instance != null)
+            {
+                GridSystem.Instance.ClearAll();
+            }
+
+            // 重新初始化，保持原来的地图规格和坐标偏移
             var whole = EntitySystem.Instance.wholeComponent;
             int w = (whole != null && whole.mapWidth > 0) ? whole.mapWidth : 128;
             int h = (whole != null && whole.mapHeight > 0) ? whole.mapHeight : 128;
+            int minX = (whole != null) ? whole.minX : -64;
+            int minY = (whole != null) ? whole.minY : -64;
 
-            EntitySystem.Instance.Initialize(EntitySystem.Instance.maxEntityCount, w, h);
+            // 获取当前cellSize，如果GridSystem已初始化
+            float cellSize = (GridSystem.Instance != null) ? GridSystem.Instance.CellSize : 1.0f;
+
+            EntitySystem.Instance.Initialize(EntitySystem.Instance.maxEntityCount, w, h, minX, minY, cellSize);
             console.Log("System reset: All entities and gridMap cleared.", Color.yellow);
         });
 

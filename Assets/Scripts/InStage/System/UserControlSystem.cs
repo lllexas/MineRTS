@@ -202,6 +202,14 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
         _selectedHandles.Clear();
     }
 
+    /// <summary>
+    /// 清除所有选择状态（供系统重置时调用）
+    /// </summary>
+    public void ClearAllSelection()
+    {
+        ClearSelection();
+    }
+
     private void SetHighlight(EntityHandle handle, bool highlight)
     {
         int index = EntitySystem.Instance.GetIndex(handle);

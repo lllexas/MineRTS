@@ -16,6 +16,8 @@ public class DeveloperConsole : SingletonMono<DeveloperConsole>
 
     private Dictionary<string, System.Action<string[]>> _commands;
     private StringBuilder _logBuilder = new StringBuilder();
+    private bool _needScrollToBottom = false;
+    private const int MAX_LOG_LINES = 100;
 
     // --- 公共接口 (API) ---
 
@@ -34,10 +36,47 @@ public class DeveloperConsole : SingletonMono<DeveloperConsole>
     {
         string colorHex = ColorUtility.ToHtmlStringRGB(color);
         _logBuilder.AppendLine($"<color=#{colorHex}>{message}</color>");
+
+        // 限制日志行数，防止内存无限增长
+        TrimLogLines();
+
         logText.text = _logBuilder.ToString();
 
-        Canvas.ForceUpdateCanvases();
-        scrollRect.verticalNormalizedPosition = 0f;
+        // 标记需要滚动到底部，将在Update中延迟执行
+        _needScrollToBottom = true;
+    }
+
+    private void TrimLogLines()
+    {
+        // 简单实现：计算换行符数量来估计行数
+        int lineCount = 0;
+        for (int i = 0; i < _logBuilder.Length; i++)
+        {
+            if (_logBuilder[i] == '\n') lineCount++;
+        }
+
+        // 如果超过最大行数，移除最旧的行
+        if (lineCount > MAX_LOG_LINES)
+        {
+            // 找到第(行数 - MAX_LOG_LINES)个换行符的位置
+            int linesToRemove = lineCount - MAX_LOG_LINES;
+            int charIndex = 0;
+            int foundNewlines = 0;
+
+            for (charIndex = 0; charIndex < _logBuilder.Length; charIndex++)
+            {
+                if (_logBuilder[charIndex] == '\n')
+                {
+                    foundNewlines++;
+                    if (foundNewlines == linesToRemove)
+                    {
+                        // 保留这个换行符之后的文本
+                        _logBuilder.Remove(0, charIndex + 1);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     public IEnumerable<string> GetCommandKeys() => _commands.Keys;
@@ -102,11 +141,27 @@ public class DeveloperConsole : SingletonMono<DeveloperConsole>
                 }
             }
         }
+
+        // 3. 延迟滚动到底部（避免在Log回调中强制刷新UI）
+        if (_needScrollToBottom && scrollRect != null)
+        {
+            scrollRect.verticalNormalizedPosition = 0f;
+            _needScrollToBottom = false;
+        }
     }
 
     private void ToggleConsole()
     {
         bool isActive = !consoleWindow.activeSelf;
+
+        if (!isActive)
+        {
+            // 关闭控制台时清空所有日志记录
+            _logBuilder.Clear();
+            if (logText != null)
+                logText.text = "";
+        }
+
         consoleWindow.SetActive(isActive);
         if (isActive)
         {
@@ -116,6 +171,10 @@ public class DeveloperConsole : SingletonMono<DeveloperConsole>
 
     private void HandleUnityLog(string logString, string stackTrace, LogType type)
     {
+        // 控制台关闭时不记录日志，避免TMP动态字体生成冲突
+        if (!consoleWindow.activeSelf)
+            return;
+
         var color = type switch
         {
             LogType.Error or LogType.Exception => Color.red,

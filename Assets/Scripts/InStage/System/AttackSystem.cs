@@ -147,31 +147,15 @@ public class AttackSystem : SingletonMono<AttackSystem>
         if (!health.IsAlive) return;
         ref var targetCore = ref whole.coreComponent[targetIdx];
 
+        // 记录最后攻击者阵营（用于死亡系统的任务广播）
+        health.LastAttackerFaction = attackerFaction;
+
         health.Health -= damage;
         if (health.Health <= 0)
         {
             health.Health = 0;
             health.IsAlive = false;
-
-            //------------------- 修改：增加阵营过滤的任务广播逻辑
-            // 只有当“玩家阵营”击败“非玩家阵营”时才算任务进度喵！
-            if (attackerFaction == 1 && targetCore.Team != 1)
-            {
-                string deadUnitBP = targetCore.BlueprintName;
-                if (!string.IsNullOrEmpty(deadUnitBP))
-                {
-                    // 1. 广播具体蓝图名 (如：击败 5 个“爬行者”)
-                    PostSystem.Instance.Send("击败目标", deadUnitBP);
-
-                    // 2. 广播通用击败信号 (如：击败任意 10 个敌人)
-                    PostSystem.Instance.Send("击败任意目标", 1);
-                }
-            }
-            //-------------------
-
-            // 击杀时彻底销毁，触发网格占位清理喵！
-            EntitySystem.Instance.DestroyEntity(targetHandle);
-            Debug.Log($"<color=orange>[Battle]</color> 目标 {targetHandle.Id} 已被摧毁喵！");
+            // 死亡处理和清理交给 DeathSystem，不再在此处处理
         }
     }
 }
