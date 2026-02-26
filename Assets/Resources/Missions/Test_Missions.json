@@ -1,5 +1,6 @@
 {
     "PackID": "",
+    "BoundStageID": "Level_Test",
     "Missions": [
         {
             "MissionID": "dde5aea2-7de1-44cb-8a90-62655306f1e0",
@@ -48,21 +49,65 @@
         {
             "EventID": "e14d0a51-2c50-472b-b5fb-987d2dcb9b99",
             "EditorPosition": {
-                "x": 148.8000030517578,
-                "y": 346.3999938964844
+                "x": 392.0,
+                "y": 221.60000610351563
             },
             "Trigger": 1,
             "TriggerParam": "dde5aea2-7de1-44cb-8a90-62655306f1e0",
             "HasTriggered": false,
             "NextSpawnID": "5527f84f-7f77-4f65-9413-71d43f22f0e0"
+        },
+        {
+            "EventID": "f263f743-5775-4d2d-ab3c-4ea75713c86b",
+            "EditorPosition": {
+                "x": 252.8000030517578,
+                "y": 800.7999877929688
+            },
+            "Trigger": 0,
+            "TriggerParam": "90",
+            "HasTriggered": false,
+            "NextSpawnID": "a7ab7f1b-aa2d-4712-a5c7-07184edc318a"
+        },
+        {
+            "EventID": "ab764c32-ba55-465e-878a-84ea5bdb8dcd",
+            "EditorPosition": {
+                "x": 260.8000183105469,
+                "y": 974.3999633789063
+            },
+            "Trigger": 0,
+            "TriggerParam": "120",
+            "HasTriggered": false,
+            "NextSpawnID": "fa5c1568-6ac1-471f-be5d-37c4d56ff2a5"
+        },
+        {
+            "EventID": "060c22f9-81bd-4746-a3b7-888946587b3a",
+            "EditorPosition": {
+                "x": 254.39999389648438,
+                "y": 628.0
+            },
+            "Trigger": 0,
+            "TriggerParam": "60",
+            "HasTriggered": false,
+            "NextSpawnID": "0932cd3f-234c-4e9b-baf9-e8bbdcfca5fe"
+        },
+        {
+            "EventID": "8a652881-f0a4-4c48-9d5e-953c526ba8ff",
+            "EditorPosition": {
+                "x": 249.59999084472657,
+                "y": 470.3999938964844
+            },
+            "Trigger": 0,
+            "TriggerParam": "30",
+            "HasTriggered": false,
+            "NextSpawnID": "8d17a8e2-100a-4eae-b32b-e17a20e33d5b"
         }
     ],
     "SpawnActions": [
         {
             "SpawnID": "5527f84f-7f77-4f65-9413-71d43f22f0e0",
             "EditorPosition": {
-                "x": 374.4000244140625,
-                "y": 348.0
+                "x": 596.7999877929688,
+                "y": 225.60000610351563
             },
             "Team": 2,
             "SpawnPos": {
@@ -76,20 +121,183 @@
                 }
             ],
             "AttachAIBrainID": "d11a2f59-af84-46e5-b321-ec429440acde"
+        },
+        {
+            "SpawnID": "8d17a8e2-100a-4eae-b32b-e17a20e33d5b",
+            "EditorPosition": {
+                "x": 504.0,
+                "y": 443.1999816894531
+            },
+            "Team": 0,
+            "SpawnPos": {
+                "x": -62,
+                "y": 81
+            },
+            "Units": [
+                {
+                    "BlueprintId": "g_maggot",
+                    "Count": 3
+                }
+            ],
+            "AttachAIBrainID": "01c9116a-cfd2-4e80-84a9-4a30be6abe3c"
+        },
+        {
+            "SpawnID": "0932cd3f-234c-4e9b-baf9-e8bbdcfca5fe",
+            "EditorPosition": {
+                "x": 493.6000061035156,
+                "y": 624.0
+            },
+            "Team": 0,
+            "SpawnPos": {
+                "x": -62,
+                "y": 81
+            },
+            "Units": [
+                {
+                    "BlueprintId": "g_maggot",
+                    "Count": 3
+                }
+            ],
+            "AttachAIBrainID": "510e7c92-c04f-443c-8aec-842218f4e594"
+        },
+        {
+            "SpawnID": "fa5c1568-6ac1-471f-be5d-37c4d56ff2a5",
+            "EditorPosition": {
+                "x": 500.8000183105469,
+                "y": 971.2000122070313
+            },
+            "Team": 0,
+            "SpawnPos": {
+                "x": -62,
+                "y": 81
+            },
+            "Units": [
+                {
+                    "BlueprintId": "g_maggot",
+                    "Count": 3
+                }
+            ],
+            "AttachAIBrainID": "808f518f-997b-45d4-91e6-5be084c97b18"
+        },
+        {
+            "SpawnID": "a7ab7f1b-aa2d-4712-a5c7-07184edc318a",
+            "EditorPosition": {
+                "x": 496.0,
+                "y": 816.7999877929688
+            },
+            "Team": 0,
+            "SpawnPos": {
+                "x": -62,
+                "y": 81
+            },
+            "Units": [
+                {
+                    "BlueprintId": "g_maggot",
+                    "Count": 3
+                }
+            ],
+            "AttachAIBrainID": "1264fc13-78c9-41eb-b1ff-00c1049837c6"
         }
     ],
     "AIBrainActions": [
         {
             "BrainNodeID": "d11a2f59-af84-46e5-b321-ec429440acde",
             "EditorPosition": {
-                "x": 651.2000122070313,
-                "y": 348.0
+                "x": 856.0,
+                "y": 229.60000610351563
             },
             "BrainIdentifier": "Red_Dot_Wave",
             "TargetPos": {
                 "x": 0,
                 "y": 0
             }
+        },
+        {
+            "BrainNodeID": "01c9116a-cfd2-4e80-84a9-4a30be6abe3c",
+            "EditorPosition": {
+                "x": 830.4000244140625,
+                "y": 462.3999938964844
+            },
+            "BrainIdentifier": "Red_Dot_Wave",
+            "TargetPos": {
+                "x": 0,
+                "y": 0
+            }
+        },
+        {
+            "BrainNodeID": "510e7c92-c04f-443c-8aec-842218f4e594",
+            "EditorPosition": {
+                "x": 820.0,
+                "y": 643.2000122070313
+            },
+            "BrainIdentifier": "Red_Dot_Wave",
+            "TargetPos": {
+                "x": 0,
+                "y": 0
+            }
+        },
+        {
+            "BrainNodeID": "808f518f-997b-45d4-91e6-5be084c97b18",
+            "EditorPosition": {
+                "x": 820.0,
+                "y": 972.0
+            },
+            "BrainIdentifier": "Red_Dot_Wave",
+            "TargetPos": {
+                "x": 0,
+                "y": 0
+            }
+        },
+        {
+            "BrainNodeID": "1264fc13-78c9-41eb-b1ff-00c1049837c6",
+            "EditorPosition": {
+                "x": 820.7999877929688,
+                "y": 803.2000122070313
+            },
+            "BrainIdentifier": "Red_Dot_Wave",
+            "TargetPos": {
+                "x": 0,
+                "y": 0
+            }
+        }
+    ],
+    "MapNodes": [
+        {
+            "NodeID": "d14de200-b760-4063-8b55-77b39b44c78e",
+            "EditorPosition": {
+                "x": -102.4000015258789,
+                "y": 665.5999755859375
+            },
+            "MapID": "Level_Test",
+            "SelectedPosition": {
+                "x": -62,
+                "y": 81
+            },
+            "PositionName": "新位置",
+            "ConnectedSpawnIds": [
+                "8d17a8e2-100a-4eae-b32b-e17a20e33d5b",
+                "0932cd3f-234c-4e9b-baf9-e8bbdcfca5fe",
+                "a7ab7f1b-aa2d-4712-a5c7-07184edc318a",
+                "fa5c1568-6ac1-471f-be5d-37c4d56ff2a5"
+            ],
+            "ConnectedBrainIds": [],
+            "IsBoundNode": false
+        },
+        {
+            "NodeID": "bcf21883-bfb6-40ec-a1f9-01fd665a1f7a",
+            "EditorPosition": {
+                "x": -99.20000457763672,
+                "y": 550.3999633789063
+            },
+            "MapID": "Level_Test",
+            "SelectedPosition": {
+                "x": 0,
+                "y": 0
+            },
+            "PositionName": "绑定地图",
+            "ConnectedSpawnIds": [],
+            "ConnectedBrainIds": [],
+            "IsBoundNode": true
         }
     ]
 }

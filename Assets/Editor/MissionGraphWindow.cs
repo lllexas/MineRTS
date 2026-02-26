@@ -1,14 +1,19 @@
-﻿using UnityEditor;
+﻿using System;
+using UnityEditor;
 using UnityEngine;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine.UIElements;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEditor.UIElements; // 提供 PopupField
+using System.Reflection;      // 提供 GetCustomAttribute
+using AIBrain;                // 确保能拿到 AIBrainBarHere
 
 // 1. 窗口入口
 public class MissionGraphWindow : EditorWindow
 {
     private MissionGraphView _graphView;
+    private MissionNodeSearchWindow _searchWindow;
     private string _currentFilePath;
 
     [MenuItem("Tools/猫娘助手/剧本编辑器 (Graph Mode)")]
@@ -22,7 +27,20 @@ public class MissionGraphWindow : EditorWindow
 
     private void ConstructGraphView()
     {
+        // 创建 SearchWindow 提供者
+        _searchWindow = ScriptableObject.CreateInstance<MissionNodeSearchWindow>();
+        _searchWindow.EditorWindow = this;
+
+        // 创建 GraphView
         _graphView = new MissionGraphView { name = "Mission Graph" };
+
+        // 设置 SearchWindow 的 GraphView 引用
+        _searchWindow.GraphView = _graphView;
+
+        // 配置 GraphView 的右键创建节点事件
+        _graphView.nodeCreationRequest = context =>
+            SearchWindow.Open(new SearchWindowContext(context.screenMousePosition), _searchWindow);
+
         _graphView.StretchToParentSize();
         rootVisualElement.Add(_graphView);
     }
@@ -38,6 +56,12 @@ public class MissionGraphWindow : EditorWindow
         toolbar.Add(new Button(() => _graphView.CreateDirectorNode(new ScenarioEventData { EventID = System.Guid.NewGuid().ToString() }, new Vector2(100, 100))) { text = "🎬 触发器" });
         toolbar.Add(new Button(() => _graphView.CreateSpawnNode(new SpawnActionData { SpawnID = System.Guid.NewGuid().ToString(), Units = new List<SpawnUnitEntry>() }, new Vector2(350, 100))) { text = "⚔️ 召唤" });
         toolbar.Add(new Button(() => _graphView.CreateAIBrainNode(new AIBrainActionData { BrainNodeID = System.Guid.NewGuid().ToString() }, new Vector2(600, 100))) { text = "🧠 挂载AI" });
+
+        // [新增] 新建地图节点按钮
+        toolbar.Add(new Button(() => _graphView.CreateMapNode(new MapNodeData { NodeID = System.Guid.NewGuid().ToString(), MapID = "", SelectedPosition = Vector2Int.zero, PositionName = "新位置" }, new Vector2(800, 100))) { text = "🗺️ 地图位置" });
+
+        // [新增] 新建绑定地图节点按钮
+        toolbar.Add(new Button(() => _graphView.CreateBoundMapNode(new MapNodeData { NodeID = System.Guid.NewGuid().ToString(), MapID = "", SelectedPosition = Vector2Int.zero, PositionName = "绑定地图", IsBoundNode = true }, new Vector2(1000, 100))) { text = "🔗 绑定地图" });
         toolbar.Add(new Button(SaveData) { text = "保存 (JSON)" });
         toolbar.Add(new Button(LoadData) { text = "读取 (JSON)" });
         rootVisualElement.Add(toolbar);
@@ -69,6 +93,13 @@ public class MissionGraphWindow : EditorWindow
 // 2. 画布逻辑
 public class MissionGraphView : GraphView
 {
+    private string _currentMapId = ""; // 当前任务包绑定的地图ID
+    public string CurrentMapId => _currentMapId;
+    private List<MapNode> _mapNodes = new List<MapNode>(); // 所有地图节点引用
+    public List<MapNode> MapNodes => _mapNodes;
+    private List<BoundMapNode> _boundMapNodes = new List<BoundMapNode>(); // 所有绑定地图节点引用
+    public List<BoundMapNode> BoundMapNodes => _boundMapNodes;
+
     public MissionGraphView()
     {
         // 允许缩放和拖拽
@@ -81,13 +112,336 @@ public class MissionGraphView : GraphView
         var grid = new GridBackground();
         Insert(0, grid);
         grid.StretchToParentSize();
+
+        // 右键创建节点 SearchWindow 将在 MissionGraphWindow 中配置
+
+        // 复制粘贴支持
+        serializeGraphElements = SerializeCopyElements;
+        unserializeAndPaste = UnserializePasteElements;
+
+        // 监听图形元素变化，清理已移除的节点引用
+        graphViewChanged += OnGraphViewChanged;
     }
 
-    // 规定哪些端口能连接
+    private GraphViewChange OnGraphViewChanged(GraphViewChange changes)
+    {
+        if (changes.elementsToRemove != null)
+        {
+            // 清理被移除的地图节点引用
+            foreach (var element in changes.elementsToRemove)
+            {
+                if (element is MapNode mapNode)
+                {
+                    _mapNodes.Remove(mapNode);
+                }
+                else if (element is BoundMapNode boundMapNode)
+                {
+                    _boundMapNodes.Remove(boundMapNode);
+                }
+            }
+        }
+        return changes;
+    }
+
+    // 设置当前地图ID，并更新所有地图节点
+    public void SetCurrentMapId(string mapId)
+    {
+        if (_currentMapId == mapId) return;
+
+        _currentMapId = mapId;
+
+        // 更新所有地图节点的数据和UI
+        foreach (var mapNode in _mapNodes)
+        {
+            mapNode.UpdateMapId(mapId);
+        }
+
+        // 更新所有绑定地图节点的数据和UI
+        foreach (var boundMapNode in _boundMapNodes)
+        {
+            boundMapNode.UpdateMapId(mapId);
+        }
+    }
+
+    // =========================================================
+    // Copy & Paste Data Structure
+    // =========================================================
+    [Serializable]
+    private class CopyPasteData
+    {
+        public List<MissionData> Missions = new List<MissionData>();
+        public List<RewardSaveData> Rewards = new List<RewardSaveData>();
+        public List<ScenarioEventData> Directors = new List<ScenarioEventData>();
+        public List<SpawnActionData> Spawns = new List<SpawnActionData>();
+        public List<AIBrainActionData> AIBrains = new List<AIBrainActionData>();
+        public List<MapNodeData> MapNodes = new List<MapNodeData>();
+    }
+
+    // =========================================================
+    // Copy & Paste Implementation
+    // =========================================================
+    private string SerializeCopyElements(IEnumerable<GraphElement> elements)
+    {
+        var copyData = new CopyPasteData();
+        var selectedNodes = elements.OfType<BaseNode>().ToList();
+
+        foreach (var node in selectedNodes)
+        {
+            var pos = node.GetPosition().position;
+
+            switch (node)
+            {
+                case MissionNode missionNode:
+                    var missionData = missionNode.Data;
+                    missionData.EditorPosition = pos;
+                    copyData.Missions.Add(missionData);
+                    break;
+
+                case RewardNode rewardNode:
+                    copyData.Rewards.Add(new RewardSaveData
+                    {
+                        RewardID = rewardNode.GUID,
+                        Position = pos,
+                        Data = rewardNode.Reward
+                    });
+                    break;
+
+                case DirectorNode directorNode:
+                    var directorData = directorNode.Data;
+                    directorData.EditorPosition = pos;
+                    copyData.Directors.Add(directorData);
+                    break;
+
+                case SpawnNode spawnNode:
+                    var spawnData = spawnNode.Data;
+                    spawnData.EditorPosition = pos;
+                    copyData.Spawns.Add(spawnData);
+                    break;
+
+                case AIBrainNode aiNode:
+                    var aiData = aiNode.Data;
+                    aiData.EditorPosition = pos;
+                    copyData.AIBrains.Add(aiData);
+                    break;
+
+                case MapNode mapNode:
+                    var mapData = mapNode.Data;
+                    mapData.EditorPosition = pos;
+                    copyData.MapNodes.Add(mapData);
+                    break;
+                case BoundMapNode boundMapNode:
+                    var boundMapData = boundMapNode.Data;
+                    boundMapData.EditorPosition = pos;
+                    copyData.MapNodes.Add(boundMapData);
+                    break;
+            }
+        }
+
+        return JsonUtility.ToJson(copyData, false);
+    }
+
+    private void UnserializePasteElements(string operationName, string data)
+    {
+        try
+        {
+            var copyData = JsonUtility.FromJson<CopyPasteData>(data);
+            if (copyData == null) return;
+
+            // 清除当前选择
+            ClearSelection();
+
+            // 映射表：旧ID -> 新节点实例（用于连接恢复，但这里简化处理）
+            var newNodes = new List<BaseNode>();
+
+            // 粘贴偏移量
+            Vector2 pasteOffset = new Vector2(50, 50);
+
+            // 粘贴所有节点（注意：先创建所有节点，但不处理连接）
+            foreach (var missionData in copyData.Missions)
+            {
+                var newMissionData = CloneMissionData(missionData);
+                newMissionData.EditorPosition += pasteOffset;
+                var node = CreateMissionNode(newMissionData, newMissionData.EditorPosition);
+                newNodes.Add(node);
+                AddToSelection(node);
+            }
+
+            foreach (var rewardSave in copyData.Rewards)
+            {
+                var newReward = CloneRewardData(rewardSave.Data);
+                var newPos = rewardSave.Position + pasteOffset;
+                var node = CreateRewardNode(newReward, newPos, System.Guid.NewGuid().ToString());
+                newNodes.Add(node);
+                AddToSelection(node);
+            }
+
+            foreach (var directorData in copyData.Directors)
+            {
+                var newDirectorData = CloneDirectorData(directorData);
+                newDirectorData.EditorPosition += pasteOffset;
+                var node = CreateDirectorNode(newDirectorData, newDirectorData.EditorPosition);
+                newNodes.Add(node);
+                AddToSelection(node);
+            }
+
+            foreach (var spawnData in copyData.Spawns)
+            {
+                var newSpawnData = CloneSpawnData(spawnData);
+                newSpawnData.EditorPosition += pasteOffset;
+                var node = CreateSpawnNode(newSpawnData, newSpawnData.EditorPosition);
+                newNodes.Add(node);
+                AddToSelection(node);
+            }
+
+            foreach (var aiData in copyData.AIBrains)
+            {
+                var newAiData = CloneAIBrainData(aiData);
+                newAiData.EditorPosition += pasteOffset;
+                var node = CreateAIBrainNode(newAiData, newAiData.EditorPosition);
+                newNodes.Add(node);
+                AddToSelection(node);
+            }
+
+            // [新增] 粘贴地图节点（区分普通地图节点和绑定地图节点）
+            foreach (var mapData in copyData.MapNodes)
+            {
+                var newMapData = CloneMapNodeData(mapData);
+                newMapData.EditorPosition += pasteOffset;
+                if (newMapData.IsBoundNode)
+                {
+                    var node = CreateBoundMapNode(newMapData, newMapData.EditorPosition);
+                    newNodes.Add(node);
+                    AddToSelection(node);
+                }
+                else
+                {
+                    var node = CreateMapNode(newMapData, newMapData.EditorPosition);
+                    newNodes.Add(node);
+                    AddToSelection(node);
+                }
+            }
+
+            // 注意：这里没有处理节点间的连线，因为连线ID已经改变
+            // 在编辑器中使用时，用户需要手动重新连接复制的节点
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"粘贴失败: {e.Message}");
+        }
+    }
+
+    // 数据克隆辅助方法（生成新GUID，避免冲突）
+    private MissionData CloneMissionData(MissionData original)
+    {
+        var clone = new MissionData
+        {
+            MissionID = System.Guid.NewGuid().ToString(),
+            Title = original.Title + " (副本)",
+            Description = original.Description,
+            Priority = original.Priority,
+            EditorPosition = original.EditorPosition,
+            IsActive = original.IsActive,
+            IsCompleted = false,
+            IsFailed = false,
+            Reward = CloneRewardData(original.Reward),
+            RewardID = "", // 清空奖励连接，需要重新连接
+            NextMissionID = "" // 清空任务链，需要重新连接
+        };
+
+        // 克隆目标列表
+        clone.Goals = new List<MissionGoal>();
+        foreach (var goal in original.Goals)
+        {
+            clone.Goals.Add(new MissionGoal
+            {
+                Type = goal.Type,
+                TargetKey = goal.TargetKey,
+                RequiredAmount = goal.RequiredAmount,
+                CurrentAmount = 0
+            });
+        }
+
+        return clone;
+    }
+
+    private MissionReward CloneRewardData(MissionReward original)
+    {
+        return new MissionReward
+        {
+            Money = original.Money,
+            TechPoints = original.TechPoints,
+            Blueprints = new List<string>(original.Blueprints)
+        };
+    }
+
+    private ScenarioEventData CloneDirectorData(ScenarioEventData original)
+    {
+        return new ScenarioEventData
+        {
+            EventID = System.Guid.NewGuid().ToString(),
+            EditorPosition = original.EditorPosition,
+            Trigger = original.Trigger,
+            TriggerParam = original.TriggerParam,
+            HasTriggered = false,
+            NextSpawnID = "" // 清空连接
+        };
+    }
+
+    private SpawnActionData CloneSpawnData(SpawnActionData original)
+    {
+        var clone = new SpawnActionData
+        {
+            SpawnID = System.Guid.NewGuid().ToString(),
+            EditorPosition = original.EditorPosition,
+            Team = original.Team,
+            SpawnPos = original.SpawnPos,
+            AttachAIBrainID = "" // 清空连接
+        };
+
+        clone.Units = new List<SpawnUnitEntry>();
+        foreach (var unit in original.Units)
+        {
+            clone.Units.Add(new SpawnUnitEntry
+            {
+                BlueprintId = unit.BlueprintId,
+                Count = unit.Count
+            });
+        }
+
+        return clone;
+    }
+
+    private AIBrainActionData CloneAIBrainData(AIBrainActionData original)
+    {
+        return new AIBrainActionData
+        {
+            BrainNodeID = System.Guid.NewGuid().ToString(),
+            EditorPosition = original.EditorPosition,
+            BrainIdentifier = original.BrainIdentifier,
+            TargetPos = original.TargetPos
+        };
+    }
+
+    private MapNodeData CloneMapNodeData(MapNodeData original)
+    {
+        return new MapNodeData
+        {
+            NodeID = System.Guid.NewGuid().ToString(),
+            EditorPosition = original.EditorPosition,
+            MapID = original.MapID,
+            SelectedPosition = original.SelectedPosition,
+            PositionName = original.PositionName + " (副本)",
+            IsBoundNode = original.IsBoundNode
+        };
+    }
+
+    // 规定哪些端口能连接（增强类型检查）
     public override List<Port> GetCompatiblePorts(Port startPort, NodeAdapter nodeAdapter)
     {
         return ports.ToList().Where(endPort =>
-            endPort.direction != startPort.direction && endPort.node != startPort.node).ToList();
+            endPort.direction != startPort.direction &&
+            endPort.node != startPort.node &&
+            endPort.portType == startPort.portType).ToList();
     }
 
     public MissionNode CreateMissionNode(MissionData data, Vector2 pos)
@@ -121,9 +475,27 @@ public class MissionGraphView : GraphView
         var node = new AIBrainNode(data); node.SetPosition(new Rect(pos, Vector2.zero)); AddElement(node); return node;
     }
 
+    public MapNode CreateMapNode(MapNodeData data, Vector2 pos)
+    {
+        var node = new MapNode(data, this);
+        node.SetPosition(new Rect(pos, Vector2.zero));
+        AddElement(node);
+        return node;
+    }
+
+    public BoundMapNode CreateBoundMapNode(MapNodeData data, Vector2 pos)
+    {
+        data.IsBoundNode = true; // 确保标记为绑定地图节点
+        var node = new BoundMapNode(data, this);
+        node.SetPosition(new Rect(pos, Vector2.zero));
+        AddElement(node);
+        return node;
+    }
+
     public MissionPackData SerializeToPack()
     {
         var pack = new MissionPackData();
+        pack.BoundStageID = _currentMapId;
         var allNodes = this.nodes.Cast<BaseNode>().ToList();
 
         // 1. 保存所有奖励节点（位置和数据）
@@ -196,6 +568,53 @@ public class MissionGraphView : GraphView
             pack.AIBrainActions.Add(data);
         }
 
+        // [新增] 序列化地图节点（普通地图节点和绑定地图节点）
+        foreach (var mNode in allNodes.OfType<MapNode>())
+        {
+            var data = mNode.Data; data.EditorPosition = mNode.GetPosition().position;
+            data.IsBoundNode = false; // 普通地图节点
+            pack.MapNodes.Add(data);
+        }
+        foreach (var bNode in allNodes.OfType<BoundMapNode>())
+        {
+            var data = bNode.Data; data.EditorPosition = bNode.GetPosition().position;
+            data.IsBoundNode = true; // 绑定地图节点
+            pack.MapNodes.Add(data);
+        }
+
+        // [新增] 处理地图节点到其他节点的坐标连接
+        // 查找所有从地图节点输出端口出发的连接
+        foreach (var mNode in allNodes.OfType<MapNode>())
+        {
+            var mapPos = mNode.Data.SelectedPosition;
+
+            // 清空现有连接列表
+            mNode.Data.ConnectedSpawnIds.Clear();
+            mNode.Data.ConnectedBrainIds.Clear();
+
+            // 查找连接到SpawnNode坐标输入端口的连接
+            var spawnEdges = this.edges.ToList().Where(e => e.output == mNode.OutputPort && e.input.node is SpawnNode).ToList();
+            foreach (var edge in spawnEdges)
+            {
+                var spawnNode = (SpawnNode)edge.input.node;
+                // 将地图坐标复制到SpawnNode的Data中
+                spawnNode.Data.SpawnPos = mapPos;
+                // 保存连接ID
+                mNode.Data.ConnectedSpawnIds.Add(spawnNode.Data.SpawnID);
+            }
+
+            // 查找连接到AIBrainNode坐标输入端口的连接
+            var aiEdges = this.edges.ToList().Where(e => e.output == mNode.OutputPort && e.input.node is AIBrainNode).ToList();
+            foreach (var edge in aiEdges)
+            {
+                var aiNode = (AIBrainNode)edge.input.node;
+                // 将地图坐标复制到AIBrainNode的Data中
+                aiNode.Data.TargetPos = mapPos;
+                // 保存连接ID
+                mNode.Data.ConnectedBrainIds.Add(aiNode.Data.BrainNodeID);
+            }
+        }
+
         return pack;
     }
 
@@ -203,11 +622,19 @@ public class MissionGraphView : GraphView
     {
         DeleteElements(graphElements);
 
+        // 清空地图节点列表（因为即将重新创建所有节点）
+        _mapNodes.Clear();
+        _boundMapNodes.Clear();
+
+        // 设置当前地图ID
+        _currentMapId = pack.BoundStageID;
+
         var missionMap = new Dictionary<string, MissionNode>();
         var rewardMap = new Dictionary<string, RewardNode>();
         var directorMap = new Dictionary<string, DirectorNode>();
         var spawnMap = new Dictionary<string, SpawnNode>();
         var aiMap = new Dictionary<string, AIBrainNode>();
+        var mapMap = new Dictionary<string, MapNode>(); // 新增：地图节点映射
 
         // 1. 还原所有奖励节点
         if (pack.Rewards != null)
@@ -237,6 +664,22 @@ public class MissionGraphView : GraphView
 
         if (pack.SpawnActions != null) foreach (var s in pack.SpawnActions) spawnMap[s.SpawnID] = CreateSpawnNode(s, s.EditorPosition);
         if (pack.AIBrainActions != null) foreach (var a in pack.AIBrainActions) aiMap[a.BrainNodeID] = CreateAIBrainNode(a, a.EditorPosition);
+        // [新增] 还原地图节点（区分普通地图节点和绑定地图节点）
+        if (pack.MapNodes != null)
+        {
+            foreach (var map in pack.MapNodes)
+            {
+                if (map.IsBoundNode)
+                {
+                    var bNode = CreateBoundMapNode(map, map.EditorPosition);
+                    // 绑定地图节点不需要加入到mapMap中，因为它没有输出端口
+                }
+                else
+                {
+                    mapMap[map.NodeID] = CreateMapNode(map, map.EditorPosition);
+                }
+            }
+        }
 
         // 3. 还原所有连线
         foreach (var m in pack.Missions)
@@ -275,6 +718,49 @@ public class MissionGraphView : GraphView
             {
                 if (!string.IsNullOrEmpty(s.AttachAIBrainID) && aiMap.ContainsKey(s.AttachAIBrainID))
                     AddElement(spawnMap[s.SpawnID].OutputPort.ConnectTo(aiMap[s.AttachAIBrainID].InputPort));
+            }
+        }
+
+        // [新增] 还原地图节点到其他节点的连线
+        if (pack.MapNodes != null)
+        {
+            foreach (var mapData in pack.MapNodes)
+            {
+                if (mapData.IsBoundNode) continue; // 绑定地图节点没有端口，不需要恢复连线
+
+                // 查找对应的MapNode实例
+                var mapNode = _mapNodes.FirstOrDefault(n => n.GUID == mapData.NodeID);
+                if (mapNode == null) continue;
+
+                // 恢复地图节点到SpawnNode的连接
+                foreach (var spawnId in mapData.ConnectedSpawnIds)
+                {
+                    if (spawnMap.TryGetValue(spawnId, out var spawnNode))
+                    {
+                        // 查找SpawnNode的CoordInputPort（坐标输入端口）
+                        var spawnCoordPort = spawnNode.CoordInputPort;
+                        if (spawnCoordPort != null && mapNode.OutputPort != null)
+                        {
+                            var edge = mapNode.OutputPort.ConnectTo(spawnCoordPort);
+                            AddElement(edge);
+                        }
+                    }
+                }
+
+                // 恢复地图节点到AIBrainNode的连接
+                foreach (var brainId in mapData.ConnectedBrainIds)
+                {
+                    if (aiMap.TryGetValue(brainId, out var aiNode))
+                    {
+                        // 查找AIBrainNode的CoordInputPort（坐标输入端口）
+                        var aiCoordPort = aiNode.CoordInputPort;
+                        if (aiCoordPort != null && mapNode.OutputPort != null)
+                        {
+                            var edge = mapNode.OutputPort.ConnectTo(aiCoordPort);
+                            AddElement(edge);
+                        }
+                    }
+                }
             }
         }
     }
@@ -516,6 +1002,7 @@ public class DirectorNode : BaseNode
     public ScenarioEventData Data;
     public Port InputPort;
     public Port OutputPort; // [新增] 输出动作
+    private TextField _paramField;
 
     public DirectorNode(ScenarioEventData data)
     {
@@ -529,15 +1016,97 @@ public class DirectorNode : BaseNode
         OutputPort.portName = "触发行为"; outputContainer.Add(OutputPort);
 
         var triggerField = new EnumField("类型", Data.Trigger);
-        triggerField.RegisterValueChangedCallback(evt => Data.Trigger = (TriggerType)evt.newValue);
+        triggerField.RegisterValueChangedCallback(evt =>
+        {
+            Data.Trigger = (TriggerType)evt.newValue;
+            UpdateParamFieldHint();
+        });
         extensionContainer.Add(triggerField);
 
-        var paramField = new TextField("参数") { value = Data.TriggerParam };
-        paramField.RegisterValueChangedCallback(evt => Data.TriggerParam = evt.newValue);
-        extensionContainer.Add(paramField);
+        _paramField = new TextField("参数") { value = Data.TriggerParam };
+        _paramField.RegisterValueChangedCallback(evt => Data.TriggerParam = evt.newValue);
+        extensionContainer.Add(_paramField);
+
+        // 初始化提示
+        UpdateParamFieldHint();
 
         RefreshExpandedState();
     }
+
+    private void UpdateParamFieldHint()
+    {
+        string hint = GetTriggerParamHint(Data.Trigger);
+        string example = GetTriggerParamExample(Data.Trigger);
+
+        // 在tooltip中同时显示提示和示例
+        if (!string.IsNullOrEmpty(example))
+        {
+            _paramField.tooltip = $"{hint}\n\n示例: {example}";
+        }
+        else
+        {
+            _paramField.tooltip = hint;
+        }
+
+        // 尝试更新TextField的标签（如果支持）
+        try
+        {
+            string labelText = GetTriggerParamLabel(Data.Trigger);
+            // 直接尝试设置label属性（如果存在）
+            // Unity UI Elements的TextField有label属性
+            _paramField.label = labelText;
+        }
+        catch
+        {
+            // 如果label属性不存在或不可写，忽略错误
+        }
+    }
+
+    private string GetTriggerParamHint(TriggerType triggerType)
+    {
+        switch (triggerType)
+        {
+            case TriggerType.Time:
+                return "触发时间（秒），浮点数。游戏运行达到此时间后触发事件。\n示例: 120.5 表示120.5秒后触发";
+            case TriggerType.MissionCompleted:
+                return "任务ID。当指定任务完成时触发事件。\n需要输入任务的MissionID，可通过连接任务节点自动获取";
+            case TriggerType.AreaReached:
+                return "区域标识符或坐标。当单位到达指定区域时触发。\n格式: 区域ID 或 \"x,y\" 坐标字符串";
+            default:
+                return "触发条件参数";
+        }
+    }
+
+    private string GetTriggerParamExample(TriggerType triggerType)
+    {
+        switch (triggerType)
+        {
+            case TriggerType.Time:
+                return "例如: 60.0, 120.5, 300";
+            case TriggerType.MissionCompleted:
+                return "例如: mission_tutorial_1, wave_1_clear";
+            case TriggerType.AreaReached:
+                return "例如: enemy_base, 128,64";
+            default:
+                return "";
+        }
+    }
+
+    private string GetTriggerParamLabel(TriggerType triggerType)
+    {
+        switch (triggerType)
+        {
+            case TriggerType.Time:
+                return "时间（秒）";
+            case TriggerType.MissionCompleted:
+                return "任务ID";
+            case TriggerType.AreaReached:
+                return "区域参数";
+            default:
+                return "参数";
+        }
+    }
+
     public override void UpdateData() { }
 }
 
@@ -546,6 +1115,7 @@ public class SpawnNode : BaseNode
 {
     public SpawnActionData Data;
     public Port InputPort;
+    public Port CoordInputPort; // 新增：坐标输入端口
     public Port OutputPort;
 
     public SpawnNode(SpawnActionData data)
@@ -555,6 +1125,10 @@ public class SpawnNode : BaseNode
 
         InputPort = InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(SpawnActionData));
         InputPort.portName = "执行"; inputContainer.Add(InputPort);
+
+        // 新增：坐标输入端口（Vector2Int类型）
+        CoordInputPort = InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Single, typeof(Vector2Int));
+        CoordInputPort.portName = "坐标输入"; inputContainer.Add(CoordInputPort);
 
         OutputPort = InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Single, typeof(AIBrainActionData));
         OutputPort.portName = "挂载AI"; outputContainer.Add(OutputPort);
@@ -579,13 +1153,24 @@ public class SpawnNode : BaseNode
     private void RefreshList(VisualElement container)
     {
         container.Clear();
+
+        // 1. 获取所有合法的蓝图 ID
+        var bpChoices = BlueprintRegistry.GetAllBlueprintIds();
+        if (bpChoices.Count == 0) bpChoices.Add("None");
+
         for (int i = 0; i < Data.Units.Count; i++)
         {
             var unit = Data.Units[i];
             var row = new VisualElement { style = { flexDirection = FlexDirection.Row, marginBottom = 2 } };
 
-            var idField = new TextField { value = unit.BlueprintId, style = { flexGrow = 1 } };
-            idField.RegisterValueChangedCallback(evt => unit.BlueprintId = evt.newValue);
+            // 2. 数据容错：如果当前配置的ID不在列表里（比如改名了/废弃了），强行加进去防止UI报错
+            string currentVal = string.IsNullOrEmpty(unit.BlueprintId) ? bpChoices[0] : unit.BlueprintId;
+            if (!bpChoices.Contains(currentVal)) bpChoices.Add(currentVal);
+
+            // 3. 【核心修改】使用 PopupField 替代 TextField！
+            var idDropdown = new PopupField<string>(bpChoices, currentVal);
+            idDropdown.style.flexGrow = 1; // 占满左边空间
+            idDropdown.RegisterValueChangedCallback(evt => unit.BlueprintId = evt.newValue);
 
             var countField = new IntegerField { value = unit.Count, style = { width = 40 } };
             countField.RegisterValueChangedCallback(evt => unit.Count = evt.newValue);
@@ -593,7 +1178,10 @@ public class SpawnNode : BaseNode
             int index = i;
             var delBtn = new Button(() => { Data.Units.RemoveAt(index); RefreshList(container); }) { text = "×" };
 
-            row.Add(idField); row.Add(countField); row.Add(delBtn);
+            // 组装 UI
+            row.Add(idDropdown);
+            row.Add(countField);
+            row.Add(delBtn);
             container.Add(row);
         }
     }
@@ -605,6 +1193,7 @@ public class AIBrainNode : BaseNode
 {
     public AIBrainActionData Data;
     public Port InputPort;
+    public Port CoordInputPort; // 新增：坐标输入端口
 
     public AIBrainNode(AIBrainActionData data)
     {
@@ -614,9 +1203,33 @@ public class AIBrainNode : BaseNode
         InputPort = InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(AIBrainActionData));
         InputPort.portName = "接管单位"; inputContainer.Add(InputPort);
 
-        var idField = new TextField("大脑标识符") { value = Data.BrainIdentifier };
-        idField.RegisterValueChangedCallback(evt => Data.BrainIdentifier = evt.newValue);
-        extensionContainer.Add(idField);
+        // 新增：坐标输入端口（Vector2Int类型）
+        CoordInputPort = InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Single, typeof(Vector2Int));
+        CoordInputPort.portName = "坐标输入"; inputContainer.Add(CoordInputPort);
+
+        // --- 【核心修改：反射抓取所有 AI 标识符】 ---
+        var aiChoices = new List<string> { "无" }; // 留个空选项
+
+        // 使用 Unity 超高速的 TypeCache 瞬间抓取所有标记了此特性的类，无需运行时实例化！
+        var aiTypes = TypeCache.GetTypesWithAttribute<AIBrainBarHere>();
+        foreach (var t in aiTypes)
+        {
+            var attr = t.GetCustomAttribute<AIBrainBarHere>();
+            if (attr != null && !string.IsNullOrEmpty(attr.Identifier))
+            {
+                aiChoices.Add(attr.Identifier);
+            }
+        }
+
+        // 数据容错
+        string currentAiVal = string.IsNullOrEmpty(Data.BrainIdentifier) ? aiChoices[0] : Data.BrainIdentifier;
+        if (!aiChoices.Contains(currentAiVal)) aiChoices.Add(currentAiVal);
+
+        // 使用 PopupField 创建下拉菜单
+        var idDropdown = new PopupField<string>("大脑标识符", aiChoices, currentAiVal);
+        idDropdown.RegisterValueChangedCallback(evt => Data.BrainIdentifier = (evt.newValue == "无" ? "" : evt.newValue));
+        extensionContainer.Add(idDropdown);
+        // ------------------------------------------
 
         var targetField = new Vector2IntField("战略坐标") { value = Data.TargetPos };
         targetField.RegisterValueChangedCallback(evt => Data.TargetPos = evt.newValue);
@@ -625,4 +1238,445 @@ public class AIBrainNode : BaseNode
         RefreshExpandedState();
     }
     public override void UpdateData() { }
+}
+
+// --- [地图节点] ---
+public class MapNode : BaseNode
+{
+    public MapNodeData Data;
+    public Port OutputPort; // Vector2Int输出端口
+    private MissionGraphView _graphView; // 引用父GraphView
+    private PopupField<string> _mapDropdown; // 地图下拉菜单引用
+
+    public MapNode(MapNodeData data, MissionGraphView graphView)
+    {
+        Data = data;
+        _graphView = graphView;
+        GUID = data.NodeID;
+        title = "🗺️ 地图位置";
+        style.width = 250;
+        this.titleContainer.style.backgroundColor = new Color(0.5f, 0.4f, 0.2f); // 土黄色
+
+        // 将当前节点添加到GraphView的列表中
+        _graphView.MapNodes.Add(this);
+
+        // 输出端口：Vector2Int类型，容量Multi，支持一对多连接
+        OutputPort = InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(Vector2Int));
+        OutputPort.portName = "坐标输出";
+        outputContainer.Add(OutputPort);
+
+        // --- 地图选择下拉菜单 ---
+        var mapIds = GetAllMapIds();
+        if (mapIds.Count == 0) mapIds.Add("无地图");
+
+        // 转换函数：空字符串 <-> "无"
+        string ToDropdownValue(string mapId) => string.IsNullOrEmpty(mapId) ? "无" : mapId;
+        string ToDataValue(string dropdownValue) => dropdownValue == "无" ? "" : dropdownValue;
+
+        // 确定当前显示值：优先使用Data.MapID，其次使用GraphView的CurrentMapId
+        string dataMapId = Data.MapID ?? "";
+        string graphMapId = _graphView.CurrentMapId ?? "";
+
+        string dropdownValue;
+        if (!string.IsNullOrEmpty(dataMapId))
+        {
+            dropdownValue = ToDropdownValue(dataMapId);
+            // 如果Data.MapID有值且与GraphView不同，更新GraphView
+            if (dataMapId != graphMapId)
+            {
+                _graphView.SetCurrentMapId(dataMapId);
+            }
+        }
+        else if (!string.IsNullOrEmpty(graphMapId))
+        {
+            dropdownValue = ToDropdownValue(graphMapId);
+            Data.MapID = graphMapId; // 同步到数据
+        }
+        else
+        {
+            dropdownValue = "无"; // 默认值
+            Data.MapID = ""; // 明确设置为空
+        }
+
+        // 确保选项列表包含当前值
+        if (!mapIds.Contains(dropdownValue)) mapIds.Add(dropdownValue);
+
+        _mapDropdown = new PopupField<string>("选择地图", mapIds, dropdownValue);
+        _mapDropdown.RegisterValueChangedCallback(evt => {
+            // 当用户选择地图时，更新GraphView的当前地图ID
+            string newMapId = ToDataValue(evt.newValue);
+            Data.MapID = newMapId; // 更新本地数据
+            _graphView.SetCurrentMapId(newMapId);
+        });
+        extensionContainer.Add(_mapDropdown);
+
+        // --- 坐标编辑 ---
+        var posField = new Vector2IntField("坐标") { value = Data.SelectedPosition };
+        posField.RegisterValueChangedCallback(evt => Data.SelectedPosition = evt.newValue);
+        extensionContainer.Add(posField);
+
+        // --- 位置别名（可选） ---
+        var nameField = new TextField("位置别名") { value = Data.PositionName };
+        nameField.RegisterValueChangedCallback(evt => Data.PositionName = evt.newValue);
+        extensionContainer.Add(nameField);
+
+        // --- 选择坐标按钮 ---
+        var selectButton = new Button(() =>
+        {
+            if (string.IsNullOrEmpty(Data.MapID) || Data.MapID == "")
+            {
+                EditorUtility.DisplayDialog("错误", "请先选择地图", "确定");
+                return;
+            }
+
+            MapPreviewWindow.Open(Data.MapID, (selectedCoord) =>
+            {
+                Data.SelectedPosition = selectedCoord;
+                posField.value = selectedCoord;
+
+                // 更新位置别名（可选）
+                if (string.IsNullOrEmpty(Data.PositionName))
+                {
+                    Data.PositionName = $"坐标({selectedCoord.x},{selectedCoord.y})";
+                    nameField.value = Data.PositionName;
+                }
+
+                Debug.Log($"<color=cyan>[地图节点]</color> 坐标已选择: {selectedCoord}");
+            });
+        })
+        {
+            text = "📍 选择坐标",
+            style = { height = 24, marginTop = 5 }
+        };
+        extensionContainer.Add(selectButton);
+
+        RefreshExpandedState();
+    }
+
+    // 获取所有地图ID列表（静态方法，可供其他类使用）
+    public static List<string> GetAllMapIds()
+    {
+        var mapIds = new List<string> { "无" }; // 添加"无"选项作为默认值
+        var allMaps = Resources.LoadAll<TextAsset>("Levels");
+        foreach (var mapAsset in allMaps)
+        {
+            mapIds.Add(mapAsset.name);
+        }
+        return mapIds;
+    }
+
+    // 更新地图ID显示
+    public void UpdateMapId(string newMapId)
+    {
+        if (_mapDropdown != null)
+        {
+            // 转换函数：空字符串 <-> "无"
+            string ToDropdownValue(string mapId) => string.IsNullOrEmpty(mapId) ? "无" : mapId;
+            string dropdownValue = ToDropdownValue(newMapId);
+
+            // 检查新值是否在下拉菜单选项中
+            var currentIndex = _mapDropdown.index;
+            var choices = _mapDropdown.choices;
+            if (choices.Contains(dropdownValue))
+            {
+                _mapDropdown.value = dropdownValue;
+            }
+            else
+            {
+                // 如果不在选项中，添加到选项列表
+                choices.Add(dropdownValue);
+                _mapDropdown.choices = choices;
+                _mapDropdown.value = dropdownValue;
+            }
+
+            // 更新数据（保存数据值，不是下拉菜单值）
+            Data.MapID = newMapId;
+        }
+    }
+
+    public override void UpdateData() { }
+}
+
+// --- [绑定地图节点] ---
+public class BoundMapNode : BaseNode
+{
+    public MapNodeData Data;
+    private MissionGraphView _graphView; // 引用父GraphView
+    private PopupField<string> _mapDropdown; // 地图下拉菜单引用
+
+    public BoundMapNode(MapNodeData data, MissionGraphView graphView)
+    {
+        Data = data;
+        _graphView = graphView;
+        GUID = data.NodeID;
+        title = "🔗 绑定地图";
+        style.width = 250;
+        this.titleContainer.style.backgroundColor = new Color(0.2f, 0.5f, 0.2f); // 绿色
+
+        // 将当前节点添加到GraphView的列表中
+        _graphView.BoundMapNodes.Add(this);
+
+        // 没有输入输出端口
+
+        // --- 地图选择下拉菜单 ---
+        var mapIds = MapNode.GetAllMapIds();
+        if (mapIds.Count == 0) mapIds.Add("无地图");
+
+        // 转换函数：空字符串 <-> "无"
+        string ToDropdownValue(string mapId) => string.IsNullOrEmpty(mapId) ? "无" : mapId;
+        string ToDataValue(string dropdownValue) => dropdownValue == "无" ? "" : dropdownValue;
+
+        // 确定当前显示值：优先使用Data.MapID，其次使用GraphView的CurrentMapId
+        string dataMapId = Data.MapID ?? "";
+        string graphMapId = _graphView.CurrentMapId ?? "";
+
+        string dropdownValue;
+        if (!string.IsNullOrEmpty(dataMapId))
+        {
+            dropdownValue = ToDropdownValue(dataMapId);
+            // 如果Data.MapID有值且与GraphView不同，更新GraphView
+            if (dataMapId != graphMapId)
+            {
+                _graphView.SetCurrentMapId(dataMapId);
+            }
+        }
+        else if (!string.IsNullOrEmpty(graphMapId))
+        {
+            dropdownValue = ToDropdownValue(graphMapId);
+            Data.MapID = graphMapId; // 同步到数据
+        }
+        else
+        {
+            dropdownValue = "无"; // 默认值
+            Data.MapID = ""; // 明确设置为空
+        }
+
+        // 确保选项列表包含当前值
+        if (!mapIds.Contains(dropdownValue)) mapIds.Add(dropdownValue);
+
+        _mapDropdown = new PopupField<string>("绑定地图", mapIds, dropdownValue);
+        _mapDropdown.RegisterValueChangedCallback(evt => {
+            // 当用户选择地图时，更新GraphView的当前地图ID
+            string newMapId = ToDataValue(evt.newValue);
+            Data.MapID = newMapId; // 更新本地数据
+            _graphView.SetCurrentMapId(newMapId);
+        });
+        extensionContainer.Add(_mapDropdown);
+
+        RefreshExpandedState();
+    }
+
+    // 更新地图ID显示
+    public void UpdateMapId(string newMapId)
+    {
+        if (_mapDropdown != null)
+        {
+            // 转换函数：空字符串 <-> "无"
+            string ToDropdownValue(string mapId) => string.IsNullOrEmpty(mapId) ? "无" : mapId;
+            string dropdownValue = ToDropdownValue(newMapId);
+
+            // 检查新值是否在下拉菜单选项中
+            var choices = _mapDropdown.choices;
+            if (choices.Contains(dropdownValue))
+            {
+                _mapDropdown.value = dropdownValue;
+            }
+            else
+            {
+                // 如果不在选项中，添加到选项列表
+                choices.Add(dropdownValue);
+                _mapDropdown.choices = choices;
+                _mapDropdown.value = dropdownValue;
+            }
+
+            // 更新数据（保存数据值，不是下拉菜单值）
+            Data.MapID = newMapId;
+        }
+    }
+
+    public override void UpdateData() { }
+}
+
+// =========================================================
+// Search Window Provider for Node Creation
+// =========================================================
+public class MissionNodeSearchWindow : ScriptableObject, ISearchWindowProvider
+{
+    public MissionGraphView GraphView;
+    public EditorWindow EditorWindow;
+
+    public List<SearchTreeEntry> CreateSearchTree(SearchWindowContext context)
+    {
+        var tree = new List<SearchTreeEntry>();
+
+        // 根节点
+        tree.Add(new SearchTreeGroupEntry(new GUIContent("创建节点"), 0));
+
+        // 任务节点
+        tree.Add(new SearchTreeGroupEntry(new GUIContent("任务节点"), 1));
+        tree.Add(new SearchTreeEntry(new GUIContent("新建任务节点"))
+        {
+            level = 2,
+            userData = new CreateNodeData { NodeType = NodeType.Mission }
+        });
+
+        // 奖励节点
+        tree.Add(new SearchTreeGroupEntry(new GUIContent("奖励节点"), 1));
+        tree.Add(new SearchTreeEntry(new GUIContent("新建奖励节点"))
+        {
+            level = 2,
+            userData = new CreateNodeData { NodeType = NodeType.Reward }
+        });
+
+        // 导演节点
+        tree.Add(new SearchTreeGroupEntry(new GUIContent("导演节点"), 1));
+        tree.Add(new SearchTreeEntry(new GUIContent("新建触发器节点"))
+        {
+            level = 2,
+            userData = new CreateNodeData { NodeType = NodeType.Director }
+        });
+
+        // 召唤节点
+        tree.Add(new SearchTreeGroupEntry(new GUIContent("召唤节点"), 1));
+        tree.Add(new SearchTreeEntry(new GUIContent("新建召唤单位节点"))
+        {
+            level = 2,
+            userData = new CreateNodeData { NodeType = NodeType.Spawn }
+        });
+
+        // AI挂载节点
+        tree.Add(new SearchTreeGroupEntry(new GUIContent("AI节点"), 1));
+        tree.Add(new SearchTreeEntry(new GUIContent("新建AI挂载节点"))
+        {
+            level = 2,
+            userData = new CreateNodeData { NodeType = NodeType.AIBrain }
+        });
+
+        // 地图节点
+        tree.Add(new SearchTreeGroupEntry(new GUIContent("地图节点"), 1));
+        tree.Add(new SearchTreeEntry(new GUIContent("新建地图节点"))
+        {
+            level = 2,
+            userData = new CreateNodeData { NodeType = NodeType.Map }
+        });
+
+        return tree;
+    }
+
+    public bool OnSelectEntry(SearchTreeEntry entry, SearchWindowContext context)
+    {
+        if (entry.userData is not CreateNodeData createData)
+            return false;
+
+        // 安全检查
+        if (GraphView == null)
+        {
+            Debug.LogError("MissionNodeSearchWindow: GraphView is null!");
+            return false;
+        }
+
+        // 获取 EditorWindow 引用（优先使用字段，否则动态查找）
+        var editorWindow = EditorWindow ?? GraphView.GetFirstAncestorOfType<EditorWindow>();
+        if (editorWindow == null)
+        {
+            Debug.LogError("MissionNodeSearchWindow: Cannot find parent EditorWindow!");
+            return false;
+        }
+
+        // 坐标系转换：屏幕坐标 -> 窗口本地坐标 -> 画布坐标
+        var screenMousePos = context.screenMousePosition;
+
+        // 安全获取根视觉元素
+        if (editorWindow.rootVisualElement == null)
+        {
+            Debug.LogError("MissionNodeSearchWindow: EditorWindow.rootVisualElement is null!");
+            return false;
+        }
+
+        // 计算窗口本地坐标
+        var relativeMousePos = screenMousePos - editorWindow.position.position;
+        VisualElement targetCoordElement = editorWindow.rootVisualElement.parent ?? editorWindow.rootVisualElement;
+        var windowMousePos = editorWindow.rootVisualElement.ChangeCoordinatesTo(targetCoordElement, relativeMousePos);
+
+        // 安全获取 GraphView 的内容容器
+        if (GraphView.contentViewContainer == null)
+        {
+            Debug.LogError("MissionNodeSearchWindow: GraphView.contentViewContainer is null!");
+            return false;
+        }
+
+        var graphMousePos = GraphView.contentViewContainer.WorldToLocal(windowMousePos);
+
+        // 根据节点类型创建对应节点
+        switch (createData.NodeType)
+        {
+            case NodeType.Mission:
+                GraphView.CreateMissionNode(new MissionData
+                {
+                    Title = "新任务",
+                    MissionID = System.Guid.NewGuid().ToString(),
+                    Goals = new List<MissionGoal>(),
+                    IsActive = false,
+                    Reward = new MissionReward()
+                }, graphMousePos);
+                break;
+
+            case NodeType.Reward:
+                GraphView.CreateRewardNode(new MissionReward
+                {
+                    Money = 0,
+                    TechPoints = 0,
+                    Blueprints = new List<string>()
+                }, graphMousePos);
+                break;
+
+            case NodeType.Director:
+                GraphView.CreateDirectorNode(new ScenarioEventData
+                {
+                    EventID = System.Guid.NewGuid().ToString(),
+                    Trigger = TriggerType.Time,
+                    TriggerParam = "0"
+                }, graphMousePos);
+                break;
+
+            case NodeType.Spawn:
+                GraphView.CreateSpawnNode(new SpawnActionData
+                {
+                    SpawnID = System.Guid.NewGuid().ToString(),
+                    Team = 1,
+                    SpawnPos = Vector2Int.zero,
+                    Units = new List<SpawnUnitEntry>()
+                }, graphMousePos);
+                break;
+
+            case NodeType.AIBrain:
+                GraphView.CreateAIBrainNode(new AIBrainActionData
+                {
+                    BrainNodeID = System.Guid.NewGuid().ToString(),
+                    BrainIdentifier = "",
+                    TargetPos = Vector2Int.zero
+                }, graphMousePos);
+                break;
+
+            case NodeType.Map:
+                GraphView.CreateMapNode(new MapNodeData
+                {
+                    NodeID = System.Guid.NewGuid().ToString(),
+                    MapID = "", // 默认空地图
+                    SelectedPosition = Vector2Int.zero,
+                    PositionName = "新位置",
+                    IsBoundNode = false
+                }, graphMousePos);
+                break;
+        }
+
+        return true;
+    }
+
+    private enum NodeType { Mission, Reward, Director, Spawn, AIBrain, Map }
+
+    private class CreateNodeData
+    {
+        public NodeType NodeType;
+    }
 }

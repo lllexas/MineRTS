@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 public struct EntityBlueprint
 {
@@ -519,5 +520,11 @@ public static class BlueprintRegistry
         if (_blueprints.TryGetValue(key, out var bp)) return bp;
         Debug.LogError($"<color=red>找不到蓝图: {key}</color>");
         return default;
+    }
+
+    // 在 BlueprintRegistry 类中新增：
+    public static List<string> GetAllBlueprintIds()
+    {
+        return _blueprints.Keys.ToList();
     }
 }

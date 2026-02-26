@@ -120,13 +120,30 @@ public class MissionData
 public class MissionPackData
 {
     public string PackID;
+    [Tooltip("绑定的关卡ID，如果为空则表示通用任务包")]
+    public string BoundStageID;
     public List<MissionData> Missions = new List<MissionData>();
     // --- [NEW] 专门存奖励节点及其位置 ---
     public List<RewardSaveData> Rewards = new List<RewardSaveData>();
     public List<ScenarioEventData> ScenarioEvents = new List<ScenarioEventData>();
     public List<SpawnActionData> SpawnActions = new List<SpawnActionData>();
     public List<AIBrainActionData> AIBrainActions = new List<AIBrainActionData>();
+    public List<MapNodeData> MapNodes = new List<MapNodeData>();
 }
+
+[Serializable]
+public class MapNodeData
+{
+    public string NodeID;                    // 节点唯一ID
+    [HideInInspector] public Vector2 EditorPosition; // 编辑器位置
+    public string MapID;                     // 地图ID（关卡ID）
+    public Vector2Int SelectedPosition;      // 选中的地图坐标
+    public string PositionName;              // 位置别名（可选）
+    public List<string> ConnectedSpawnIds = new List<string>();   // 连接的召唤节点ID
+    public List<string> ConnectedBrainIds = new List<string>();   // 连接的AI节点ID
+    public bool IsBoundNode;                 // 是否为绑定地图节点（没有端口，只能选择任务包绑定地图）
+}
+
 [Serializable]
 public class RewardSaveData
 {

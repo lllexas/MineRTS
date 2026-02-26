@@ -529,6 +529,12 @@ public class EntitySystem : SingletonMono<EntitySystem>
         // 5. 更新 SaveManager 的当前关卡指针 (方便下次保存)
         // 这一步最好封装一下，但这里直接写也行
         SaveManager.Instance.CurrentActiveStageID = stageID;
+
+        // 6. 自动加载绑定到该关卡的任务包
+        if (MissionManager.Instance != null)
+        {
+            MissionManager.Instance.LoadMissionPackForStage(stageID);
+        }
     }
 
     /// <summary>

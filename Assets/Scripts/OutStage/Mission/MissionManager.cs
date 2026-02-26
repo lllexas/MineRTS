@@ -53,6 +53,53 @@ public class MissionManager : SingletonMono<MissionManager>
     }
 
     /// <summary>
+    /// 根据关卡ID自动加载绑定的任务包
+    /// 如果找不到绑定的任务包，则保持当前任务状态不变
+    /// </summary>
+    public void LoadMissionPackForStage(string stageID)
+    {
+        if (string.IsNullOrEmpty(stageID))
+        {
+            Debug.LogWarning("[Mission] 关卡ID为空，无法加载绑定的任务包");
+            return;
+        }
+
+        // 搜索所有任务包资源，找到绑定到该关卡的任务包
+        TextAsset[] allPacks = Resources.LoadAll<TextAsset>("Missions");
+        foreach (TextAsset asset in allPacks)
+        {
+            try
+            {
+                MissionPackData pack = JsonUtility.FromJson<MissionPackData>(asset.text);
+                if (pack != null && !string.IsNullOrEmpty(pack.BoundStageID) && pack.BoundStageID == stageID)
+                {
+                    Debug.Log($"<color=magenta>[Mission]</color> 找到绑定到关卡 {stageID} 的任务包: {asset.name}");
+                    // 加载这个任务包（替换现有任务）
+                    LoadMissionPack(GetResourcePath(asset), false);
+                    return;
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[Mission] 解析任务包 {asset.name} 时出错: {e.Message}");
+            }
+        }
+
+        Debug.Log($"<color=yellow>[Mission]</color> 没有找到绑定到关卡 {stageID} 的任务包");
+    }
+
+    /// <summary>
+    /// 获取TextAsset在Resources下的路径
+    /// </summary>
+    private string GetResourcePath(TextAsset asset)
+    {
+        // Resources.LoadAll返回的路径不包含"Resources/"前缀和扩展名
+        // 但我们需要相对Resources的路径
+        // 简单实现：假设所有任务包都在"Missions"文件夹下
+        return "Missions/" + asset.name;
+    }
+
+    /// <summary>
     /// 【内部核心】缝合逻辑：将独立存放的 Rewards 映射回 Missions
     /// </summary>
     private void InitializeMissionPack(MissionPackData pack)
