@@ -1,44 +1,40 @@
-Shader "Custom/SimpleInstancing"
+Shader "Custom/Effects/SolidLineInstanced"
 {
     Properties
     {
-        _MainTex ("贴图", 2D) = "white" {}
-        _BaseColor("基础颜色", Color) = (1,1,1,1)
+        _MainTex ("Texture", 2D) = "white" {}
+        _BaseColor ("Color", Color) = (0, 1, 1, 0.8) // 青色半透明默认
     }
-
     SubShader
     {
-        Tags { "RenderType"="Transparent" "Queue"="Transparent" "RenderPipeline" = "UniversalPipeline" }
-        LOD 100
+        Tags { "RenderType"="Transparent" "Queue"="Transparent" "RenderPipeline"="UniversalPipeline" }
         Blend SrcAlpha OneMinusSrcAlpha
-        ZWrite On // 开启深度写入
+        ZWrite On
+        Cull Off
 
         Pass
         {
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #pragma multi_compile_instancing
+            #pragma multi_compile_instancing // 🔥 核心：开启实例化支持
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             struct appdata {
                 float4 vertex : POSITION;
                 float2 uv : TEXCOORD0;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
+                UNITY_VERTEX_INPUT_INSTANCE_ID // 🔥 核心
             };
 
             struct v2f {
                 float2 uv : TEXCOORD0;
                 float4 vertex : SV_POSITION;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
+                UNITY_VERTEX_INPUT_INSTANCE_ID // 🔥 核心
             };
 
             sampler2D _MainTex;
-
-            UNITY_INSTANCING_BUFFER_START(Props)
-                UNITY_DEFINE_INSTANCED_PROP(float4, _BaseColor)
-            UNITY_INSTANCING_BUFFER_END(Props)
+            float4 _BaseColor; // 全局颜色，所有实例共享
 
             v2f vert (appdata v) {
                 v2f o;
@@ -51,14 +47,14 @@ Shader "Custom/SimpleInstancing"
 
             half4 frag (v2f i) : SV_Target {
                 UNITY_SETUP_INSTANCE_ID(i);
-                float4 color = UNITY_ACCESS_INSTANCED_PROP(Props, _BaseColor);
-                half4 texColor = tex2D(_MainTex, i.uv);
-                half4 finalColor = texColor * color;
 
-                // 🔥 关键改动：丢弃完全透明的部分，让后面的虚线能露出来喵！
-                clip(finalColor.a - 0.1);
+                // 直接使用全局颜色，忽略纹理
+                half4 col = _BaseColor;
 
-                return finalColor;
+                // 🔥 关键：丢弃完全透明的部分，避免透明部分写入深度
+                clip(col.a - 0.1);
+
+                return col;
             }
             ENDHLSL
         }

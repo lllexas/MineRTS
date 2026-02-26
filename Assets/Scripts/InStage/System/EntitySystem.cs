@@ -53,56 +53,95 @@ public class EntitySystem : SingletonMono<EntitySystem>
 
     public void Initialize(int maxEntityCount, int mapWidth, int mapHeight, int minX = -64, int minY = -64, float cellSize = 1.0f)
     {
+        bool needsReallocation = !_initialized || this.maxEntityCount != maxEntityCount;
         this.maxEntityCount = maxEntityCount;
 
-        wholeComponent = new WholeComponent
+        if (wholeComponent == null)
         {
-            entityCount = 0,
-            mapWidth = mapWidth,
-            mapHeight = mapHeight,
+            wholeComponent = new WholeComponent();
+        }
 
-            // --- 原有组件 ---
-            coreComponent = new CoreComponent[maxEntityCount],
-            moveComponent = new MoveComponent[maxEntityCount],
-            attackComponent = new AttackComponent[maxEntityCount],
-            healthComponent = new HealthComponent[maxEntityCount],
-            spawnComponent = new SpawnComponent[maxEntityCount],
-            drawComponent = new DrawComponent[maxEntityCount],
-            aiComponent = new AIComponent[maxEntityCount],
-            userControlComponent = new UserControlComponent[maxEntityCount],
+        // 更新基础属性
+        wholeComponent.entityCount = 0;
+        wholeComponent.mapWidth = mapWidth;
+        wholeComponent.mapHeight = mapHeight;
+        wholeComponent.minX = minX;
+        wholeComponent.minY = minY;
 
-            // --- 【新加入的工业组件】 ---
-            resourceComponent = new ResourceComponent[maxEntityCount],
-            inventoryComponent = new InventoryComponent[maxEntityCount],
-            workComponent = new WorkComponent[maxEntityCount],
-            conveyorComponent = new ConveyorComponent[maxEntityCount],
-            powerComponent = new PowerComponent[maxEntityCount],    
+        if (needsReallocation)
+        {
+            // 需要重新分配数组
+            wholeComponent.coreComponent = new CoreComponent[maxEntityCount];
+            wholeComponent.moveComponent = new MoveComponent[maxEntityCount];
+            wholeComponent.attackComponent = new AttackComponent[maxEntityCount];
+            wholeComponent.healthComponent = new HealthComponent[maxEntityCount];
+            wholeComponent.spawnComponent = new SpawnComponent[maxEntityCount];
+            wholeComponent.drawComponent = new DrawComponent[maxEntityCount];
+            wholeComponent.aiComponent = new AIComponent[maxEntityCount];
+            wholeComponent.userControlComponent = new UserControlComponent[maxEntityCount];
+            wholeComponent.resourceComponent = new ResourceComponent[maxEntityCount];
+            wholeComponent.inventoryComponent = new InventoryComponent[maxEntityCount];
+            wholeComponent.workComponent = new WorkComponent[maxEntityCount];
+            wholeComponent.conveyorComponent = new ConveyorComponent[maxEntityCount];
+            wholeComponent.powerComponent = new PowerComponent[maxEntityCount];
+            wholeComponent.projectileComponent = new ProjectileComponent[maxEntityCount];
+            wholeComponent.goComponent = new GoComponent[maxEntityCount];
 
-            // --- 【战斗辅助】 ---
-            projectileComponent = new ProjectileComponent[maxEntityCount],
+            // 重新分配地图数组
+            wholeComponent.groundMap = new int[mapWidth * mapHeight];
+            wholeComponent.gridMap = new int[mapWidth * mapHeight];
+            wholeComponent.effectMap = new int[mapWidth * mapHeight];
 
-            // --- 【围棋规则】 ---
-            goComponent = new GoComponent[maxEntityCount],
+            // 重新分配ID映射数组
+            _idToDataIndex = new int[maxEntityCount];
+            _dataIndexToId = new int[maxEntityCount];
+            _idVersions = new int[maxEntityCount];
+            _freeIds = new Queue<int>();
 
-            groundMap = new int[mapWidth * mapHeight],
-            gridMap = new int[mapWidth * mapHeight],
-            effectMap = new int[mapWidth * mapHeight]
-        };
+            for (int i = 0; i < maxEntityCount; i++)
+            {
+                _freeIds.Enqueue(i);
+                _idVersions[i] = 1;
+                _idToDataIndex[i] = -1;
+            }
+        }
+        else
+        {
+            // 重用现有数组，只需清空内容
+            Array.Clear(wholeComponent.coreComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.moveComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.attackComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.healthComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.spawnComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.drawComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.aiComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.userControlComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.resourceComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.inventoryComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.workComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.conveyorComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.powerComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.projectileComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.goComponent, 0, maxEntityCount);
 
+            // 清空地图数组
+            Array.Clear(wholeComponent.groundMap, 0, wholeComponent.groundMap.Length);
+            Array.Clear(wholeComponent.gridMap, 0, wholeComponent.gridMap.Length);
+            Array.Clear(wholeComponent.effectMap, 0, wholeComponent.effectMap.Length);
+
+            // 重置ID映射
+            _freeIds.Clear();
+            for (int i = 0; i < maxEntityCount; i++)
+            {
+                _freeIds.Enqueue(i);
+                _idVersions[i]++; // 增加版本号使旧句柄失效
+                _idToDataIndex[i] = -1;
+            }
+        }
+
+        // 初始化网格值为-1
         for (int i = 0; i < wholeComponent.gridMap.Length; i++)
             wholeComponent.gridMap[i] = -1;
-
-        _idToDataIndex = new int[maxEntityCount];
-        _dataIndexToId = new int[maxEntityCount];
-        _idVersions = new int[maxEntityCount];
-        _freeIds = new Queue<int>();
-
-        for (int i = 0; i < maxEntityCount; i++)
-        {
-            _freeIds.Enqueue(i);
-            _idVersions[i] = 1;
-            _idToDataIndex[i] = -1;
-        }
 
         if (GridSystem.Instance != null)
             GridSystem.Instance.Initialize(minX, minY, cellSize);
@@ -113,7 +152,7 @@ public class EntitySystem : SingletonMono<EntitySystem>
 
         _nextCreationIndex = 0;
         this._initialized = true;
-        Debug.Log($"<color=green>EntitySystem 初始化成功: 工业组件已就绪喵！</color>");
+        Debug.Log($"<color=green>EntitySystem 初始化成功: 工业组件已就绪喵！</color> (重用数组: {!needsReallocation})");
     }
 
     /// <summary>
@@ -175,6 +214,13 @@ public class EntitySystem : SingletonMono<EntitySystem>
         wholeComponent.resourceComponent[index] = default;
         wholeComponent.inventoryComponent[index] = default;
         wholeComponent.workComponent[index] = default;
+        wholeComponent.conveyorComponent[index] = default;
+        wholeComponent.powerComponent[index] = default;
+        wholeComponent.projectileComponent[index] = default;
+        wholeComponent.aiComponent[index] = default;
+        wholeComponent.spawnComponent[index] = default;
+        wholeComponent.userControlComponent[index] = default;
+        wholeComponent.goComponent[index] = default;
 
         // F. 地图占据 (利用 GridSystem 进行矩形填充)
         // 🔥【关键修改 2】: 只有非子弹、非特效单位才占据格子！
@@ -689,11 +735,43 @@ public class EntitySystem : SingletonMono<EntitySystem>
         wholeComponent.entityCount = 0;
 
         // 3. 清空 GridSystem
-        // (假设 GridSystem 有个 Clear 方法，把 map 数组全部 set 为 -1)
-        /*GridSystem.Instance.ClearAll();
+        if (GridSystem.Instance != null)
+            GridSystem.Instance.ClearAll();
 
         // 4. 通知各个子系统重置缓存 (比如 PowerSystem 的电网列表)
-        PowerSystem.Instance.Reset();*/
+        if (PowerSystem.Instance != null)
+        {
+            var method = PowerSystem.Instance.GetType().GetMethod("Reset");
+            if (method != null) method.Invoke(PowerSystem.Instance, null);
+        }
+
+        // 5. 清理用户控制系统
+        if (UserControlSystem.Instance != null)
+        {
+            UserControlSystem.Instance.ClearAllSelection();
+            UserControlSystem.Instance.playerTeam = 1;
+        }
+
+        // 6. 重置全局时间戳
+        TimeTicker.GlobalTick = 0;
+        TimeTicker.SubTickOffset = 0;
+
+        // 7. 清理其他子系统
+        if (AIBrainServer.Instance != null)
+            AIBrainServer.Instance.ClearAll();
+
+        if (TimeSystem.Instance != null)
+        {
+            TimeSystem.Instance.SetPaused(false);
+            TimeSystem.Instance.ResetTimer();
+        }
+
+        if (IndustrialSystem.Instance != null)
+            IndustrialSystem.Instance.GlobalPowerOverride = false;
+
+        // 清理寻路系统
+        if (PathfindingSystem.Instance != null)
+            PathfindingSystem.Instance.Clear();
 
         Debug.Log("<color=red>[EntitySystem]</color> 世界已核平，所有数据归零。");
     }
@@ -739,9 +817,11 @@ public class EntitySystem : SingletonMono<EntitySystem>
         // 5. 死亡处理（必须在所有扣血系统之后，绘制之前）
         DeathSystem.Instance.UpdateDeaths(wholeComponent, deltaTime);
 
+
         // 6. 表现层渲染
         // 先画基础单位（建筑、小兵）
         DrawSystem.Instance.UpdateDraws(wholeComponent, deltaTime);
+        SelectionOverlaySystem.Instance.UpdateRender();
 
         // 【核心新增】再画传送带上的物品（使用 Item Layer 盖在 Conveyor Layer 上）
         TransportDrawSystem.Instance.UpdateTransportDraws(wholeComponent);

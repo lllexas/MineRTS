@@ -1,16 +1,18 @@
-Shader "Custom/Effects/DashedLineInstanced"
+Shader "Custom/Effects/DashedLineInstancedPerInstance"
 {
     Properties
     {
         _MainTex ("Texture", 2D) = "white" {}
         _ScrollSpeed ("Speed", Float) = 2.0
         _DashRatio ("Ratio", Range(0.1, 0.9)) = 0.5
+        _TextureScale ("Texture Scale", Float) = 2.0
+        _BaseColor ("Color", Color) = (1,1,1,1) // 默认颜色，会被实例化颜色覆盖
     }
     SubShader
     {
-        Tags { "RenderType"="Transparent" "Queue"="Transparent" }
+        Tags { "RenderType"="Transparent" "Queue"="Transparent" "RenderPipeline"="UniversalPipeline" }
         Blend SrcAlpha OneMinusSrcAlpha
-        ZWrite On
+        ZWrite Off
         Cull Off
 
         Pass
@@ -37,7 +39,13 @@ Shader "Custom/Effects/DashedLineInstanced"
             sampler2D _MainTex;
             float _DashRatio;
             float _ScrollSpeed;
-            float4 _BaseColor; // 全局颜色，所有实例共享
+            float _TextureScale;
+
+            // 实例化颜色缓冲区
+            UNITY_INSTANCING_BUFFER_START(Props)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _BaseColor)
+                UNITY_DEFINE_INSTANCED_PROP(float, _LineLength) // 连线物理长度
+            UNITY_INSTANCING_BUFFER_END(Props)
 
             v2f vert (appdata v) {
                 v2f o;
@@ -50,14 +58,16 @@ Shader "Custom/Effects/DashedLineInstanced"
 
             half4 frag (v2f i) : SV_Target {
                 UNITY_SETUP_INSTANCE_ID(i);
-                float4 color = _BaseColor; // 直接访问全局颜色
+                float4 color = UNITY_ACCESS_INSTANCED_PROP(Props, _BaseColor);
+                float length = UNITY_ACCESS_INSTANCED_PROP(Props, _LineLength); // 获取连线长度
 
-                float scrollingUV = i.uv.x - (_Time.y * _ScrollSpeed);
+                // 使用物理长度乘以密度，确保长线短线的虚线一样大喵！
+                float scrollingUV = (i.uv.y * length * _TextureScale) - (_Time.y * _ScrollSpeed);
                 float isGap = step(_DashRatio, frac(scrollingUV));
 
                 half4 col = color;
                 col.a *= (1.0 - isGap);
-                clip(col.a - 0.1);
+                clip(col.a - 0.1); // 技霸之证
                 return col;
             }
             ENDHLSL

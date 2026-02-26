@@ -178,6 +178,13 @@ public partial class PathfindingSystem : SingletonMono<PathfindingSystem>
 
     private List<NavNode> FindNodePath(NavNode start, NavNode end, Vector2Int actualStart, Vector2Int actualEnd)
     {
+        // 防御性编程：检查节点是否有效
+        if (start == null || end == null)
+        {
+            Debug.LogWarning($"[PathfindingSystem] 寻路失败: 起始节点{(start == null ? "null" : "valid")} -> 目标节点{(end == null ? "null" : "valid")}. NavMesh可能尚未就绪。");
+            return null;
+        }
+
         _currentSearchSessionId++; // 每次寻路，身份证号 +1
 
         // 我们改用一个更简单的 OpenList 结构，或者确保重置逻辑万无一失
@@ -737,6 +744,19 @@ public partial class PathfindingSystem : SingletonMono<PathfindingSystem>
     private List<Vector2Int> GetPathListFromPool() => _pathListPool.Count > 0 ? _pathListPool.Pop() : new List<Vector2Int>(64);
 
     public void RecyclePath(List<Vector2Int> path) { if (path == null) return; path.Clear(); _pathListPool.Push(path); }
+
+    /// <summary>
+    /// 清理寻路系统内部状态，防止残留数据导致崩溃
+    /// </summary>
+    public void Clear()
+    {
+        _pathRequests.Clear();
+        _nodeMetadataMap.Clear();
+        _lastDebugNodePath?.Clear();
+        _currentSearchSessionId = 0;
+        _pathListPool.Clear();
+        Debug.Log("<color=orange>[PathfindingSystem]</color> 寻路系统状态已清理。");
+    }
 
     private List<NavNode> RetraceNodePath(NavPathNode endNode)
     {

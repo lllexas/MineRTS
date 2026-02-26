@@ -27,6 +27,7 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
     {
         base.Awake();
         _mainCam = Camera.main;
+        playerTeam = 1; // 确保玩家队伍初始化为默认值
     }
 
     void Update()
@@ -208,6 +209,7 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
     public void ClearAllSelection()
     {
         ClearSelection();
+        playerTeam = 1; // 重置玩家队伍为默认值
     }
 
     private void SetHighlight(EntityHandle handle, bool highlight)

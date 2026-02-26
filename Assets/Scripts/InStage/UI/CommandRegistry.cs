@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 using AIBrain;
 using UnityEngine;
 
@@ -132,6 +133,7 @@ public static class CommandRegistry
             if (UserControlSystem.Instance != null)
             {
                 UserControlSystem.Instance.ClearAllSelection();
+                UserControlSystem.Instance.playerTeam = 1; // 重置玩家队伍为默认值
             }
 
             if (AIBrainServer.Instance != null)
@@ -144,6 +146,42 @@ public static class CommandRegistry
             {
                 GridSystem.Instance.ClearAll();
             }
+
+            // 清理其他工业与物流系统状态
+            if (IndustrialSystem.Instance != null)
+            {
+                IndustrialSystem.Instance.GlobalPowerOverride = false;
+                // 可以添加其他工业状态重置
+            }
+
+            if (PowerSystem.Instance != null)
+            {
+                // PowerSystem 可能没有Clear方法，但可以重置网络状态
+                // 如果有Clear方法则调用
+                var method = PowerSystem.Instance.GetType().GetMethod("Clear");
+                if (method != null) method.Invoke(PowerSystem.Instance, null);
+            }
+
+            if (TransportSystem.Instance != null)
+            {
+                // TransportSystem 可能没有Clear方法
+                var method = TransportSystem.Instance.GetType().GetMethod("Clear");
+                if (method != null) method.Invoke(TransportSystem.Instance, null);
+            }
+
+            if (TimeSystem.Instance != null)
+            {
+                TimeSystem.Instance.SetPaused(false);
+                TimeSystem.Instance.ResetTimer();
+            }
+
+            // 清理寻路系统
+            if (PathfindingSystem.Instance != null)
+                PathfindingSystem.Instance.Clear();
+
+            // 清理选择框覆盖层
+            if (SelectionOverlaySystem.Instance != null)
+                SelectionOverlaySystem.Instance.HideAllSelectionBoxes();
 
             // 重新初始化，保持原来的地图规格和坐标偏移
             var whole = EntitySystem.Instance.wholeComponent;
