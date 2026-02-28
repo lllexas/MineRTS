@@ -323,6 +323,10 @@ public class BigMapEditorWindow : EditorWindow
         // 清空属性面板
         _inspectorPanel?.Clear();
     }
+    public void RequestRepaint()
+    {
+        _mapCanvas?.MarkDirtyRepaint(); // 强制画布重新调用 OnGenerateVisualContent
+    }
 
     /// <summary>
     /// 获取当前保存的数据（供外部访问）

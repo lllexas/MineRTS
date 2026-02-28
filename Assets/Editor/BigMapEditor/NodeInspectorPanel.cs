@@ -88,11 +88,11 @@ public class NodeInspectorPanel : VisualElement
         // 节点名称
         var nameContainer = CreatePropertyContainer("显示名称");
         _nameField = new TextField { value = nodeData.DisplayName };
-        _nameField.RegisterValueChangedCallback(evt =>
+        _nameField.RegisterCallback<FocusOutEvent>(evt =>
         {
-            if (_currentNodeData != null)
+            if (_currentNodeData != null && _currentNodeData.DisplayName != _nameField.value)
             {
-                _currentNodeData.DisplayName = evt.newValue;
+                _currentNodeData.DisplayName = _nameField.value;
                 MarkDataChanged();
             }
         });
@@ -102,11 +102,11 @@ public class NodeInspectorPanel : VisualElement
         // 节点位置
         var positionContainer = CreatePropertyContainer("位置");
         _positionField = new Vector2Field { value = nodeData.Position };
-        _positionField.RegisterValueChangedCallback(evt =>
+        _positionField.RegisterCallback<FocusOutEvent>(evt =>
         {
-            if (_currentNodeData != null)
+            if (_currentNodeData != null && _currentNodeData.Position != _positionField.value)
             {
-                _currentNodeData.Position = evt.newValue;
+                _currentNodeData.Position = _positionField.value;
                 MarkDataChanged();
             }
         });
@@ -116,11 +116,11 @@ public class NodeInspectorPanel : VisualElement
         // 节点类型
         var typeContainer = CreatePropertyContainer("节点类型");
         _typeField = new TextField { value = nodeData.NodeType ?? "Default" };
-        _typeField.RegisterValueChangedCallback(evt =>
+        _typeField.RegisterCallback<FocusOutEvent>(evt =>
         {
-            if (_currentNodeData != null)
+            if (_currentNodeData != null && _currentNodeData.NodeType != _typeField.value)
             {
-                _currentNodeData.NodeType = evt.newValue;
+                _currentNodeData.NodeType = _typeField.value;
                 MarkDataChanged();
             }
         });
@@ -139,11 +139,11 @@ public class NodeInspectorPanel : VisualElement
                 unityTextAlign = TextAnchor.UpperLeft
             }
         };
-        _extraDataField.RegisterValueChangedCallback(evt =>
+        _extraDataField.RegisterCallback<FocusOutEvent>(evt =>
         {
-            if (_currentNodeData != null)
+            if (_currentNodeData != null && _currentNodeData.ExtraData != _extraDataField.value)
             {
-                _currentNodeData.ExtraData = evt.newValue;
+                _currentNodeData.ExtraData = _extraDataField.value;
                 MarkDataChanged();
             }
         });
@@ -494,14 +494,15 @@ public class NodeInspectorPanel : VisualElement
     /// </summary>
     private void MarkDataChanged()
     {
-        // 获取编辑器窗口
-        var window = EditorWindow.GetWindow<BigMapEditorWindow>();
-        if (window == null)
-            return;
+        // 1. 打印日志（主人可以留着调试，或者删掉）
+        // Debug.Log("节点数据已更新，触发重绘");
 
-        // 这里应该触发画布重绘
-        // 在实际实现中，可能需要通过事件或直接调用画布的方法
-        // 暂时记录日志
-        Debug.Log("节点数据已更新，需要重绘画布");
+        // 2. 获取当前的窗口实例
+        var window = EditorWindow.GetWindow<BigMapEditorWindow>();
+        if (window != null)
+        {
+            // 我们在 Window 里加一个公共方法来强制重绘画布
+            window.RequestRepaint();
+        }
     }
 }
