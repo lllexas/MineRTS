@@ -13,14 +13,14 @@ public class IndustrialSystem : SingletonMono<IndustrialSystem>
     {
         get
         {
-            if (SaveManager.Instance.CurrentUser != null)
-                return (long)SaveManager.Instance.CurrentUser.Progression.GlobalMoney;
+            if (MainModel.Instance.CurrentUser != null)
+                return (long)MainModel.Instance.CurrentUser.Progression.GlobalMoney;
             return 0;
         }
         set
         {
-            if (SaveManager.Instance.CurrentUser != null)
-                SaveManager.Instance.CurrentUser.Progression.GlobalMoney = value;
+            if (MainModel.Instance.CurrentUser != null)
+                MainModel.Instance.CurrentUser.Progression.GlobalMoney = value;
         }
     }
 

@@ -1,4 +1,4 @@
-﻿/*using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
@@ -26,15 +26,23 @@ public class StageNodeView : MonoBehaviour
     /// </summary>
     public void RefreshVisuals()
     {
-        var user = UserModelManager.Instance.CurrentUser;
+        var user = MainModel.Instance.CurrentUser;
 
         // 1. 检查是否解锁 (这里写死逻辑，实际可以根据前置关卡判断)
         bool isUnlocked = true;
         LockIcon.SetActive(!isUnlocked);
         EnterButton.interactable = isUnlocked;
 
-        // 2. 检查是否通关
-        bool isCleared = user.StageClearStatus.ContainsKey(StageID) && user.StageClearStatus[StageID];
+        // 2. 检查是否通关 - 使用 UserModel 的 GetStage 方法
+        bool isCleared = false;
+        if (user != null)
+        {
+            var stageData = user.GetStage(StageID);
+            if (stageData != null)
+            {
+                isCleared = stageData.IsCleared;
+            }
+        }
         ClearIcon.SetActive(isCleared);
 
         // 3. 显示名字
@@ -46,6 +54,6 @@ public class StageNodeView : MonoBehaviour
         Debug.Log($"<color=cyan>[UI]</color> 指挥官选择了据点: {StageID}");
 
         // 🔥 呼叫中控层，请求切换世界
-        GameFlowManager.Instance.RequestEnterStage(StageID);
+        GameFlowController.Instance.EnterStage(StageID);
     }
-}*/
+}

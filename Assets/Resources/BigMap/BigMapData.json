@@ -1,0 +1,54 @@
+{
+    "Nodes": [
+        {
+            "StageID": "83ca9a6b-513f-476f-8d52-c04ebcdc4f20",
+            "DisplayName": "节点1",
+            "Position": {
+                "x": -2.059983491897583,
+                "y": 1.645339846611023
+            },
+            "NodeType": "Default",
+            "ExtraData": ""
+        },
+        {
+            "StageID": "92455c2a-849a-42eb-8a88-12e546c2662d",
+            "DisplayName": "节点2",
+            "Position": {
+                "x": 3.7839999198913576,
+                "y": 3.7279999256134035
+            },
+            "NodeType": "Default",
+            "ExtraData": ""
+        },
+        {
+            "StageID": "bbd26e1a-3e81-4454-9609-30d21fc482b1",
+            "DisplayName": "节点3",
+            "Position": {
+                "x": 6.399146556854248,
+                "y": -3.4053657054901125
+            },
+            "NodeType": "Default",
+            "ExtraData": ""
+        }
+    ],
+    "Edges": [
+        {
+            "FromNodeID": "92455c2a-849a-42eb-8a88-12e546c2662d",
+            "ToNodeID": "83ca9a6b-513f-476f-8d52-c04ebcdc4f20",
+            "Direction": 1,
+            "ExtraData": ""
+        },
+        {
+            "FromNodeID": "bbd26e1a-3e81-4454-9609-30d21fc482b1",
+            "ToNodeID": "92455c2a-849a-42eb-8a88-12e546c2662d",
+            "Direction": 1,
+            "ExtraData": ""
+        }
+    ],
+    "BackgroundImagePath": "",
+    "CanvasOffset": {
+        "x": 318.3070068359375,
+        "y": 228.4697265625
+    },
+    "CanvasZoom": 0.2926843464374542
+}

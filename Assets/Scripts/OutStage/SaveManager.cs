@@ -5,11 +5,8 @@ using System.Linq;
 
 public class SaveManager : SingletonMono<SaveManager>
 {
-    // 当前内存中的用户数据
-    public UserModel CurrentUser;
-
-    // 【新增】当前正在活跃的据点 ID（用于判断 SaveNow 该存哪一关）
-    public string CurrentActiveStageID;
+    // 【已迁移到 MainModel】当前内存中的用户数据 - 请使用 MainModel.Instance.CurrentUser
+    // 【已迁移到 MainModel】当前正在活跃的据点 ID - 请使用 MainModel.Instance.CurrentActiveStageID
 
     // 当前正在使用的存档文件名（不含扩展名），例如 "AutoSave", "Slot_1"
     public string CurrentSaveFileName { get; private set; } = "default_save";
@@ -38,9 +35,10 @@ public class SaveManager : SingletonMono<SaveManager>
         // 1. 强制清理当前的运行时状态
         UnloadCurrentWorld();
 
-        // 2. new 一个全新的 User Model
-        CurrentUser = new UserModel();
-        CurrentUser.Metadata.PlayerName = "指挥官-" + saveName;
+        // 2. new 一个全新的 User Model 并设置到 MainModel
+        UserModel newUser = new UserModel();
+        newUser.Metadata.PlayerName = "指挥官-" + saveName;
+        MainModel.Instance.SetCurrentUser(newUser);
 
         // 3. 标记当前文件名
         CurrentSaveFileName = saveName;
@@ -74,15 +72,21 @@ public class SaveManager : SingletonMono<SaveManager>
             string json = File.ReadAllText(fullPath);
 
             // 3. 反序列化
-            CurrentUser = JsonUtility.FromJson<UserModel>(json);
+            UserModel loadedUser = JsonUtility.FromJson<UserModel>(json);
 
             // 4. 重建字典索引 (关键！)
-            CurrentUser.RebuildRuntimeCache();
+            loadedUser.RebuildRuntimeCache();
+
+            // 5. 设置到 MainModel
+            MainModel.Instance.SetCurrentUser(loadedUser);
 
             // 5. 更新当前文件名引用
             CurrentSaveFileName = saveName;
 
             Debug.Log($"<color=green>[SaveManager]</color> 存档 {saveName} 加载完毕喵！");
+
+            // 存档读取成功，就说明得进入大地图了
+            GameFlowController.Instance.SwitchToState(GameFlowController.GameState.BigMap);
         }
         catch (System.Exception e)
         {
@@ -92,94 +96,23 @@ public class SaveManager : SingletonMono<SaveManager>
     }
 
     /// <summary>
-    /// 【新增】将 EntitySystem 当前运行的关卡数据，回写到 UserData 内存中
-    /// </summary>
-    public void SaveCurrentStageFromSystem()
-    {
-        // 如果当前不在任何关卡里，或者 System 还没初始化，就别存了
-        if (string.IsNullOrEmpty(CurrentActiveStageID)) return;
-        if (EntitySystem.Instance == null || EntitySystem.Instance.wholeComponent == null) return;
-
-        Debug.Log($"<color=orange>[SaveManager]</color> 正在从 ECS 提取关卡数据: {CurrentActiveStageID}...");
-
-        // 1. 从 ECS 获取当前快照 (必须 Clone，防止引用污染)
-        WholeComponent snapshot = EntitySystem.Instance.wholeComponent.Clone();
-
-        // 2. 更新到 UserModel
-        // (IsCleared 逻辑您可以根据游戏胜利条件来传 true/false，这里暂时传 false)
-        CurrentUser.UpdateStage(CurrentActiveStageID, snapshot, false);
-
-        Debug.Log($"<color=cyan>[SaveManager]</color> {CurrentActiveStageID} 内存数据同步完成。");
-    }
-    /// <summary>
-    /// 【新增】从关卡撤退回到“存档大厅”/“大地图”状态
-    /// </summary>
-    /// <param name="autoSave">撤退前是否自动保存进度？</param>
-    public void ExitCurrentStage(bool autoSave = true)
-    {
-        if (string.IsNullOrEmpty(CurrentActiveStageID))
-        {
-            Debug.LogWarning("喵？当前并没有在任何关卡里，无法撤退！");
-            return;
-        }
-
-        Debug.Log($"<color=orange>[SaveManager]</color> 正在从据点 {CurrentActiveStageID} 撤离...");
-
-        // 1. (可选) 撤退前自动保存热数据到 RAM
-        if (autoSave)
-        {
-            SaveCurrentStageFromSystem();
-            // 顺便落盘，防止崩溃丢档（视性能需求而定，也可以不写这句）
-            SaveGameToDisk();
-        }
-
-        // 2. 物理清理 ECS 世界 (视觉消失，内存释放)
-        if (EntitySystem.Instance != null)
-        {
-            EntitySystem.Instance.ClearWorld();
-        }
-
-        // 3. 清空状态指针 (这标志着我们回到了“存档外/大地图”状态)
-        string lastStage = CurrentActiveStageID;
-        CurrentActiveStageID = null;
-
-        Debug.Log($"<color=green>[SaveManager]</color> 已安全撤离 {lastStage}。指挥官现在位于大地图待机。");
-    }
-    /// <summary>
-    /// 【新增】重置指定关卡（删除存档记录，下次进入时会重新读 JSON）
-    /// </summary>
-    public void ResetStage(string stageID)
-    {
-        if (CurrentUser == null) return;
-
-        Debug.Log($"<color=red>[SaveManager]</color> 正在重置关卡存档: {stageID}");
-
-        // 1. 从用户数据中移除该关卡的记录
-        CurrentUser.RemoveStage(stageID);
-
-        // 2. 如果当前正在玩这一关，立即让 ECS 重新加载
-        // (ECS 的 LoadStage 发现 UserData 里没了，就会自动去读 WorldFactory 的 JSON)
-        if (CurrentActiveStageID == stageID)
-        {
-            EntitySystem.Instance.LoadStage(stageID);
-        }
-    }
-
-    /// <summary>
     /// 【指令：SaveGame】保存当前状态到磁盘
     /// </summary>
     public void SaveGameToDisk()
     {
-        if (CurrentUser == null) return;
+        // 从 MainModel 获取当前用户数据
+        var currentUser = MainModel.Instance.CurrentUser;
+        if (currentUser == null) return;
 
         // 1. 如果还在关卡里，先把关卡热数据写回 UserModel
-        if (!string.IsNullOrEmpty(CurrentActiveStageID))
+        if (MainModel.Instance.IsInStage)
         {
-            SaveCurrentStageFromSystem();
+            // 调用 GameFlowController 进行数据同步
+            GameFlowController.Instance.SaveCurrentStageFromSystem();
         }
 
         // 2. 序列化并写入
-        string json = JsonUtility.ToJson(CurrentUser, true);
+        string json = JsonUtility.ToJson(currentUser, true);
         string fullPath = Path.Combine(SaveDirectory, CurrentSaveFileName + ".json");
 
         File.WriteAllText(fullPath, json);
@@ -199,6 +132,73 @@ public class SaveManager : SingletonMono<SaveManager>
         }
     }
 
+    /// <summary>
+    /// 【新增】重命名指定存档
+    /// </summary>
+    /// <param name="oldName">旧存档名</param>
+    /// <param name="newName">新存档名</param>
+    /// <returns>是否重命名成功</returns>
+    public bool RenameSave(string oldName, string newName)
+    {
+        // 1. 基本参数检查
+        if (string.IsNullOrEmpty(oldName) || string.IsNullOrEmpty(newName))
+        {
+            Debug.LogWarning($"<color=orange>[SaveManager]</color> 重命名失败：存档名称不能为空");
+            return false;
+        }
+
+        if (oldName == newName)
+        {
+            Debug.Log($"<color=yellow>[SaveManager]</color> 新旧名称相同，无需重命名");
+            return true; // 视为成功
+        }
+
+        // 2. 检查旧文件是否存在
+        string oldPath = Path.Combine(SaveDirectory, oldName + ".json");
+        if (!File.Exists(oldPath))
+        {
+            Debug.LogError($"<color=red>[SaveManager]</color> 重命名失败：找不到存档 '{oldName}'");
+            return false;
+        }
+
+        // 3. 检查新名称是否已存在
+        string newPath = Path.Combine(SaveDirectory, newName + ".json");
+        if (File.Exists(newPath))
+        {
+            Debug.LogWarning($"<color=orange>[SaveManager]</color> 重命名失败：存档 '{newName}' 已存在");
+            return false;
+        }
+
+        try
+        {
+            // 4. 重命名文件
+            File.Move(oldPath, newPath);
+            Debug.Log($"<color=green>[SaveManager]</color> 存档 '{oldName}' 已重命名为 '{newName}'");
+
+            // 5. 如果重命名的是当前活跃存档，更新当前文件名
+            if (CurrentSaveFileName == oldName)
+            {
+                CurrentSaveFileName = newName;
+                Debug.Log($"<color=cyan>[SaveManager]</color> 当前活跃存档名称已更新为 '{newName}'");
+            }
+
+            // 6. 如果该存档已加载到内存中，更新UserModel的元数据
+            if (MainModel.Instance.CurrentUser != null && CurrentSaveFileName == newName)
+            {
+                // 更新PlayerName以反映新存档名
+                MainModel.Instance.CurrentUser.Metadata.PlayerName = "指挥官-" + newName;
+                Debug.Log($"<color=cyan>[SaveManager]</color> 已更新内存中UserModel的元数据");
+            }
+
+            return true;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"<color=red>[SaveManager]</color> 重命名失败：{e.Message}");
+            return false;
+        }
+    }
+
     public List<string> GetAllSaveFiles()
     {
         if (!Directory.Exists(SaveDirectory)) return new List<string>();
@@ -215,7 +215,7 @@ public class SaveManager : SingletonMono<SaveManager>
     /// <summary>
     /// 卸载当前世界的运行时数据，防止串台
     /// </summary>
-    private void UnloadCurrentWorld()
+    public void UnloadCurrentWorld()
     {
         // 1. 清空 ECS 系统
         if (EntitySystem.Instance != null)
@@ -223,11 +223,11 @@ public class SaveManager : SingletonMono<SaveManager>
             EntitySystem.Instance.ClearWorld();
         }
 
-        // 2. 【新增】重置当前关卡指针
-        CurrentActiveStageID = null;
+        // 2. 【已迁移到 MainModel】重置当前关卡指针
+        MainModel.Instance.ClearCurrentStage();
 
-        // 3. 销毁当前的 UserModel 引用
-        CurrentUser = null;
+        // 3. 【已迁移到 MainModel】销毁当前的 UserModel 引用
+        MainModel.Instance.ClearCurrentUser();
 
         System.GC.Collect();
     }

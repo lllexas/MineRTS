@@ -247,9 +247,9 @@ public static class CommandRegistry
         // 场景：在关卡里测试，想临时存一下，但不写硬盘，速度快
         console.AddCommand("save_ram", (args) =>
         {
-            if (!string.IsNullOrEmpty(SaveManager.Instance.CurrentActiveStageID))
+            if (MainModel.Instance.IsInStage)
             {
-                SaveManager.Instance.SaveCurrentStageFromSystem();
+                GameFlowController.Instance.SaveCurrentStageFromSystem();
                 console.Log("Stage data saved to RAM (UserModel). Not written to disk yet.", Color.yellow);
             }
             else
@@ -262,9 +262,9 @@ public static class CommandRegistry
         console.AddCommand("save_now", (args) =>
         {
             // 先把 ECS 数据写回 User Model
-            if (!string.IsNullOrEmpty(SaveManager.Instance.CurrentActiveStageID))
+            if (MainModel.Instance.IsInStage)
             {
-                SaveManager.Instance.SaveCurrentStageFromSystem();
+                GameFlowController.Instance.SaveCurrentStageFromSystem();
             }
             // 然后落盘
             SaveManager.Instance.SaveGameToDisk();
@@ -291,14 +291,14 @@ public static class CommandRegistry
         // 如果玩坏了，想重开这一关
         console.AddCommand("reset_stage", (args) =>
         {
-            string currentStage = SaveManager.Instance.CurrentActiveStageID;
+            string currentStage = MainModel.Instance.CurrentActiveStageID;
             if (string.IsNullOrEmpty(currentStage))
             {
                 console.Log("Not in any stage!", Color.red);
                 return;
             }
 
-            SaveManager.Instance.ResetStage(currentStage);
+            GameFlowController.Instance.ResetStage(currentStage);
             console.Log($"Stage {currentStage} has been reset to default state.", Color.red);
         });
 
@@ -306,7 +306,7 @@ public static class CommandRegistry
         console.AddCommand("leave", (args) =>
         {
             // 默认离开时自动保存
-            SaveManager.Instance.ExitCurrentStage(true);
+            GameFlowController.Instance.ReturnToMap(true);
             console.Log("Exited stage and returned to Map state.", Color.green);
         });
 
@@ -314,7 +314,7 @@ public static class CommandRegistry
         // 场景：玩坏了，想直接退出去，不覆盖存档
         console.AddCommand("leave_force", (args) =>
         {
-            SaveManager.Instance.ExitCurrentStage(false); // false = 不保存
+            GameFlowController.Instance.ReturnToMap(false); // false = 不保存
             console.Log("Exited stage WITHOUT saving.", Color.red);
         });
 

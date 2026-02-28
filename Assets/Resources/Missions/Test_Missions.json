@@ -8,8 +8,8 @@
             "Description": "先赚100块",
             "Priority": 0,
             "EditorPosition": {
-                "x": 116.79999542236328,
-                "y": 14.39999771118164
+                "x": 140.8000030517578,
+                "y": -209.59999084472657
             },
             "IsActive": true,
             "IsCompleted": false,
@@ -29,14 +29,35 @@
             },
             "RewardID": "b73fc2a1-3a9b-4985-a687-a7edbff0b616",
             "NextMissionID": ""
+        },
+        {
+            "MissionID": "c8a803fd-28e0-4f93-82dc-57c7777f5005",
+            "Title": "讲故事……用来讲故事",
+            "Description": "很长的故事啊，这里到底能放多长的文章呢",
+            "Priority": 0,
+            "EditorPosition": {
+                "x": 632.0,
+                "y": -208.0
+            },
+            "IsActive": false,
+            "IsCompleted": false,
+            "IsFailed": false,
+            "Goals": [],
+            "Reward": {
+                "Money": 0,
+                "TechPoints": 0,
+                "Blueprints": []
+            },
+            "RewardID": "",
+            "NextMissionID": ""
         }
     ],
     "Rewards": [
         {
             "RewardID": "b73fc2a1-3a9b-4985-a687-a7edbff0b616",
             "Position": {
-                "x": 420.0,
-                "y": 28.799999237060548
+                "x": 148.8000030517578,
+                "y": 97.60000610351563
             },
             "Data": {
                 "Money": 0,
@@ -46,17 +67,6 @@
         }
     ],
     "ScenarioEvents": [
-        {
-            "EventID": "e14d0a51-2c50-472b-b5fb-987d2dcb9b99",
-            "EditorPosition": {
-                "x": 392.0,
-                "y": 221.60000610351563
-            },
-            "Trigger": 1,
-            "TriggerParam": "dde5aea2-7de1-44cb-8a90-62655306f1e0",
-            "HasTriggered": false,
-            "NextSpawnID": "5527f84f-7f77-4f65-9413-71d43f22f0e0"
-        },
         {
             "EventID": "f263f743-5775-4d2d-ab3c-4ea75713c86b",
             "EditorPosition": {
@@ -100,28 +110,20 @@
             "TriggerParam": "30",
             "HasTriggered": false,
             "NextSpawnID": "8d17a8e2-100a-4eae-b32b-e17a20e33d5b"
+        },
+        {
+            "EventID": "e14d0a51-2c50-472b-b5fb-987d2dcb9b99",
+            "EditorPosition": {
+                "x": 365.6000061035156,
+                "y": 96.80000305175781
+            },
+            "Trigger": 1,
+            "TriggerParam": "dde5aea2-7de1-44cb-8a90-62655306f1e0",
+            "HasTriggered": false,
+            "NextSpawnID": "5527f84f-7f77-4f65-9413-71d43f22f0e0"
         }
     ],
     "SpawnActions": [
-        {
-            "SpawnID": "5527f84f-7f77-4f65-9413-71d43f22f0e0",
-            "EditorPosition": {
-                "x": 596.7999877929688,
-                "y": 225.60000610351563
-            },
-            "Team": 2,
-            "SpawnPos": {
-                "x": -50,
-                "y": 70
-            },
-            "Units": [
-                {
-                    "BlueprintId": "g_maggot",
-                    "Count": 10
-                }
-            ],
-            "AttachAIBrainID": "d11a2f59-af84-46e5-b321-ec429440acde"
-        },
         {
             "SpawnID": "8d17a8e2-100a-4eae-b32b-e17a20e33d5b",
             "EditorPosition": {
@@ -197,21 +199,28 @@
                 }
             ],
             "AttachAIBrainID": "1264fc13-78c9-41eb-b1ff-00c1049837c6"
+        },
+        {
+            "SpawnID": "5527f84f-7f77-4f65-9413-71d43f22f0e0",
+            "EditorPosition": {
+                "x": 320.8000183105469,
+                "y": 226.40000915527345
+            },
+            "Team": 2,
+            "SpawnPos": {
+                "x": -50,
+                "y": 70
+            },
+            "Units": [
+                {
+                    "BlueprintId": "g_maggot",
+                    "Count": 10
+                }
+            ],
+            "AttachAIBrainID": "d11a2f59-af84-46e5-b321-ec429440acde"
         }
     ],
     "AIBrainActions": [
-        {
-            "BrainNodeID": "d11a2f59-af84-46e5-b321-ec429440acde",
-            "EditorPosition": {
-                "x": 856.0,
-                "y": 229.60000610351563
-            },
-            "BrainIdentifier": "Red_Dot_Wave",
-            "TargetPos": {
-                "x": 0,
-                "y": 0
-            }
-        },
         {
             "BrainNodeID": "01c9116a-cfd2-4e80-84a9-4a30be6abe3c",
             "EditorPosition": {
@@ -253,6 +262,18 @@
             "EditorPosition": {
                 "x": 820.7999877929688,
                 "y": 803.2000122070313
+            },
+            "BrainIdentifier": "Red_Dot_Wave",
+            "TargetPos": {
+                "x": 0,
+                "y": 0
+            }
+        },
+        {
+            "BrainNodeID": "d11a2f59-af84-46e5-b321-ec429440acde",
+            "EditorPosition": {
+                "x": 572.7999877929688,
+                "y": 225.60000610351563
             },
             "BrainIdentifier": "Red_Dot_Wave",
             "TargetPos": {

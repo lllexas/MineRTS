@@ -494,7 +494,7 @@ public class EntitySystem : SingletonMono<EntitySystem>
         Debug.Log($"<color=yellow>[EntitySystem]</color> 正在请求进入据点: {stageID}...");
 
         // 1. 获取当前用户存档 (如果没有加载存档，就无法进入)
-        var user = SaveManager.Instance.CurrentUser;
+        var user = MainModel.Instance.CurrentUser;
         if (user == null)
         {
             Debug.LogError("错误：没有加载任何用户存档 (User is null)，无法进入关卡！请先 NewGame 或 LoadGame。");
@@ -526,9 +526,9 @@ public class EntitySystem : SingletonMono<EntitySystem>
         // 4. 执行加载
         LoadECS(worldData);
 
-        // 5. 更新 SaveManager 的当前关卡指针 (方便下次保存)
+        // 5. 更新数据层的当前关卡指针 (方便下次保存)
         // 这一步最好封装一下，但这里直接写也行
-        SaveManager.Instance.CurrentActiveStageID = stageID;
+        MainModel.Instance.SetCurrentStage(stageID);
 
         // 6. 自动加载绑定到该关卡的任务包
         if (MissionManager.Instance != null)
