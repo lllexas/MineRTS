@@ -118,6 +118,53 @@ public class MapCanvasElement : VisualElement
         MarkDirtyRepaint();
     }
 
+    /// <summary>
+    /// 更新节点ID并同步所有引用
+    /// </summary>
+    public void UpdateNodeID(string oldID, string newID)
+    {
+        if (string.IsNullOrEmpty(oldID) || string.IsNullOrEmpty(newID) || oldID == newID)
+            return;
+
+        // 检查新ID是否已存在（排除自身）
+        if (_saveData.Nodes.Exists(n => n.StageID == newID && n.StageID != oldID))
+        {
+            Debug.LogWarning($"节点ID '{newID}' 已存在，无法更新");
+            return;
+        }
+
+        // 更新节点数据中的ID
+        var node = _saveData.Nodes.Find(n => n.StageID == oldID);
+        if (node != null)
+        {
+            node.StageID = newID;
+        }
+
+        // 更新_nodeVisuals字典
+        if (_nodeVisuals.TryGetValue(oldID, out var visual))
+        {
+            _nodeVisuals.Remove(oldID);
+            _nodeVisuals[newID] = visual;
+            visual.NodeData.StageID = newID; // 确保节点视觉元素的数据同步
+        }
+
+        // 更新所有边中的引用
+        foreach (var edge in _saveData.Edges)
+        {
+            if (edge.FromNodeID == oldID) edge.FromNodeID = newID;
+            if (edge.ToNodeID == oldID) edge.ToNodeID = newID;
+        }
+
+        // 如果当前选中的节点是这个节点，更新_selectedNode引用
+        if (_selectedNode != null && _selectedNode.NodeData.StageID == oldID)
+        {
+            _selectedNode.NodeData.StageID = newID;
+        }
+
+        // 触发重绘
+        MarkDirtyRepaint();
+    }
+
     // ==========================================
     // 核心数学：绝不使用双重缩放，只有数学映射！
     // ==========================================

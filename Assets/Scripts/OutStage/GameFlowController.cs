@@ -1,4 +1,5 @@
 using UnityEngine;
+using MineRTS.BigMap;
 
 /// <summary>
 /// 【状态控制器】全局流程控制器，协调UI面板切换与游戏状态流转
@@ -66,8 +67,16 @@ public class GameFlowController : SingletonMono<GameFlowController>
                 }
                 break;
             case GameState.BigMap:
-                // 大地图状态退出：可以在此添加大地图清理逻辑
-                Debug.Log("<color=orange>[GameFlow]</color> 退出大地图状态");
+                // 大地图状态退出：关闭大地图面板
+                if (BigMapManager.Instance != null)
+                {
+                    BigMapManager.Instance.Close();
+                    Debug.Log("<color=orange>[GameFlow]</color> 大地图面板已关闭");
+                }
+                else
+                {
+                    Debug.LogWarning("<color=orange>[GameFlow]</color> BigMapManager实例未找到，无法关闭大地图面板");
+                }
                 break;
             case GameState.InStage:
                 // 关卡状态退出：ECS清理在ReturnToMap中处理，这里只记录
@@ -91,9 +100,16 @@ public class GameFlowController : SingletonMono<GameFlowController>
                 }
                 break;
             case GameState.BigMap:
-                // 大地图状态进入：可以在此添加大地图初始化逻辑
-                // 正在施工中……
-                Debug.Log("<color=orange>[GameFlow]</color> 进入大地图状态");
+                // 大地图状态进入：打开大地图面板，加载默认地图
+                if (BigMapManager.Instance != null)
+                {
+                    BigMapManager.Instance.Open();
+                    Debug.Log("<color=orange>[GameFlow]</color> 大地图面板已打开");
+                }
+                else
+                {
+                    Debug.LogWarning("<color=orange>[GameFlow]</color> BigMapManager实例未找到，无法打开大地图面板");
+                }
                 break;
             case GameState.InStage:
                 // 关卡状态进入：ECS初始化在EnterStage中处理，这里只记录

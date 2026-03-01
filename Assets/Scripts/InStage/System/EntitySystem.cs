@@ -629,10 +629,23 @@ public class EntitySystem : SingletonMono<EntitySystem>
         // 5. 视觉同步
         if (TilemapSyncManager.Instance != null)
         {
+            // 激活 Tilemap 并同步数据
+            TilemapSyncManager.Instance.SetTilemapActive(true);
             TilemapSyncManager.Instance.SyncToTilemap();
         }
 
-        // 6. 重新计算一次物流网络 (防止存档里没存拓扑结构)
+        // 6. 摄像机自动化初始化（替代手动控制台命令）
+        if (CameraController.Instance != null)
+        {
+            CameraController.Instance.InitializeCamera();
+            Debug.Log("<color=cyan>[EntitySystem]</color> 摄像机自动化初始化完成");
+        }
+        else
+        {
+            Debug.LogWarning("<color=orange>[EntitySystem]</color> CameraController实例未找到，跳过摄像机初始化");
+        }
+
+        // 7. 重新计算一次物流网络 (防止存档里没存拓扑结构)
         TransportSystem.Instance.RebuildNetwork(this.wholeComponent);
 
         Debug.Log($"<color=green>[EntitySystem]</color> 世界加载完成！实体数: {wholeComponent.entityCount}");
@@ -778,6 +791,12 @@ public class EntitySystem : SingletonMono<EntitySystem>
         // 清理寻路系统
         if (PathfindingSystem.Instance != null)
             PathfindingSystem.Instance.Clear();
+
+        // 停用 Tilemap 渲染
+        if (TilemapSyncManager.Instance != null)
+        {
+            TilemapSyncManager.Instance.SetTilemapActive(false);
+        }
 
         Debug.Log("<color=red>[EntitySystem]</color> 世界已核平，所有数据归零。");
     }

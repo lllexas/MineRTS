@@ -387,4 +387,15 @@ public class BigMapEditorWindow : EditorWindow
             }
         }
     }
+
+    /// <summary>
+    /// 更新节点ID（当用户在属性面板中修改节点ID时调用）
+    /// </summary>
+    public void UpdateNodeID(string oldID, string newID)
+    {
+        if (_mapCanvas != null)
+        {
+            _mapCanvas.UpdateNodeID(oldID, newID);
+        }
+    }
 }

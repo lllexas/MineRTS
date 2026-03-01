@@ -44,6 +44,9 @@ namespace MineRTS.BigMap
         // 地图数据
         private BigMapSaveData _mapData;
 
+        // 初始化状态
+        private bool _isInitialized = false;
+
         /// <summary>
         /// 当前摄像机世界位置（只读）
         /// </summary>
@@ -80,6 +83,33 @@ namespace MineRTS.BigMap
             {
                 Debug.LogWarning("BigMapRuntimeRenderer: 未指定地图JSON文件");
             }
+
+            _isInitialized = true;
+        }
+
+        private void OnEnable()
+        {
+            if (!_isInitialized) return;
+
+            // 检查UI结构是否仍然有效
+            if (_uiDocument != null && _uiDocument.rootVisualElement != null)
+            {
+                // 如果_viewport为空或未附加到root，重新初始化
+                if (_viewport == null || !_uiDocument.rootVisualElement.Contains(_viewport))
+                {
+                    Debug.Log("BigMapRuntimeRenderer: UI结构失效，重新初始化");
+                    InitializeUIStructure();
+
+                    // 重新加载地图数据（如果已有数据）
+                    if (_mapData != null && _mapContainer != null)
+                    {
+                        _mapContainer.RenderMap(_mapData, _currentPPU);
+                    }
+                }
+            }
+
+            // 应用当前变换
+            UpdateContainerTransform();
         }
 
         private void Start()
@@ -90,6 +120,9 @@ namespace MineRTS.BigMap
 
         private void LateUpdate()
         {
+            // 只有在激活状态且已初始化时才更新
+            if (!_isInitialized || !isActiveAndEnabled) return;
+
             // 动态计算PPU（适应屏幕分辨率变化）
             UpdatePPU();
 

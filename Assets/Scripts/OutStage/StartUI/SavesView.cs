@@ -211,9 +211,7 @@ public class SavesView : MonoBehaviour, IMenuPanel
         // 加载完成后，切换到大地图状态
         if (GameFlowController.Instance != null)
         {
-            // 注意：这里可能需要等待存档加载完成，暂时直接切换
-            // 实际实现中可能需要添加回调或协程
-            // GameFlowController.Instance.ShowBigMap();
+            GameFlowController.Instance.SwitchToState(GameFlowController.GameState.BigMap);
             Close(); // 关闭存档面板
         }
         else

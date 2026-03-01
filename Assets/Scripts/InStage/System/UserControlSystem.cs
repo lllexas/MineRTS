@@ -32,6 +32,10 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
 
     void Update()
     {
+        // 🔥 修复：未进入关卡时直接返回，避免空引用异常
+        if (EntitySystem.Instance == null || EntitySystem.Instance.wholeComponent == null)
+            return;
+
         if (_isAttackMoving)
         {
             HandleAttackModeInput(); // 专门处理 A 键模式下的点击
@@ -87,6 +91,10 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
 
     private void DoPointSelection(Vector2 mousePos)
     {
+        // 🔥 修复：未进入关卡时直接返回，避免空引用异常
+        if (EntitySystem.Instance == null || EntitySystem.Instance.wholeComponent == null || GridSystem.Instance == null)
+            return;
+
         ClearSelection();
         Vector2Int gridPos = GridSystem.GetMouseGridPos(new Vector2Int(1, 1));
 
@@ -109,6 +117,10 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
 
     private void DoBoxSelection(Vector2 start, Vector2 end)
     {
+        // 🔥 修复：未进入关卡时直接返回，避免空引用异常
+        if (EntitySystem.Instance == null || EntitySystem.Instance.wholeComponent == null)
+            return;
+
         ClearSelection();
 
         // 1. 获取鼠标拖出来的世界空间矩形
@@ -141,6 +153,10 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
 
     private void HandleRightClick()
     {
+        // 🔥 修复：未进入关卡时直接返回，避免空引用异常
+        if (EntitySystem.Instance == null || EntitySystem.Instance.wholeComponent == null || GridSystem.Instance == null)
+            return;
+
         if (Input.GetMouseButtonDown(1) && _selectedHandles.Count > 0)
         {
             Vector2Int gridPos = GridSystem.GetMouseGridPos(Vector2Int.one);
@@ -236,6 +252,10 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
     // >>>>>>>>>>> [新增：A键模式处理逻辑] >>>>>>>>>>>
     private void HandleAttackModeInput()
     {
+        // 🔥 修复：未进入关卡时直接返回，避免空引用异常
+        if (EntitySystem.Instance == null || EntitySystem.Instance.wholeComponent == null || GridSystem.Instance == null)
+            return;
+
         // 右键取消 A 模式
         if (Input.GetMouseButtonDown(1))
         {

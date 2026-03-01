@@ -79,9 +79,49 @@ public class NodeInspectorPanel : VisualElement
         var scrollView = new ScrollView();
         scrollView.style.flexGrow = 1;
 
-        // 节点ID（只读）
-        var idContainer = CreatePropertyContainer("节点ID");
-        _idField = new TextField { value = nodeData.StageID, isReadOnly = true };
+        // 节点ID（可编辑，但必须唯一）
+        var idContainer = CreatePropertyContainer("节点ID (必须唯一)");
+        _idField = new TextField { value = nodeData.StageID };
+        _idField.RegisterCallback<FocusOutEvent>(evt =>
+        {
+            if (_currentNodeData != null && _currentNodeData.StageID != _idField.value)
+            {
+                string oldID = _currentNodeData.StageID;
+                string newID = _idField.value.Trim();
+
+                // 验证新ID
+                if (string.IsNullOrEmpty(newID))
+                {
+                    EditorUtility.DisplayDialog("错误", "节点ID不能为空", "确定");
+                    _idField.value = oldID;
+                    return;
+                }
+
+                // 检查是否重复（排除自身）
+                var window = EditorWindow.GetWindow<BigMapEditorWindow>();
+                var saveData = window?.GetSaveData();
+                if (saveData != null)
+                {
+                    bool isDuplicate = saveData.Nodes.Exists(n => n.StageID == newID && n.StageID != oldID);
+                    if (isDuplicate)
+                    {
+                        EditorUtility.DisplayDialog("错误", $"节点ID '{newID}' 已存在，请使用其他ID", "确定");
+                        _idField.value = oldID;
+                        return;
+                    }
+                }
+
+                // 更新节点ID
+                if (window != null)
+                {
+                    window.UpdateNodeID(oldID, newID);
+                    // 更新当前节点数据引用（因为节点数据已被更新）
+                    _currentNodeData = saveData?.Nodes.Find(n => n.StageID == newID);
+                }
+
+                MarkDataChanged();
+            }
+        });
         idContainer.Add(_idField);
         scrollView.Add(idContainer);
 

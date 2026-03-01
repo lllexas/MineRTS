@@ -31,6 +31,10 @@ public partial class GridSystem : SingletonMono<GridSystem>
     // 2D 坐标 -> 1D 数组下标
     public int ToIndex(Vector2Int pos)
     {
+        // 🔥 修复：未进入关卡时直接返回 -1，避免空引用异常
+        if (EntitySystem.Instance == null || EntitySystem.Instance.wholeComponent == null)
+            return -1;
+
         var whole = EntitySystem.Instance.wholeComponent;
         int x = pos.x - _minX;
         int y = pos.y - _minY;

@@ -24,6 +24,43 @@ public class TilemapSyncManager : SingletonMono<TilemapSyncManager>
     private void Start()
     {
         InitializeMapping();
+
+        // 检查是否已经在关卡内（EntitySystem 已初始化且有地图数据）
+        bool isInStage = false;
+        if (EntitySystem.Instance != null && EntitySystem.Instance.wholeComponent != null)
+        {
+            // 如果有地图数据，说明关卡已加载
+            isInStage = EntitySystem.Instance.wholeComponent.mapWidth > 0 &&
+                        EntitySystem.Instance.wholeComponent.mapHeight > 0;
+        }
+
+        // 根据当前状态设置 Tilemap 激活状态
+        SetTilemapActive(isInStage);
+
+        if (isInStage)
+        {
+            Debug.Log("<color=cyan>[TilemapSyncManager]</color> 启动时检测到已加载关卡，Tilemap 保持激活");
+        }
+        else
+        {
+            Debug.Log("<color=cyan>[TilemapSyncManager]</color> 启动时未检测到关卡，Tilemap 已禁用");
+        }
+    }
+
+    /// <summary>
+    /// 设置 Tilemap 游戏对象的激活状态
+    /// </summary>
+    public void SetTilemapActive(bool active)
+    {
+        if (targetTilemap != null && targetTilemap.gameObject != null)
+        {
+            targetTilemap.gameObject.SetActive(active);
+            Debug.Log($"<color=cyan>[TilemapSyncManager]</color> Tilemap 激活状态: {active}");
+        }
+        else
+        {
+            Debug.LogWarning($"<color=orange>[TilemapSyncManager]</color> targetTilemap 为空，无法设置激活状态");
+        }
     }
 
     public void InitializeMapping()

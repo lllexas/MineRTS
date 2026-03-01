@@ -172,4 +172,24 @@ public class CameraController : SingletonMono<CameraController>
     {
         _targetPos = new Vector3(worldPos.x, worldPos.y, transform.position.z);
     }
+
+    /// <summary>
+    /// 自动初始化摄像机：同步边界、重置缩放、回到地图中心
+    /// 替代手动控制台命令：cam_sync; cam_reset; cam_home
+    /// </summary>
+    public void InitializeCamera()
+    {
+        Debug.Log("<color=cyan>[CameraController]</color> 自动初始化摄像机...");
+
+        // 1. 同步地图边界
+        SyncBounds();
+
+        // 2. 重置缩放级别
+        ResetZoom();
+
+        // 3. 回到世界中心
+        GoToOrigin();
+
+        Debug.Log("<color=cyan>[CameraController]</color> 摄像机自动化初始化完成");
+    }
 }

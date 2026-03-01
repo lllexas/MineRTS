@@ -1,7 +1,7 @@
 {
     "Nodes": [
         {
-            "StageID": "83ca9a6b-513f-476f-8d52-c04ebcdc4f20",
+            "StageID": "Level_Test",
             "DisplayName": "西非走廊",
             "Position": {
                 "x": 1.6846652030944825,
@@ -34,7 +34,7 @@
     "Edges": [
         {
             "FromNodeID": "92455c2a-849a-42eb-8a88-12e546c2662d",
-            "ToNodeID": "83ca9a6b-513f-476f-8d52-c04ebcdc4f20",
+            "ToNodeID": "Level_Test",
             "Direction": 1,
             "ExtraData": ""
         },
