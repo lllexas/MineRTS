@@ -32,8 +32,11 @@ namespace MineRTS.BigMap
         private static readonly Color UNIDIRECTIONAL_EDGE_COLOR = new Color(1.0f, 0.6f, 0.2f, 0.8f); // 橙色
         private static readonly Color ARROW_COLOR = new Color(1.0f, 1.0f, 1.0f, 0.9f); // 白色箭头
 
-        // 当前PPU（用于坐标转换）
-        private float _currentPPU = 1.0f;
+        // 基础PPU（地图加载时的PPU，用于节点坐标计算）
+        private float _basePPU = 1.0f;
+
+        // 当前缩放比例（CurrentPPU / BasePPU），用于连线绘制
+        private float _currentZoomRatio = 1.0f;
 
         public RuntimeMapContainer()
         {
@@ -53,7 +56,7 @@ namespace MineRTS.BigMap
         /// 渲染地图：清空现有内容，根据数据创建节点和连线
         /// 注意：节点位置使用局部空间坐标，后续通过容器变换实现摄像机移动
         /// </summary>
-        public void RenderMap(BigMapSaveData mapData, float currentPPU)
+        public void RenderMap(BigMapSaveData mapData, float basePPU)
         {
             if (mapData == null)
             {
@@ -61,8 +64,9 @@ namespace MineRTS.BigMap
                 return;
             }
 
-            // 保存当前PPU
-            _currentPPU = currentPPU;
+            // 保存基础PPU（地图加载时的PPU）
+            _basePPU = basePPU;
+            _currentZoomRatio = 1.0f; // 初始缩放比例为1:1
 
             // 清除现有内容
             Clear();
@@ -81,7 +85,7 @@ namespace MineRTS.BigMap
             // 强制重绘（绘制连线）
             MarkDirtyRepaint();
 
-            Debug.Log($"RuntimeMapContainer: 地图渲染完成 - {mapData.Nodes.Count}个节点，{mapData.Edges.Count}条连线 (PPU: {_currentPPU})");
+            Debug.Log($"RuntimeMapContainer: 地图渲染完成 - {mapData.Nodes.Count}个节点，{mapData.Edges.Count}条连线 (基础PPU: {_basePPU})");
         }
 
         /// <summary>
@@ -90,8 +94,8 @@ namespace MineRTS.BigMap
         /// </summary>
         private void CreateNodeElement(BigMapNodeData nodeData)
         {
-            // 创建节点元素（传递当前PPU，节点会自己计算局部空间坐标）
-            var nodeElement = new RuntimeNodeElement(nodeData, _currentPPU);
+            // 创建节点元素（传递基础PPU，节点会自己计算局部空间坐标）
+            var nodeElement = new RuntimeNodeElement(nodeData, _basePPU);
 
             // 注意：RuntimeNodeElement的构造函数已经调用了ApplyLocalPosition(ppu)
             // 设置了position=Absolute、left/top/width/height等样式
@@ -155,13 +159,13 @@ namespace MineRTS.BigMap
 
             // 计算局部空间坐标（遵循正交投影公式）
             Vector2 fromPos = new Vector2(
-                fromNodeData.Position.x * _currentPPU,
-                -fromNodeData.Position.y * _currentPPU
+                fromNodeData.Position.x * _basePPU,
+                -fromNodeData.Position.y * _basePPU
             );
 
             Vector2 toPos = new Vector2(
-                toNodeData.Position.x * _currentPPU,
-                -toNodeData.Position.y * _currentPPU
+                toNodeData.Position.x * _basePPU,
+                -toNodeData.Position.y * _basePPU
             );
 
             // 设置连线颜色
@@ -238,13 +242,20 @@ namespace MineRTS.BigMap
         }
 
         /// <summary>
-        /// 获取当前缩放比例（从变换矩阵中提取）
-        /// 注意：在Runtime中简化处理
+        /// 获取当前缩放比例（CurrentPPU / BasePPU）
+        /// 用于连线绘制时的线宽计算
         /// </summary>
         private float GetCurrentZoom()
         {
-            // 简化：返回固定值1.0，实际应从父容器获取
-            return 1.0f;
+            return _currentZoomRatio;
+        }
+
+        /// <summary>
+        /// 设置当前缩放比例（由BigMapRuntimeRenderer在每帧更新时调用）
+        /// </summary>
+        public void SetZoomRatio(float zoomRatio)
+        {
+            _currentZoomRatio = zoomRatio;
         }
 
         /// <summary>
@@ -292,27 +303,5 @@ namespace MineRTS.BigMap
             MarkDirtyRepaint();
         }
 
-        /// <summary>
-        /// 更新PPU并重新计算节点位置（屏幕分辨率变化时调用）
-        /// </summary>
-        public void UpdatePPU(float newPPU)
-        {
-            if (Mathf.Abs(_currentPPU - newPPU) < 0.001f) return;
-
-            _currentPPU = newPPU;
-
-            // 重新计算所有节点的局部空间位置
-            foreach (var kvp in _nodeElements)
-            {
-                var nodeElement = kvp.Value;
-                // 调用节点的UpdatePosition方法更新位置
-                nodeElement.UpdatePosition(_currentPPU);
-            }
-
-            // 强制重绘连线
-            MarkDirtyRepaint();
-
-            Debug.Log($"RuntimeMapContainer: PPU更新 - {_currentPPU}");
-        }
     }
 }

@@ -213,22 +213,6 @@ namespace MineRTS.BigMap
             evt.StopPropagation();
         }
 
-        /// <summary>
-        /// 更新节点位置（PPU变化时调用）
-        /// 公式：Local_X = World.x * PPU, Local_Y = -World.y * PPU
-        /// </summary>
-        public void UpdatePosition(float ppu)
-        {
-            // 重新计算局部空间坐标
-            Vector2 localPosition = new Vector2(
-                _nodeData.Position.x * ppu,
-                -_nodeData.Position.y * ppu
-            );
-
-            // 更新位置（居中）
-            style.left = localPosition.x - NODE_SIZE / 2;
-            style.top = localPosition.y - NODE_SIZE / 2;
-        }
 
         /// <summary>
         /// 更新节点数据（动态更新）
@@ -237,8 +221,13 @@ namespace MineRTS.BigMap
         {
             _nodeData = newData;
 
-            // 更新位置
-            UpdatePosition(ppu);
+            // 更新位置（使用与ApplyLocalPosition相同的逻辑）
+            Vector2 localPosition = new Vector2(
+                _nodeData.Position.x * ppu,
+                -_nodeData.Position.y * ppu
+            );
+            style.left = localPosition.x - NODE_SIZE / 2;
+            style.top = localPosition.y - NODE_SIZE / 2;
 
             // 更新标签文本
             if (_nameLabel != null)

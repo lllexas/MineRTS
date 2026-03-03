@@ -29,15 +29,48 @@ public class CameraController : SingletonMono<CameraController>
     private Camera _cam;
     private Vector3 _targetPos;
     private float _targetZoom;
+    private bool _isInitialized = false;
+
+    /// <summary>
+    /// 获取相机控制器是否已初始化
+    /// </summary>
+    public bool IsInitialized => _isInitialized;
 
     protected override void Awake()
     {
         base.Awake();
         _cam = GetComponent<Camera>();
 
+        // 检查相机组件
+        if (_cam == null)
+        {
+            Debug.LogError("<color=red>[CameraController]</color> 需要Camera组件！控制器将被禁用");
+            enabled = false;
+            return;
+        }
+
         // 初始化目标值为当前状态喵
         _targetPos = transform.position;
         _targetZoom = _cam.orthographicSize = defaultZoom;
+
+        Debug.Log("<color=cyan>[CameraController]</color> Awake完成，相机组件已获取");
+    }
+
+    private void Start()
+    {
+        // 检查相机组件
+        if (_cam == null)
+        {
+            Debug.LogError("<color=red>[CameraController]</color> 相机组件未找到，控制器将被禁用");
+            enabled = false;
+            return;
+        }
+
+        // 自动初始化：使用BigMap边界，确保相机立即可用
+        SyncBigMap();
+        _isInitialized = true;
+
+        Debug.Log("<color=cyan>[CameraController]</color> 已通过Start自动初始化，使用BigMap边界");
     }
 
     private void Update()
@@ -95,8 +128,11 @@ public class CameraController : SingletonMono<CameraController>
         }
 
         // --- 5. 限制边界 ---
-        _targetPos.x = Mathf.Clamp(_targetPos.x, _currentMovementBounds.xMin, _currentMovementBounds.xMax);
-        _targetPos.y = Mathf.Clamp(_targetPos.y, _currentMovementBounds.yMin, _currentMovementBounds.yMax);
+        if (_isInitialized)
+        {
+            _targetPos.x = Mathf.Clamp(_targetPos.x, _currentMovementBounds.xMin, _currentMovementBounds.xMax);
+            _targetPos.y = Mathf.Clamp(_targetPos.y, _currentMovementBounds.yMin, _currentMovementBounds.yMax);
+        }
     }
 
     private void ApplyTransform()
@@ -115,14 +151,79 @@ public class CameraController : SingletonMono<CameraController>
     /// </summary>
     public void SyncBounds()
     {
-        var whole = EntitySystem.Instance.wholeComponent;
+        try
+        {
+            // 检查EntitySystem是否可用
+            if (EntitySystem.Instance == null)
+            {
+                Debug.LogWarning("<color=orange>[CameraController]</color> EntitySystem未初始化，使用BigMap边界作为回退");
+                SyncBigMap();
+                return;
+            }
 
-        // 1. 根据 WholeComponent 的数据构建地图矩形
-        // 假设 minX, minY 是左下角起点，加上宽高
-        _worldRect = new Rect(whole.minX, whole.minY, whole.mapWidth, whole.mapHeight);
+            var whole = EntitySystem.Instance.wholeComponent;
 
-        // 2. 刷新当前的中心点限制
+            // 1. 根据 WholeComponent 的数据构建地图矩形
+            // 假设 minX, minY 是左下角起点，加上宽高
+            _worldRect = new Rect(whole.minX, whole.minY, whole.mapWidth, whole.mapHeight);
+
+            // 2. 刷新当前的中心点限制
+            UpdateMovementLimits();
+            _isInitialized = true;
+
+            Debug.Log($"<color=cyan>[CameraController]</color> 已同步EntitySystem边界: {_worldRect}");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"<color=red>[CameraController]</color> 同步EntitySystem边界失败: {ex.Message}");
+            // 回退到安全边界
+            SyncBigMap();
+        }
+    }
+
+    /// <summary>
+    /// 同步BigMap边界（临时方法）- 设置固定边界 (±100)
+    /// </summary>
+    public void SyncBigMap()
+    {
+        // 设置固定边界：从(-100, -100)到(100, 100)，总大小200x200
+        _worldRect = new Rect(-100f, -100f, 200f, 200f);
+
+        // 刷新当前的中心点限制
         UpdateMovementLimits();
+        _isInitialized = true;
+
+        Debug.Log($"<color=cyan>[CameraController]</color> 已同步BigMap边界: {_worldRect}");
+    }
+
+    /// <summary>
+    /// 同步主菜单边界（占位符方法）
+    /// </summary>
+    public void SyncMainMenu()
+    {
+        // TODO: 根据主菜单布局设置合适的边界
+        // 暂时使用与BigMap相同的边界
+        _worldRect = new Rect(-50f, -50f, 100f, 100f);
+
+        UpdateMovementLimits();
+        _isInitialized = true;
+
+        Debug.Log($"<color=cyan>[CameraController]</color> 已同步主菜单边界: {_worldRect}");
+    }
+
+    /// <summary>
+    /// 设置自定义世界边界
+    /// </summary>
+    /// <param name="center">边界中心点</param>
+    /// <param name="width">边界宽度</param>
+    /// <param name="height">边界高度</param>
+    public void SetCustomBounds(Vector2 center, float width, float height)
+    {
+        _worldRect = new Rect(center.x - width/2f, center.y - height/2f, width, height);
+        UpdateMovementLimits();
+        _isInitialized = true;
+
+        Debug.Log($"<color=cyan>[CameraController]</color> 已设置自定义边界: {_worldRect}");
     }
 
     /// <summary>
@@ -130,6 +231,30 @@ public class CameraController : SingletonMono<CameraController>
     /// </summary>
     private void UpdateMovementLimits()
     {
+        // 检查是否已初始化
+        if (!_isInitialized) return;
+
+        // 防止除零错误
+        if (Screen.height <= 0)
+        {
+            Debug.LogWarning("<color=orange>[CameraController]</color> Screen.height为0或负数，使用默认宽高比16:9");
+            // 使用默认宽高比16:9
+            float camHalfHeight2 = _targetZoom;
+            float camHalfWidth2 = camHalfHeight2 * (16f / 9f);
+
+            // 计算边界（使用当前_worldRect）
+            float minX2 = _worldRect.xMin + camHalfWidth2;
+            float maxX2 = _worldRect.xMax - camHalfWidth2;
+            float minY2 = _worldRect.yMin + camHalfHeight2;
+            float maxY2 = _worldRect.yMax - camHalfHeight2;
+
+            if (minX2 > maxX2) minX2 = maxX2 = _worldRect.center.x;
+            if (minY2 > maxY2) minY2 = maxY2 = _worldRect.center.y;
+
+            _currentMovementBounds = Rect.MinMaxRect(minX2, minY2, maxX2, maxY2);
+            return;
+        }
+
         // 计算相机视口的一半高度 (orthographicSize)
         float camHalfHeight = _targetZoom;
         // 计算相机视口的一半宽度 (由宽高比决定)

@@ -266,30 +266,6 @@ namespace MineRTS.BigMap
         }
 
         /// <summary>
-        /// 获取当前摄像机位置（用于保存游戏状态）
-        /// </summary>
-        public Vector2 GetCameraPosition()
-        {
-            if (_runtimeRenderer != null)
-            {
-                return _runtimeRenderer.CameraWorldPos;
-            }
-            return Vector2.zero;
-        }
-
-        /// <summary>
-        /// 获取当前缩放级别（用于保存游戏状态）
-        /// </summary>
-        public float GetZoomLevel()
-        {
-            if (_runtimeRenderer != null)
-            {
-                return _runtimeRenderer.ZoomLevel;
-            }
-            return 1.0f;
-        }
-
-        /// <summary>
         /// 设置摄像机位置和缩放（用于恢复游戏状态）
         /// </summary>
         public void SetCameraView(Vector2 position, float zoomLevel)
