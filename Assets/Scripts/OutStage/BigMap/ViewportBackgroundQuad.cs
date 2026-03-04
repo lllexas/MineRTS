@@ -36,7 +36,7 @@ namespace MineRTS.BigMap
 
         [Header("模式配置")]
         [Tooltip("当前激活的视口模式")]
-        [SerializeField] private ViewportMode _currentMode = ViewportMode.Default;
+        [SerializeField] private ViewportMode _currentMode = ViewportMode.DefaultGrid; // 修改这里
 
         [Tooltip("模式与材质的映射关系")]
         [SerializeField] private List<ModeMaterialMap> _modeMaterials = new List<ModeMaterialMap>();
@@ -238,7 +238,9 @@ namespace MineRTS.BigMap
                 Debug.LogWarning($"<color=orange>[ViewportBackgroundQuad]</color> 发现重复的模式配置: {string.Join(", ", duplicateModes)}。将使用第一个匹配项。");
             }
 
-            // 检查当前模式是否有材质配置
+            // 检查当前模式是否有材质配置（None模式不需要材质）
+            if (_currentMode == ViewportMode.None) return; // None模式不需要材质检查
+
             bool hasCurrentModeMaterial = false;
             foreach (var map in _modeMaterials)
             {
@@ -260,6 +262,25 @@ namespace MineRTS.BigMap
         /// </summary>
         private void ApplyModeInEditor()
         {
+            if (_currentMode == ViewportMode.None)
+            {
+                if (_meshRenderer != null) _meshRenderer.enabled = false;
+
+                // 禁用所有桥接器
+                if (_bridgesInitialized && _shaderBridges != null)
+                {
+                    foreach (var bridge in _shaderBridges) bridge.enabled = false;
+                }
+                Debug.Log($"<color=yellow>[ViewportBackgroundQuad]</color> 编辑器模式 - 已预览模式: None (隐藏)");
+                return;
+            }
+
+            // 如果不是 None 模式，确保 Renderer 开启
+            if (_meshRenderer != null && !_meshRenderer.enabled)
+            {
+                _meshRenderer.enabled = true;
+            }
+
             // 步骤1：查找并应用对应材质（编辑器模式使用sharedMaterial）
             Material targetMaterial = null;
             foreach (var map in _modeMaterials)
@@ -269,6 +290,18 @@ namespace MineRTS.BigMap
                     targetMaterial = map.material;
                     break;
                 }
+            }
+
+            // 如果找不到材质，隐藏 Quad（编辑器预览）
+            if (targetMaterial == null)
+            {
+                Debug.LogWarning($"<color=orange>[ViewportBackgroundQuad]</color> 编辑器模式 - 模式 {_currentMode} 没有对应的材质配置，隐藏 Quad");
+                if (_meshRenderer != null) _meshRenderer.enabled = false;
+                if (_bridgesInitialized && _shaderBridges != null)
+                {
+                    foreach (var bridge in _shaderBridges) bridge.enabled = false;
+                }
+                return;
             }
 
             if (targetMaterial != null && _meshRenderer != null)
@@ -362,7 +395,7 @@ namespace MineRTS.BigMap
         private void LateUpdate()
         {
             // 检测相机参数变化
-            if (_targetCamera == null) return;
+            // if (_targetCamera == null) return;
 
             bool needsTransformUpdate = false;
 
@@ -567,7 +600,27 @@ namespace MineRTS.BigMap
         {
             _currentMode = mode;
 
-            // 步骤1：查找并应用对应材质
+            // 1. 处理 None 模式（隐藏 Quad）
+            if (mode == ViewportMode.None)
+            {
+                if (_meshRenderer != null) _meshRenderer.enabled = false;
+
+                // 禁用所有桥接器
+                if (_bridgesInitialized && _shaderBridges != null)
+                {
+                    foreach (var bridge in _shaderBridges) bridge.enabled = false;
+                }
+                Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 已切换到模式: None (隐藏背景)");
+                return;
+            }
+
+            // 2. 恢复渲染状态（从 None 切换回来时需要）
+            if (_meshRenderer != null && !_meshRenderer.enabled)
+            {
+                _meshRenderer.enabled = true;
+            }
+
+            // 3. 查找并应用对应材质
             Material targetMaterial = null;
             foreach (var map in _modeMaterials)
             {
@@ -580,15 +633,21 @@ namespace MineRTS.BigMap
 
             if (targetMaterial == null)
             {
-                Debug.LogWarning($"<color=orange>[ViewportBackgroundQuad]</color> 模式 {mode} 没有对应的材质配置，保持当前材质");
+                Debug.LogWarning($"<color=orange>[ViewportBackgroundQuad]</color> 模式 {mode} 没有对应的材质配置，隐藏 Quad");
+                if (_meshRenderer != null) _meshRenderer.enabled = false;
+                if (_bridgesInitialized && _shaderBridges != null)
+                {
+                    foreach (var bridge in _shaderBridges) bridge.enabled = false;
+                }
+                Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 模式设置为 {mode}，但 Quad 被隐藏（无材质配置）");
+                return;
             }
             else
             {
-                // 使用SwitchMaterial方法应用新材质（它会创建实例并通知桥接器）
                 SwitchMaterial(targetMaterial);
             }
 
-            // 步骤2：激活/禁用桥接器
+            // 4. 激活/禁用桥接器
             if (_bridgesInitialized && _shaderBridges != null)
             {
                 foreach (var bridge in _shaderBridges)
@@ -609,10 +668,6 @@ namespace MineRTS.BigMap
                     }
                 }
             }
-
-            // 步骤3：SwitchMaterial内部已经调用了NotifyBridgesMaterialChanged
-            // 但如果材质没有变化，我们仍然需要通知桥接器模式已变更
-            // 实际上桥接器可以在UpdateShaderProperties中检查当前模式
 
             Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 已切换到模式: {mode}");
         }

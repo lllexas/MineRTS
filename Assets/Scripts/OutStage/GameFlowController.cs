@@ -86,34 +86,67 @@ public class GameFlowController : SingletonMono<GameFlowController>
     }
 
     /// <summary>
-    /// 处理状态进入逻辑
+    /// 处理状态进入逻辑：同步协调 UI、背景底板、摄像机
     /// </summary>
     private void HandleStateEnter(GameState newState)
     {
         switch (newState)
         {
             case GameState.MainMenu:
-                // 主菜单状态进入：打开主菜单面板
-                if (MainMenuManager.Instance != null)
+                Debug.Log("<color=orange>[GameFlow]</color> 进入主菜单状态");
+
+                // 1. UI 层面：打开主菜单面板
+                if (MainMenuManager.Instance != null) MainMenuManager.Instance.Open();
+
+                // 2. 背景层面：切换到主菜单背景（或者用 None 隐藏掉，节约性能）
+                if (ViewportBackgroundQuad.Instance != null)
                 {
-                    MainMenuManager.Instance.Open();
+                    // 如果主菜单是全屏纯UI遮挡，可以直接传 ViewportMode.None 隐藏 Quad
+                    ViewportBackgroundQuad.Instance.ApplyMode(ViewportMode.MainMenu);
                 }
+
+                // 3. 摄像机层面：同步主菜单专用的限制边界
+                if (CameraController.Instance != null) CameraController.Instance.SyncMainMenu();
                 break;
+
             case GameState.BigMap:
-                // 大地图状态进入：打开大地图面板，加载默认地图
-                if (BigMapManager.Instance != null)
+                Debug.Log("<color=orange>[GameFlow]</color> 进入大地图状态");
+
+                // 1. UI 层面：打开大地图面板
+                if (BigMapManager.Instance != null) BigMapManager.Instance.Open();
+
+                // 2. 背景层面：切换到大地图炫酷底板
+                if (ViewportBackgroundQuad.Instance != null)
                 {
-                    BigMapManager.Instance.Open();
-                    Debug.Log("<color=orange>[GameFlow]</color> 大地图面板已打开");
+                    ViewportBackgroundQuad.Instance.ApplyMode(ViewportMode.BigMap);
                 }
-                else
+
+                // 3. 摄像机层面：同步大地图的边界范围并居中
+                if (CameraController.Instance != null)
                 {
-                    Debug.LogWarning("<color=orange>[GameFlow]</color> BigMapManager实例未找到，无法打开大地图面板");
+                    CameraController.Instance.SyncBigMap();
+                    CameraController.Instance.GoToOrigin(); // 切到大地图时默认回原点
                 }
                 break;
+
             case GameState.InStage:
-                // 关卡状态进入：ECS初始化在EnterStage中处理，这里只记录
-                Debug.Log("<color=orange>[GameFlow]</color> 进入关卡状态");
+                Debug.Log("<color=orange>[GameFlow]</color> 进入战斗关卡状态");
+
+                // 1. UI 层面：(未来如果你有 BattleUIManager，可以在这里 Open)
+
+                // 2. 背景层面：切换到战斗用的基础正交网格
+                if (ViewportBackgroundQuad.Instance != null)
+                {
+                    ViewportBackgroundQuad.Instance.ApplyMode(ViewportMode.None);
+                }
+
+                // 3. 摄像机层面：根据 ECS 当前加载的关卡数据同步边界
+                if (CameraController.Instance != null)
+                {
+                    // 注意：因为 LoadStage 是在 EnterStage 触发的，此时 EntitySystem 里应该已经有数据了
+                    CameraController.Instance.SyncBounds();
+                    CameraController.Instance.InitializeCamera(); // 自动回原点并重置缩放
+                }
                 break;
         }
     }

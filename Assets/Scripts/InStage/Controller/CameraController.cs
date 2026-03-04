@@ -20,6 +20,9 @@ public class CameraController : SingletonMono<CameraController>
 
     [Header("平滑与边界")]
     public float lerpSpeed = 100f;           // 平滑跟随速度
+
+    [Header("是否暂停")]
+    public bool isPaused = false;           // 暂停状态，暂停时不处理输入
     //------------------ 修改 ------------------------
     // 不再手动填写 mapBounds，改为由 SyncBounds 从 WholeComponent 计算得出
     private Rect _currentMovementBounds;    // 当前缩放级别下，相机中心允许活动的范围
@@ -75,8 +78,20 @@ public class CameraController : SingletonMono<CameraController>
 
     private void Update()
     {
+        HandlePause();
+        if (isPaused) return; // 如果游戏暂停了，就不处理输入喵
         HandleInput();
         ApplyTransform();
+    }
+
+    private void HandlePause()
+    {
+        // 监听暂停键（F10键）切换暂停状态
+        if (Input.GetKeyDown(KeyCode.F10))
+        {
+            isPaused = !isPaused;
+            Debug.Log($"<color=cyan>[CameraController]</color> 暂停状态切换: {(isPaused ? "已暂停" : "已恢复")}");
+        }
     }
 
     private void HandleInput()

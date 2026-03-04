@@ -8,14 +8,14 @@ namespace MineRTS.BigMap
     /// </summary>
     public enum ViewportMode
     {
-        /// <summary>默认模式 - 基础网格渲染</summary>
-        Default,
-        /// <summary>战术模式 - 显示战术信息</summary>
-        Tactical,
-        /// <summary>小地图模式 - 简化的小地图渲染</summary>
-        MiniMap,
-        /// <summary>战争迷雾模式 - 显示战争迷雾效果</summary>
-        FogOfWar
+        /// <summary>无模式 - 此模式下隐藏quad</summary>
+        None,
+        /// <summary>基础模式 - 基础正交网格渲染</summary>
+        DefaultGrid,
+        /// <summary>大地图模式 - 炫酷底板扩散梯度图</summary>
+        BigMap,
+        /// <summary>主菜单模式 - 还没想好怎么写</summary>
+        MainMenu
     }
 
     /// <summary>
@@ -42,7 +42,7 @@ namespace MineRTS.BigMap
 
         [Header("模式激活配置")]
         [Tooltip("此桥接器在哪些视口模式下激活")]
-        [SerializeField] private List<ViewportMode> _activeInModes = new List<ViewportMode> { ViewportMode.Default };
+        [SerializeField] private List<ViewportMode> _activeInModes = new List<ViewportMode> { ViewportMode.None };
 
         /// <summary>
         /// 获取激活模式列表（只读）

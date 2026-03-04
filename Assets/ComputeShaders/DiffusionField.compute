@@ -1,0 +1,227 @@
+// DiffusionField.compute
+// 扩散场背景效果 - 密度梯度扩散模型
+// 功能：节点注入密度 + 卷积核扩散 + 衰减
+// 架构：Ping-Pong 双缓冲时间演化
+
+#pragma kernel CSDiffuse
+#pragma kernel CSInject
+#pragma kernel CSInit
+
+// ==================== 数据结构 ====================
+
+// 节点数据结构（与 BigMapGPUBufferManager 一致）
+struct NodeData
+{
+    float4 PositionAndRadius;   // x,y: 位置，z: 半径，w: 保留
+    float4 ColorAndFlags;       // x,y,z,w: 颜色 (RGBA)
+    float4 Attributes;          // x: 标志位，yzw: 保留
+};
+
+// ==================== 资源绑定 ====================
+
+// 节点数据（从 BigMapGPUBufferManager 共享）
+StructuredBuffer<NodeData> _Nodes;
+uint _NodeCount;
+
+// 屏幕/相机参数
+uint2 _ScreenSize;            // 屏幕尺寸（uint2 避免类型转换）
+float2 _ScreenSizeInv;        // 屏幕尺寸的倒数（用于 UV 计算）
+float2 _WorldMin;             // 世界空间左下角
+float2 _WorldMax;             // 世界空间右上角
+float _Time;                  // 运行时间
+
+// 扩散参数
+float _GradientStep;        // 梯度下降步长 (默认 0.02) - 每像素高度下降值
+float _InjectStrength;      // 注入强度 (默认 1.0) - 节点处的最大高度
+float _InjectRadius;        // 注入半径 (默认 0.05)
+float _DeltaTime;           // 时间步长（秒）
+
+// SDF 参数
+RWTexture2D<float4> _SDFBuffer;     // SDF 输出纹理
+float _SDFGradient;                 // SDF 梯度斜率 (默认 0.1)
+int _UseSDFMode;                    // 0=Diffusion, 1=SDF, 2=Blend
+float _SDFBlendFactor;              // 混合系数 (0-1)
+
+// Ping-Pong 缓冲区
+Texture2D<float4> _InputBuffer;
+RWTexture2D<float4> _OutputBuffer;
+
+// ==================== 辅助函数 ====================
+
+// 将屏幕坐标转换为世界坐标
+float2 ScreenToWorld(float2 screenUV)
+{
+    return lerp(_WorldMin, _WorldMax, screenUV);
+}
+
+// 将世界坐标转换为屏幕 UV
+float2 WorldToScreen(float2 worldPos)
+{
+    return (worldPos - _WorldMin) * _ScreenSizeInv;
+}
+
+// ==================== 初始化 Kernel ====================
+
+// 初始化缓冲区（全黑）
+[numthreads(8, 8, 1)]
+void CSInit(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _ScreenSize.x || id.y >= _ScreenSize.y) return;
+    _OutputBuffer[id.xy] = float4(0, 0, 0, 1);
+}
+
+// ==================== 注入 Kernel ====================
+
+// 在节点位置注入密度（简化版，不使用此版本）
+[numthreads(8, 8, 1)]
+void CSInject(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _ScreenSize.x || id.y >= _ScreenSize.y) return;
+
+    float2 uv = float2(id.x, id.y) * _ScreenSizeInv;
+    float2 worldPos = ScreenToWorld(uv);
+
+    // 读取当前密度
+    float currentDensity = _InputBuffer[id.xy].r;
+
+    // 在节点位置维持密度
+    float injectValue = 0;
+    for (uint i = 0; i < _NodeCount; i++)
+    {
+        float2 nodePos = _Nodes[i].PositionAndRadius.xy;
+        float nodeRadius = _Nodes[i].PositionAndRadius.z;
+
+        float dist = distance(worldPos, nodePos);
+        float injectRadius = max(nodeRadius, _InjectRadius);
+
+        if (dist < injectRadius)
+        {
+            float injectFactor = 1.0 - dist / injectRadius;
+            injectValue = max(injectValue, injectFactor * _InjectStrength);
+        }
+    }
+
+    float newDensity = max(currentDensity, injectValue);
+    _OutputBuffer[id.xy] = float4(newDensity, newDensity, newDensity, 1);
+}
+
+// ==================== 扩散 Kernel ====================
+
+// 梯度下降扩散（简化版，不使用此版本）
+[numthreads(8, 8, 1)]
+void CSDiffuse(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _ScreenSize.x || id.y >= _ScreenSize.y) return;
+
+    // 读取当前密度
+    float currentDensity = _InputBuffer[id.xy].r;
+
+    // ==================== 梯度下降（最大值减法）====================
+    int x = (int)id.x;
+    int y = (int)id.y;
+    int width = (int)_ScreenSize.x;
+    int height = (int)_ScreenSize.y;
+
+    // 读取 4-邻居的值，做好边界检查
+    float top    = (y < height - 1) ? _InputBuffer[id.xy + uint2(0, 1)].r : 0;
+    float bottom = (y > 0)          ? _InputBuffer[id.xy - uint2(0, 1)].r : 0;
+    float left   = (x > 0)          ? _InputBuffer[id.xy - uint2(1, 0)].r : 0;
+    float right  = (x < width - 1)  ? _InputBuffer[id.xy + uint2(1, 0)].r : 0;
+
+    // 找出邻居中的最高点
+    float maxNeighbor = max(top, max(bottom, max(left, right)));
+
+    // 从最高邻居的高度，减去一个步长
+    float newDensity = max(0, maxNeighbor - _GradientStep);
+
+    // 写入输出缓冲
+    _OutputBuffer[id.xy] = float4(newDensity, newDensity, newDensity, 1);
+}
+
+// ==================== 备用 Kernel（扩散 + 注入合并）====================
+
+#pragma kernel CSDiffuseInject
+
+// 合并版本：扩散 + 注入 在一个 Kernel 中完成
+// 核心逻辑：线性势能场模型 - 每个像素值代表"距离最近喷泉的高度"
+[numthreads(8, 8, 1)]
+void CSDiffuseInject(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _ScreenSize.x || id.y >= _ScreenSize.y) return;
+
+    float2 uv = float2(id.x, id.y) * _ScreenSizeInv;
+    float2 worldPos = ScreenToWorld(uv);
+
+    // ==================== 第一步：维持喷泉高度（注入逻辑）====================
+    float injectValue = 0;
+    for (uint i = 0; i < _NodeCount; i++)
+    {
+        float2 nodePos = _Nodes[i].PositionAndRadius.xy;
+        float nodeRadius = _Nodes[i].PositionAndRadius.z;
+
+        float dist = distance(worldPos, nodePos);
+        float injectRadius = max(nodeRadius, _InjectRadius);
+
+        if (dist < injectRadius)
+        {
+            // 使用 max，确保注入值不会超过设定强度
+            float injectFactor = 1.0 - dist / injectRadius;
+            injectValue = max(injectValue, injectFactor * _InjectStrength);
+        }
+    }
+
+    // ==================== 第二步：梯度下降（扩散逻辑）====================
+    // 从邻居那里继承高度：读取周围邻居的值，找出最大值，然后减去梯度步长
+    int x = (int)id.x;
+    int y = (int)id.y;
+    int width = (int)_ScreenSize.x;
+    int height = (int)_ScreenSize.y;
+
+    // 读取 4-邻居的值，做好边界检查
+    float top    = (y < height - 1) ? _InputBuffer[id.xy + uint2(0, 1)].r : 0;
+    float bottom = (y > 0)          ? _InputBuffer[id.xy - uint2(0, 1)].r : 0;
+    float left   = (x > 0)          ? _InputBuffer[id.xy - uint2(1, 0)].r : 0;
+    float right  = (x < width - 1)  ? _InputBuffer[id.xy + uint2(1, 0)].r : 0;
+
+    // 找出邻居中的最高点
+    float maxNeighbor = max(top, max(bottom, max(left, right)));
+
+    // 从最高邻居的高度，减去一个步长。这就是通过扩散得到的新高度
+    float densityFromNeighbors = max(0, maxNeighbor - _GradientStep);
+
+    // ==================== 最终输出 ====================
+    // 取"自身注入"和"邻居扩散"两者中的最大值
+    float newDensity = max(injectValue, densityFromNeighbors);
+
+    _OutputBuffer[id.xy] = float4(newDensity, newDensity, newDensity, 1.0);
+}
+
+// ==================== 空间 SDF Kernel ====================
+
+#pragma kernel CSSpatialSDF
+
+// 空间 SDF 计算 - 线性势能场
+// 核心逻辑：每个像素的值 = max(0, 注入强度 - 距离 * 梯度)
+[numthreads(8, 8, 1)]
+void CSSpatialSDF(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _ScreenSize.x || id.y >= _ScreenSize.y) return;
+
+    // 1. 获取当前像素的世界坐标
+    float2 uv = float2(id.x, id.y) * _ScreenSizeInv;
+    float2 worldPos = ScreenToWorld(uv);
+
+    // 2. 空间搜索（暴力遍历所有节点）
+    float maxSDF = 0;
+    for (uint i = 0; i < _NodeCount; i++)
+    {
+        float2 nodePos = _Nodes[i].PositionAndRadius.xy;
+        float dist = distance(worldPos, nodePos);
+        
+        // 线性势能公式：强度 - 距离 * 梯度
+        float val = max(0, _InjectStrength - dist * _SDFGradient);
+        maxSDF = max(maxSDF, val);
+    }
+
+    _SDFBuffer[id.xy] = float4(maxSDF, maxSDF, maxSDF, 1.0);
+}

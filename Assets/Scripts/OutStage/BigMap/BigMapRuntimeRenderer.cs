@@ -105,23 +105,29 @@ namespace MineRTS.BigMap
             if (!_isInitialized || !isActiveAndEnabled) return;
             if (_targetCamera == null || _mapContainer == null) return;
 
-            // 动态计算当前PPU：基于当前摄像机正交尺寸
-            _currentPPU = Screen.height / (_targetCamera.orthographicSize * 2f);
+            // 【修复核心1】获取 UI Toolkit 实际的逻辑宽高
+            var rootLayout = _uiDocument.rootVisualElement.layout;
+            float panelWidth = rootLayout.width;
+            float panelHeight = rootLayout.height;
+
+            // 防御：如果 UI 还没完成初次布局（宽高为 0 或 NaN），先跳过这一帧
+            if (float.IsNaN(panelWidth) || panelWidth <= 0.1f) return;
+
+            // 【修复核心2】动态计算当前PPU：基于逻辑高度和正交尺寸
+            _currentPPU = panelHeight / (_targetCamera.orthographicSize * 2f);
 
             // 计算缩放比例：CurrentPPU / BasePPU
-            if (_basePPU <= 0) return; // 基础PPU未初始化
+            if (_basePPU <= 0) return;
             float scaleRatio = _currentPPU / _basePPU;
 
             // 获取摄像机世界位置
             Vector3 cameraWorldPos = _targetCamera.transform.position;
 
-            // 计算平移量（严格遵循正交投影公式）
-            // Translate_X = (Screen.width / 2f) - (Camera.position.x * CurrentPPU)
-            // Translate_Y = (Screen.height / 2f) - (-Camera.position.y * CurrentPPU) // Y轴反转
-            float translateX = (Screen.width / 2f) - (cameraWorldPos.x * _currentPPU);
-            float translateY = (Screen.height / 2f) - (-cameraWorldPos.y * _currentPPU);
+            // 【修复核心3】平移量计算必须基于 panelWidth / panelHeight
+            float translateX = (panelWidth / 2f) - (cameraWorldPos.x * _currentPPU);
+            float translateY = (panelHeight / 2f) - (-cameraWorldPos.y * _currentPPU); // Y轴反转
 
-            // 应用容器级变换（O(1)操作，避免遍历节点）
+            // 应用容器级变换
             _mapContainer.style.translate = new Translate(translateX, translateY);
             _mapContainer.style.scale = new Scale(new Vector3(scaleRatio, scaleRatio, 1));
 
@@ -198,8 +204,14 @@ namespace MineRTS.BigMap
                     return;
                 }
 
-                _basePPU = Screen.height / (_targetCamera.orthographicSize * 2f);
-                Debug.Log($"BigMapRuntimeRenderer: 基础PPU计算完成 - {_basePPU:F2} (屏幕高度: {Screen.height}, 正交尺寸: {_targetCamera.orthographicSize})");
+                // 【修复核心4】在加载时获取面板逻辑高度，如果还没布局完成，退回到物理高度兜底
+                float initialHeight = _uiDocument.rootVisualElement.layout.height;
+                if (float.IsNaN(initialHeight) || initialHeight <= 0.1f)
+                {
+                    initialHeight = Screen.height; // 兜底方案
+                }
+                _basePPU = initialHeight / (_targetCamera.orthographicSize * 2f);
+                Debug.Log($"BigMapRuntimeRenderer: 基础PPU计算完成 - {_basePPU:F2} (面板高度: {initialHeight}, 正交尺寸: {_targetCamera.orthographicSize})");
 
                 // 渲染地图（传递基础PPU）
                 if (_mapContainer != null)
@@ -263,10 +275,15 @@ namespace MineRTS.BigMap
         {
             _mapData = data;
 
-            // 计算新的基础PPU
+            // 计算新的基础PPU（使用面板逻辑高度）
             if (_targetCamera != null)
             {
-                _basePPU = Screen.height / (_targetCamera.orthographicSize * 2f);
+                float initialHeight = _uiDocument.rootVisualElement.layout.height;
+                if (float.IsNaN(initialHeight) || initialHeight <= 0.1f)
+                {
+                    initialHeight = Screen.height; // 兜底方案
+                }
+                _basePPU = initialHeight / (_targetCamera.orthographicSize * 2f);
             }
 
             if (_mapContainer != null)

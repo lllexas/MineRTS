@@ -303,6 +303,22 @@ namespace MineRTS.BigMap
         }
 
         /// <summary>
+        /// 获取节点缓冲区（供 DiffusionFieldBridge 使用）
+        /// </summary>
+        public ComputeBuffer GetNodeBuffer()
+        {
+            return _nodeBuffer;
+        }
+
+        /// <summary>
+        /// 获取边缓冲区（可选）
+        /// </summary>
+        public ComputeBuffer GetEdgeBuffer()
+        {
+            return _edgeBuffer;
+        }
+
+        /// <summary>
         /// 将GPU缓冲区设置到材质
         /// </summary>
         public void ApplyBuffersToMaterial(Material material)
