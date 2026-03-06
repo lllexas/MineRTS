@@ -34,6 +34,9 @@ Shader "MineRTS/DiffusionDisplay"
         [HideInInspector] _CameraOrthoSize ("正交尺寸", Float) = 10
         [HideInInspector] _CameraAspect ("宽高比", Float) = 1.77
         [HideInInspector] _CameraWorldPos ("相机世界位置", Vector) = (0,0,0,0)
+        
+        // 显示模式开关
+        [HideInInspector] _UseWorldSpace ("使用世界空间", Float) = 1
     }
 
     SubShader
@@ -87,6 +90,9 @@ Shader "MineRTS/DiffusionDisplay"
             float _CameraOrthoSize;
             float _CameraAspect;
             float4 _CameraWorldPos;
+            
+            // 显示模式开关
+            float _UseWorldSpace;
             
             // 顶点输入
             struct appdata
@@ -198,7 +204,20 @@ Shader "MineRTS/DiffusionDisplay"
             {
                 // ==================== 1. 建立世界空间坐标系 ====================
                 float2 viewportSize = float2(_CameraOrthoSize * 2.0 * _CameraAspect, _CameraOrthoSize * 2.0);
-                float2 worldPos = _CameraWorldPos.xy + (i.uv - 0.5) * viewportSize;
+                
+                // 显示模式开关：世界空间 vs 屏幕空间
+                float2 worldPos;
+                if (_UseWorldSpace > 0.5)
+                {
+                    // 世界空间模式：三角形网格跟随世界坐标
+                    worldPos = _CameraWorldPos.xy + (i.uv - 0.5) * viewportSize;
+                }
+                else
+                {
+                    // 屏幕空间模式：三角形网格固定在屏幕空间（钉死在 UV 空间）
+                    // 不加 _CameraWorldPos.xy，就相当于把网格永远钉死在屏幕中心 (0,0)
+                    worldPos = (i.uv - 0.5) * viewportSize;
+                }
 
                 // ==================== 2. 三角形密铺映射 ====================
                 float2 localPos;
@@ -208,7 +227,18 @@ Shader "MineRTS/DiffusionDisplay"
 
                 // ==================== 3. 中心采样逻辑 ====================
                 // 将世界坐标转换为 SDF 纹理的 UV 坐标（0~1）
-                float2 sdfUV = (centerWorldPos - _CameraWorldPos.xy) / viewportSize + 0.5;
+                float2 sdfUV;
+                if (_UseWorldSpace > 0.5)
+                {
+                    // 世界空间模式：使用世界坐标转换
+                    sdfUV = (centerWorldPos - _CameraWorldPos.xy) / viewportSize + 0.5;
+                }
+                else
+                {
+                    // 严格对称：因为正向是 worldPos = (i.uv - 0.5) * viewportSize
+                    // 所以逆向除回去，还原出 [0,1] 的采样 UV
+                    sdfUV = centerWorldPos / viewportSize + 0.5;
+                }
                 sdfUV = clamp(sdfUV, 0, 1);  // 边界保护
 
                 // 采样 SDF 纹理获取 power 值

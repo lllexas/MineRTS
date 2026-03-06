@@ -23,7 +23,15 @@ Material:
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
+    - _DiffuseTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _EffectTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SDFTex:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
@@ -33,7 +41,18 @@ Material:
     - _CameraAspect: 1.77
     - _CameraOrthoSize: 10
     - _Contrast: 1
+    - _EdgeSmoothness: 0.0117
+    - _EdgeWidth: 0.008
     - _Gamma: 1
+    - _GridScale: 1
+    - _SDFBlendFactor: 0.495
+    - _TriangleScalePower: 1.05
+    - _TriangleSize: 0.5
+    - _UseWorldSpace: 0
     m_Colors:
+    - _BgColor: {r: 0.11764706, g: 0.12941177, b: 0.14901961, a: 1}
+    - _CameraWorldPos: {r: 7.825992, g: 5.8950515, b: 0, a: 0}
+    - _EdgeColor: {r: 0.274069, g: 0.31954882, b: 0.3433962, a: 1}
+    - _FillColor: {r: 0, g: 0.7058824, b: 0.78431374, a: 1}
     - _TintColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

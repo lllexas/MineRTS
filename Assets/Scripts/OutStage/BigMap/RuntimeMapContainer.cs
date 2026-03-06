@@ -6,10 +6,13 @@ using System.Collections.Generic;
 namespace MineRTS.BigMap
 {
     /// <summary>
-    /// 运行时地图容器 - 基于正交投影的节点和连线管理器
+    /// 【已废弃】运行时地图容器 - UI Toolkit 版本
     /// 职责：管理节点元素，绘制连线，应用局部空间坐标变换
     /// 核心：所有节点和连线都在局部空间定义，通过容器级变换实现摄像机移动
+    /// 
+    /// 注意：此类已废弃，请使用 BigMapRuntimeRenderer（GameObject 版本）
     /// </summary>
+    [System.Obsolete("RuntimeMapContainer 已废弃，请使用 BigMapRuntimeRenderer（GameObject 版本）")]
     public class RuntimeMapContainer : VisualElement
     {
         // 节点映射表：节点ID -> 节点元素

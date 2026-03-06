@@ -25,7 +25,7 @@ public class ArbitrationSystem : SingletonMono<ArbitrationSystem>
     public void UpdateArbitration(WholeComponent whole, float deltaTime)
     {
         return; // 暂时关闭仲裁逻辑，专注于路径修正和预约机制的稳定性
-        long currentTick = TimeTicker.GlobalTick;
+        /*long currentTick = TimeTicker.GlobalTick;
 
         for (int i = 0; i < whole.entityCount; i++)
         {
@@ -84,7 +84,7 @@ public class ArbitrationSystem : SingletonMono<ArbitrationSystem>
                 m.IsBlocked = true;
                 m.BlockWaitTimerTicks = 2;
             }
-        }
+        }*/
     }
 
     /// <summary>

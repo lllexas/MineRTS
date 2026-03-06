@@ -172,12 +172,19 @@ public class MapCanvasElement : VisualElement
     private const float PIXELS_PER_UNIT = 100.0f;
 
     // 逻辑坐标 -> 屏幕像素：先放大 100 倍，再应用缩放和平移
+    // 逻辑坐标(Y向上) -> 屏幕像素(Y向下)：先翻转Y轴，再放大、缩放、平移
     private Vector2 LogicToLocal(Vector2 logicPos)
-        => (logicPos * PIXELS_PER_UNIT) * _canvasZoom + _canvasOffset;
+    {
+        Vector2 invertedLogic = new Vector2(logicPos.x, -logicPos.y); // 【修改点】翻转 Y 轴
+        return (invertedLogic * PIXELS_PER_UNIT) * _canvasZoom + _canvasOffset;
+    }
 
-    // 屏幕像素 -> 逻辑坐标：先撤销平移和缩放，再缩小 100 倍
+    // 屏幕像素(Y向下) -> 逻辑坐标(Y向上)：先撤销平移、缩放、缩小，最后翻转Y轴
     private Vector2 LocalToLogic(Vector2 localPos)
-        => ((localPos - _canvasOffset) / _canvasZoom) / PIXELS_PER_UNIT;
+    {
+        Vector2 rawLogic = ((localPos - _canvasOffset) / _canvasZoom) / PIXELS_PER_UNIT;
+        return new Vector2(rawLogic.x, -rawLogic.y); // 【修改点】翻转 Y 轴
+    }
 
     private void UpdateTransform()
     {
@@ -238,39 +245,44 @@ public class MapCanvasElement : VisualElement
 
     private void DrawGridAndAxes(Painter2D painter)
     {
-        // 逻辑坐标步长为 1（因为内部已经映射为了 100 像素）
+        // 逻辑坐标步长为 1
         float logicGridSize = 1.0f;
 
         var canvasRect = this.worldBound;
         if (canvasRect.width <= 0 || canvasRect.height <= 0) return;
 
-        Vector2 logicMin = LocalToLogic(Vector2.zero);
-        Vector2 logicMax = LocalToLogic(new Vector2(canvasRect.width, canvasRect.height));
+        // 【修改点：分离包围盒计算，修复Y轴颠倒】
+        Vector2 topLeftLogic = LocalToLogic(Vector2.zero);
+        Vector2 bottomRightLogic = LocalToLogic(new Vector2(canvasRect.width, canvasRect.height));
 
-        logicMin.x -= logicGridSize; logicMin.y -= logicGridSize;
-        logicMax.x += logicGridSize; logicMax.y += logicGridSize;
+        float logicMinX = topLeftLogic.x - logicGridSize;
+        float logicMaxX = bottomRightLogic.x + logicGridSize;
+        float logicMinY = bottomRightLogic.y - logicGridSize; // 下边的逻辑Y值更小
+        float logicMaxY = topLeftLogic.y + logicGridSize;     // 上边的逻辑Y值更大
 
         // 画辅助网格线（淡色）
         painter.lineWidth = 1.0f;
         painter.strokeColor = new Color(0.2f, 0.2f, 0.2f, 0.5f);
 
-        float startX = Mathf.Floor(logicMin.x / logicGridSize) * logicGridSize;
-        float endX = Mathf.Ceil(logicMax.x / logicGridSize) * logicGridSize;
+        // 画竖线 (X轴方向循环)
+        float startX = Mathf.Floor(logicMinX / logicGridSize) * logicGridSize;
+        float endX = Mathf.Ceil(logicMaxX / logicGridSize) * logicGridSize;
         for (float x = startX; x <= endX; x += logicGridSize)
         {
             painter.BeginPath();
-            painter.MoveTo(LogicToLocal(new Vector2(x, logicMin.y)));
-            painter.LineTo(LogicToLocal(new Vector2(x, logicMax.y)));
+            painter.MoveTo(LogicToLocal(new Vector2(x, logicMinY)));
+            painter.LineTo(LogicToLocal(new Vector2(x, logicMaxY)));
             painter.Stroke();
         }
 
-        float startY = Mathf.Floor(logicMin.y / logicGridSize) * logicGridSize;
-        float endY = Mathf.Ceil(logicMax.y / logicGridSize) * logicGridSize;
+        // 画横线 (Y轴方向循环)
+        float startY = Mathf.Floor(logicMinY / logicGridSize) * logicGridSize;
+        float endY = Mathf.Ceil(logicMaxY / logicGridSize) * logicGridSize;
         for (float y = startY; y <= endY; y += logicGridSize)
         {
             painter.BeginPath();
-            painter.MoveTo(LogicToLocal(new Vector2(logicMin.x, y)));
-            painter.LineTo(LogicToLocal(new Vector2(logicMax.x, y)));
+            painter.MoveTo(LogicToLocal(new Vector2(logicMinX, y)));
+            painter.LineTo(LogicToLocal(new Vector2(logicMaxX, y)));
             painter.Stroke();
         }
 
@@ -278,14 +290,14 @@ public class MapCanvasElement : VisualElement
         painter.lineWidth = 2.0f;
         painter.strokeColor = new Color(0.5f, 0.2f, 0.2f, 0.8f); // X轴红
         painter.BeginPath();
-        painter.MoveTo(LogicToLocal(new Vector2(logicMin.x, 0)));
-        painter.LineTo(LogicToLocal(new Vector2(logicMax.x, 0)));
+        painter.MoveTo(LogicToLocal(new Vector2(logicMinX, 0)));
+        painter.LineTo(LogicToLocal(new Vector2(logicMaxX, 0)));
         painter.Stroke();
 
         painter.strokeColor = new Color(0.2f, 0.5f, 0.2f, 0.8f); // Y轴绿
         painter.BeginPath();
-        painter.MoveTo(LogicToLocal(new Vector2(0, logicMin.y)));
-        painter.LineTo(LogicToLocal(new Vector2(0, logicMax.y)));
+        painter.MoveTo(LogicToLocal(new Vector2(0, logicMinY)));
+        painter.LineTo(LogicToLocal(new Vector2(0, logicMaxY)));
         painter.Stroke();
     }
 
@@ -299,53 +311,50 @@ public class MapCanvasElement : VisualElement
         var canvasRect = this.layout;
         if (canvasRect.width <= 0) return;
 
-        Vector2 logicMin = LocalToLogic(Vector2.zero);
-        Vector2 logicMax = LocalToLogic(new Vector2(canvasRect.width, canvasRect.height));
+        // 【修改点：分离包围盒计算，修复Y轴颠倒】
+        Vector2 topLeftLogic = LocalToLogic(Vector2.zero);
+        Vector2 bottomRightLogic = LocalToLogic(new Vector2(canvasRect.width, canvasRect.height));
+
+        float logicMinX = topLeftLogic.x;
+        float logicMaxX = bottomRightLogic.x;
+        float logicMinY = bottomRightLogic.y; // 下边的逻辑Y值更小
+        float logicMaxY = topLeftLogic.y;     // 上边的逻辑Y值更大
 
         GUIStyle tickStyle = new GUIStyle(EditorStyles.miniLabel);
         tickStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f, 0.8f);
 
-        // 步长为 1 逻辑单位
         float logicGridSize = 1.0f;
 
-        // 1. X 轴刻度 (决定 Y 的位置)
-        // 真实 X 轴的屏幕 Y 坐标
+        // 1. X 轴刻度
         float realXAxisScreenY = LogicToLocal(new Vector2(0, 0)).y;
-
-        // 动态计算文字 Y 坐标：优先停留在真实轴上，如果轴跑出屏幕顶部/底部，就吸附在边缘
         float edgeY = Mathf.Clamp(realXAxisScreenY + 2f, 5f, canvasRect.height - 25f);
         tickStyle.alignment = TextAnchor.UpperCenter;
 
-        float startX = Mathf.Floor(logicMin.x / logicGridSize) * logicGridSize;
-        float endX = Mathf.Ceil(logicMax.x / logicGridSize) * logicGridSize;
+        float startX = Mathf.Floor(logicMinX / logicGridSize) * logicGridSize;
+        float endX = Mathf.Ceil(logicMaxX / logicGridSize) * logicGridSize;
 
         for (float x = startX; x <= endX; x += logicGridSize)
         {
             int displayUnitX = Mathf.RoundToInt(x);
             Vector2 localPos = LogicToLocal(new Vector2(x, 0));
-
             Rect rect = new Rect(localPos.x - 25, edgeY, 50, 20);
             GUI.Label(rect, displayUnitX.ToString(), tickStyle);
         }
 
-        // 2. Y 轴刻度 (决定 X 的位置)
-        // 真实 Y 轴的屏幕 X 坐标
+        // 2. Y 轴刻度
         float realYAxisScreenX = LogicToLocal(new Vector2(0, 0)).x;
-
-        // 动态计算文字 X 坐标：优先停留在真实轴上，如果轴跑出屏幕左侧/右侧，就吸附在边缘
         float edgeX = Mathf.Clamp(realYAxisScreenX + 5f, 5f, canvasRect.width - 40f);
         tickStyle.alignment = TextAnchor.MiddleLeft;
 
-        float startY = Mathf.Floor(logicMin.y / logicGridSize) * logicGridSize;
-        float endY = Mathf.Ceil(logicMax.y / logicGridSize) * logicGridSize;
+        float startY = Mathf.Floor(logicMinY / logicGridSize) * logicGridSize;
+        float endY = Mathf.Ceil(logicMaxY / logicGridSize) * logicGridSize;
 
         for (float y = startY; y <= endY; y += logicGridSize)
         {
             int displayUnitY = Mathf.RoundToInt(y);
-            if (displayUnitY == 0) continue; // 原点已经在 X 轴画过了
+            if (displayUnitY == 0) continue;
 
             Vector2 localPos = LogicToLocal(new Vector2(0, y));
-
             Rect rect = new Rect(edgeX, localPos.y - 10, 50, 20);
             GUI.Label(rect, displayUnitY.ToString(), tickStyle);
         }
@@ -445,14 +454,16 @@ public class MapCanvasElement : VisualElement
 
     private void OnWheel(WheelEvent evt)
     {
-        // 【关键修复】大幅提高滚轮灵敏度
         float zoomDelta = -evt.delta.y * 0.05f;
+        float oldZoom = _canvasZoom;
 
-        Vector2 mouseLogicBefore = LocalToLogic((Vector2)evt.localMousePosition);
         CanvasZoom *= (1 + zoomDelta);
-        Vector2 mouseLogicAfter = LocalToLogic((Vector2)evt.localMousePosition);
 
-        _canvasOffset += (mouseLogicAfter - mouseLogicBefore) * _canvasZoom;
+        // 【修改点】在 UI 纯像素空间计算缩放偏移，避免受到逻辑Y轴翻转的干扰
+        Vector2 localMousePos = evt.localMousePosition;
+        Vector2 mouseRawUI = (localMousePos - _canvasOffset) / oldZoom;
+        _canvasOffset = localMousePos - mouseRawUI * _canvasZoom;
+
         UpdateTransform();
         evt.StopPropagation();
     }
@@ -463,6 +474,7 @@ public class MapCanvasElement : VisualElement
     private void OnNodeDragMoved(NodeVisualElement nodeVisual, Vector2 screenDelta)
     {
         Vector2 logicDelta = (screenDelta / _canvasZoom) / PIXELS_PER_UNIT;
+        logicDelta.y = -logicDelta.y; // 【修改点】屏幕向下的拖拽，等于逻辑Y轴的减小
         nodeVisual.NodeData.Position = nodeVisual.DragStartLogicPosition + logicDelta;
 
         UpdateNodePosition(nodeVisual);

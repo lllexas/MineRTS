@@ -8,7 +8,8 @@ public class CameraController : SingletonMono<CameraController>
 {
     [Header("移动参数")]
     public float moveSpeed = 25f;           // 推屏和按键的移动速度
-    public float dragSpeed = 1.5f;          // 中键抓屏的灵敏度
+    [Tooltip("中键抓屏的移动比例（1=1:1 跟随，>1 更快，<1 更慢）")]
+    public float dragSpeed = 1.0f;          // 中键抓屏的灵敏度
     public float edgeSize = 10f;            // 判定推屏的边缘宽度（像素）
     public bool useEdgeScrolling = true;    // 是否开启推屏
 
@@ -23,6 +24,11 @@ public class CameraController : SingletonMono<CameraController>
 
     [Header("是否暂停")]
     public bool isPaused = false;           // 暂停状态，暂停时不处理输入
+
+    [Header("操作模式")]
+    // 直接使用 GameFlowController.GameState，不重复定义枚举
+    private GameFlowController.GameState _currentGameState = GameFlowController.GameState.InStage;
+
     //------------------ 修改 ------------------------
     // 不再手动填写 mapBounds，改为由 SyncBounds 从 WholeComponent 计算得出
     private Rect _currentMovementBounds;    // 当前缩放级别下，相机中心允许活动的范围
@@ -32,6 +38,7 @@ public class CameraController : SingletonMono<CameraController>
     private Camera _cam;
     private Vector3 _targetPos;
     private float _targetZoom;
+    private Vector3 _lastMouseScreenPos;   // 用于中键拖拽时记录上一帧鼠标屏幕位置
     private bool _isInitialized = false;
 
     /// <summary>
@@ -96,6 +103,9 @@ public class CameraController : SingletonMono<CameraController>
 
     private void HandleInput()
     {
+        // MainMenu 模式下完全禁用所有输入
+        if (_currentGameState == GameFlowController.GameState.MainMenu) return;
+
         Vector3 moveInput = Vector3.zero;
 
         // --- 1. 小箭头/方向键推屏 (Arrow Keys) ---
@@ -106,7 +116,10 @@ public class CameraController : SingletonMono<CameraController>
         if (Input.GetKey(KeyCode.RightArrow)) moveInput.x += 1;
 
         // --- 2. 鼠标推屏 (Edge Scrolling) ---
-        if (useEdgeScrolling && !Input.GetMouseButton(2)) // 抓屏时禁用推屏，防止冲突
+        // BigMap 模式下，如果正在使用左键或中键拖拽，则禁用推屏防止冲突
+        bool isDragging = (_currentGameState == GameFlowController.GameState.BigMap && (Input.GetMouseButton(0) || Input.GetMouseButton(2)))
+                        || Input.GetMouseButton(2); // InStage 模式下只检查中键
+        if (useEdgeScrolling && !isDragging)
         {
             Vector3 mousePos = Input.mousePosition;
             if (mousePos.x <= edgeSize) moveInput.x = -1;
@@ -124,16 +137,65 @@ public class CameraController : SingletonMono<CameraController>
             _targetPos += moveInput.normalized * moveSpeed * speedMultiplier * Time.unscaledDeltaTime;
         }
 
-        // --- 3. 中键抓屏 (Middle Mouse Drag) ---
-        if (Input.GetMouseButton(2))
+        // --- 3. 左键抓屏 (BigMap 模式专属) ---
+        if (_currentGameState == GameFlowController.GameState.BigMap)
         {
-            float mouseX = Input.GetAxis("Mouse X");
-            float mouseY = Input.GetAxis("Mouse Y");
-            // 抓屏是反向移动：鼠标往左拉，相机往右走喵
-            _targetPos -= new Vector3(mouseX, mouseY, 0) * dragSpeed * (_cam.orthographicSize * 0.2f);
+            if (Input.GetMouseButtonDown(0))
+            {
+                _lastMouseScreenPos = Input.mousePosition;
+            }
+
+            if (Input.GetMouseButton(0))
+            {
+                Vector3 currentMousePos = Input.mousePosition;
+                Vector3 screenDelta = currentMousePos - _lastMouseScreenPos;
+
+                // 计算当前缩放级别下，1 像素对应多少世界单位
+                float unitsPerPixel = (_cam.orthographicSize * 2f) / Screen.height;
+
+                // 计算世界位移（鼠标往右移，相机往左走，所以用负号）
+                Vector3 worldMove = new Vector3(
+                    screenDelta.x * unitsPerPixel,
+                    screenDelta.y * unitsPerPixel,
+                    0
+                );
+
+                _targetPos -= worldMove;
+                _lastMouseScreenPos = currentMousePos;
+            }
         }
 
-        // --- 4. 滚轮缩放 (Zoom) ---
+        // --- 4. 中键抓屏 (Middle Mouse Drag) ---
+        if (Input.GetMouseButtonDown(2))
+        {
+            // 记录按下瞬间的屏幕位置
+            _lastMouseScreenPos = Input.mousePosition;
+        }
+
+        if (Input.GetMouseButton(2))
+        {
+            Vector3 currentMousePos = Input.mousePosition;
+            Vector3 screenDelta = currentMousePos - _lastMouseScreenPos;
+
+            // 计算当前缩放级别下，1 像素对应多少世界单位
+            // 正交相机下：屏幕高度 = orthoSize * 2
+            float unitsPerPixel = (_cam.orthographicSize * 2f) / Screen.height;
+
+            // 计算世界位移（鼠标往右移，相机往左走，所以用负号）
+            Vector3 worldMove = new Vector3(
+                screenDelta.x * unitsPerPixel,
+                screenDelta.y * unitsPerPixel,
+                0
+            );
+
+            // 直接修改目标位置，完全无视当前相机在哪，只针对目标点操作
+            _targetPos -= worldMove;
+
+            // 这一步至关重要：更新上一帧位置，确保位移是增量的
+            _lastMouseScreenPos = currentMousePos;
+        }
+
+        // --- 5. 滚轮缩放 (Zoom) ---
         float scroll = Input.GetAxis("Mouse ScrollWheel");
         if (Mathf.Abs(scroll) > 0.001f)
         {
@@ -142,7 +204,7 @@ public class CameraController : SingletonMono<CameraController>
             UpdateMovementLimits();
         }
 
-        // --- 5. 限制边界 ---
+        // --- 6. 限制边界 ---
         if (_isInitialized)
         {
             _targetPos.x = Mathf.Clamp(_targetPos.x, _currentMovementBounds.xMin, _currentMovementBounds.xMax);
@@ -331,5 +393,14 @@ public class CameraController : SingletonMono<CameraController>
         GoToOrigin();
 
         Debug.Log("<color=cyan>[CameraController]</color> 摄像机自动化初始化完成");
+    }
+
+    /// <summary>
+    /// 根据游戏状态设置相机操作模式
+    /// </summary>
+    public void SetGameMode(GameFlowController.GameState gameState)
+    {
+        _currentGameState = gameState;
+        Debug.Log($"<color=cyan>[CameraController]</color> 操作模式已切换：{_currentGameState}");
     }
 }

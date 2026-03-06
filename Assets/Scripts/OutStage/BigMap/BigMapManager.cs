@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.UIElements;
 using System;
 
 namespace MineRTS.BigMap
@@ -7,21 +6,21 @@ namespace MineRTS.BigMap
     /// <summary>
     /// 【管理器】大地图管理器 - 业务逻辑协调者
     /// 职责：管理大地图的整体状态，协调渲染器、数据、交互
-    ///  - 实现IMenuPanel接口，支持GameFlowController的状态机管理
-    ///  - 持有BigMapRuntimeRenderer引用，控制其启用/禁用
-    ///  - 处理节点点击回调，连接到GameFlowController
+    ///  - 实现 IMenuPanel 接口，支持 GameFlowController 的状态机管理
+    ///  - 持有 BigMapRuntimeRenderer 和 BigMapEdgeRenderer 引用，控制其启用/禁用
     ///  - 管理大地图数据的加载和保存
     /// 设计原则：遵循小零件架构，管理器协调业务，渲染器专注表现
     /// </summary>
     public class BigMapManager : SingletonMono<BigMapManager>, IMenuPanel
     {
         [Header("核心引用")]
-        [SerializeField] private GameObject _bigMapRoot; // 大地图根节点（通常就是BigMapRuntimeRenderer的GameObject）
-        [SerializeField] private BigMapRuntimeRenderer _runtimeRenderer;
-        [SerializeField] private TextAsset _defaultMapJson; // 默认大地图JSON文件
+        [SerializeField] private GameObject _bigMapRoot; // 大地图根节点（UI 面板）
+        [SerializeField] private BigMapRuntimeRenderer _runtimeRenderer; // 节点渲染器
+        [SerializeField] private BigMapEdgeRenderer _edgeRenderer; // 连线渲染器
+        [SerializeField] private TextAsset _defaultMapJson; // 默认大地图 JSON 文件
         [SerializeField] private GameObject _BG; // 大地图背景图（可选）
 
-        // IMenuPanel接口实现
+        // IMenuPanel 接口实现
         private bool _isOpen = false;
         public GameObject PanelRoot => _bigMapRoot != null ? _bigMapRoot : gameObject;
         public bool IsOpen => _isOpen;
@@ -34,11 +33,11 @@ namespace MineRTS.BigMap
             base.Awake();
             Debug.Log("<color=cyan>[BigMapManager]</color> 大地图管理器初始化完成");
 
-            // 自动获取组件引用（如果未在Inspector中设置）
+            // 自动获取组件引用（如果未在 Inspector 中设置）
             if (_bigMapRoot == null)
             {
                 _bigMapRoot = gameObject;
-                Debug.Log($"<color=yellow>[BigMapManager]</color> 未设置_bigMapRoot，使用自身GameObject: {gameObject.name}");
+                Debug.Log($"<color=yellow>[BigMapManager]</color> 未设置_bigMapRoot，使用自身 GameObject: {gameObject.name}");
             }
 
             if (_runtimeRenderer == null)
@@ -46,18 +45,27 @@ namespace MineRTS.BigMap
                 _runtimeRenderer = GetComponentInChildren<BigMapRuntimeRenderer>();
                 if (_runtimeRenderer != null)
                 {
-                    Debug.Log($"<color=cyan>[BigMapManager]</color> 自动找到BigMapRuntimeRenderer: {_runtimeRenderer.gameObject.name}");
+                    Debug.Log($"<color=cyan>[BigMapManager]</color> 自动找到 BigMapRuntimeRenderer: {_runtimeRenderer.gameObject.name}");
                 }
                 else
                 {
-                    Debug.LogWarning("<color=orange>[BigMapManager]</color> 未找到BigMapRuntimeRenderer组件，需要手动设置引用");
+                    Debug.LogWarning("<color=orange>[BigMapManager]</color> 未找到 BigMapRuntimeRenderer 组件，需要手动设置引用");
                 }
             }
 
-            // 确保GPU缓冲区管理器存在
+            if (_edgeRenderer == null)
+            {
+                _edgeRenderer = FindObjectOfType<BigMapEdgeRenderer>();
+                if (_edgeRenderer != null)
+                {
+                    Debug.Log($"<color=cyan>[BigMapManager]</color> 自动找到 BigMapEdgeRenderer: {_edgeRenderer.gameObject.name}");
+                }
+            }
+
+            // 确保 GPU 缓冲区管理器存在
             EnsureGPUBufferManager();
 
-            // 初始状态由GameFlowController控制，这里不主动修改激活状态
+            // 初始状态由 GameFlowController 控制，这里不主动修改激活状态
         }
 
         private void Start()
@@ -68,51 +76,62 @@ namespace MineRTS.BigMap
                 PanelRoot.SetActive(_isOpen);
                 _BG.SetActive(_isOpen);
             }
-
-            // 设置节点点击回调
-            SetupNodeClickCallback();
         }
 
         /// <summary>
-        /// 设置节点点击回调，连接到GameFlowController
+        /// IMenuPanel 接口实现：打开大地图面板
         /// </summary>
-        private void SetupNodeClickCallback()
+        public void Open()
         {
+            if (_isOpen) return;
+
+            _isOpen = true;
+            PanelRoot.SetActive(true);
+            _BG.SetActive(true);
+
+            // 激活世界空间渲染器
             if (_runtimeRenderer != null)
             {
-                _runtimeRenderer.SetNodeClickCallback(OnNodeClicked);
-                Debug.Log("<color=cyan>[BigMapManager]</color> 节点点击回调已设置");
+                _runtimeRenderer.gameObject.SetActive(true);
             }
-            else
+
+            if (_edgeRenderer != null)
             {
-                Debug.LogWarning("<color=orange>[BigMapManager]</color> 无法设置节点点击回调：RuntimeRenderer为空");
+                _edgeRenderer.gameObject.SetActive(true);
             }
+
+            // 如果当前没有加载地图，加载默认地图
+            if (_runtimeRenderer != null && !HasMapLoaded())
+            {
+                LoadDefaultMap();
+            }
+
+            Debug.Log("<color=cyan>[BigMapManager]</color> 大地图面板已打开");
         }
 
         /// <summary>
-        /// 节点点击事件处理
-        /// 当用户点击大地图节点时，触发关卡加载流程
+        /// IMenuPanel 接口实现：关闭大地图面板
         /// </summary>
-        private void OnNodeClicked(string stageId, string displayName)
+        public void Close()
         {
-            Debug.Log($"<color=yellow>[BigMapManager]</color> 节点被点击 - 关卡ID: {stageId}, 名称: {displayName}");
+            if (!_isOpen) return;
 
-            // 验证当前状态
-            if (!_isOpen)
+            _isOpen = false;
+            PanelRoot.SetActive(false);
+            _BG.SetActive(false);
+
+            // 禁用世界空间渲染器（节省性能）
+            if (_runtimeRenderer != null)
             {
-                Debug.LogWarning("<color=orange>[BigMapManager]</color> 大地图未打开，忽略节点点击");
-                return;
+                _runtimeRenderer.gameObject.SetActive(false);
             }
 
-            // 触发关卡加载（通过GameFlowController）
-            if (GameFlowController.Instance != null)
+            if (_edgeRenderer != null)
             {
-                GameFlowController.Instance.EnterStage(stageId);
+                _edgeRenderer.gameObject.SetActive(false);
             }
-            else
-            {
-                Debug.LogError("<color=red>[BigMapManager]</color> GameFlowController实例未找到，无法进入关卡");
-            }
+
+            Debug.Log("<color=cyan>[BigMapManager]</color> 大地图面板已关闭");
         }
 
         /// <summary>
@@ -122,21 +141,21 @@ namespace MineRTS.BigMap
         {
             if (_runtimeRenderer == null)
             {
-                Debug.LogError("<color=red>[BigMapManager]</color> 无法加载地图：RuntimeRenderer为空");
+                Debug.LogError("<color=red>[BigMapManager]</color> 无法加载地图：RuntimeRenderer 为空");
                 return;
             }
 
             if (mapJson == null)
             {
-                Debug.LogError("<color=red>[BigMapManager]</color> 地图JSON文件为空");
+                Debug.LogError("<color=red>[BigMapManager]</color> 地图 JSON 文件为空");
                 return;
             }
 
-            Debug.Log($"<color=cyan>[BigMapManager]</color> 正在加载大地图: {mapJson.name}");
+            Debug.Log($"<color=cyan>[BigMapManager]</color> 正在加载大地图：{mapJson.name}");
             _runtimeRenderer.LoadMapData(mapJson.text);
             _mapLoaded = true;
 
-            // 更新GPU缓冲区（如果存在）
+            // 更新 GPU 缓冲区（如果存在）
             UpdateGPUBuffers(mapJson.text);
         }
 
@@ -147,54 +166,11 @@ namespace MineRTS.BigMap
         {
             if (_defaultMapJson == null)
             {
-                Debug.LogWarning("<color=orange>[BigMapManager]</color> 未设置默认地图JSON文件");
+                Debug.LogWarning("<color=orange>[BigMapManager]</color> 未设置默认地图 JSON 文件");
                 return;
             }
 
             LoadMap(_defaultMapJson);
-        }
-
-        /// <summary>
-        /// IMenuPanel接口实现：打开大地图面板
-        /// </summary>
-        public void Open()
-        {
-            if (_isOpen) return;
-
-            _isOpen = true;
-            PanelRoot.SetActive(true);
-            _BG.SetActive(true);
-
-            // 如果当前没有加载地图，加载默认地图
-            if (_runtimeRenderer != null && !HasMapLoaded())
-            {
-                LoadDefaultMap();
-            }
-
-            // 自动初始化大地图摄像机（重置视图到默认状态）
-            if (_runtimeRenderer != null)
-            {
-                _runtimeRenderer.ResetView();
-                Debug.Log("<color=cyan>[BigMapManager]</color> 大地图摄像机视图已重置");
-            }
-
-            // 确保节点点击回调已设置
-            SetupNodeClickCallback();
-
-            Debug.Log("<color=cyan>[BigMapManager]</color> 大地图面板已打开");
-        }
-
-        /// <summary>
-        /// IMenuPanel接口实现：关闭大地图面板
-        /// </summary>
-        public void Close()
-        {
-            if (!_isOpen) return;
-
-            _isOpen = false;
-            PanelRoot.SetActive(false);
-            _BG.SetActive(false);
-            Debug.Log("<color=cyan>[BigMapManager]</color> 大地图面板已关闭");
         }
 
         /// <summary>
@@ -206,24 +182,24 @@ namespace MineRTS.BigMap
         }
 
         /// <summary>
-        /// 确保GPU缓冲区管理器存在
+        /// 确保 GPU 缓冲区管理器存在
         /// </summary>
         private void EnsureGPUBufferManager()
         {
             if (BigMapGPUBufferManager.Instance == null)
             {
-                // 在同一个GameObject上添加组件
+                // 在同一个 GameObject 上添加组件
                 var gpuManager = gameObject.AddComponent<BigMapGPUBufferManager>();
-                Debug.Log($"<color=cyan>[BigMapManager]</color> 自动创建BigMapGPUBufferManager: {gpuManager.GetType().Name}");
+                Debug.Log($"<color=cyan>[BigMapManager]</color> 自动创建 BigMapGPUBufferManager: {gpuManager.GetType().Name}");
             }
             else
             {
-                Debug.Log($"<color=cyan>[BigMapManager]</color> BigMapGPUBufferManager已存在");
+                Debug.Log($"<color=cyan>[BigMapManager]</color> BigMapGPUBufferManager 已存在");
             }
         }
 
         /// <summary>
-        /// 更新GPU缓冲区数据
+        /// 更新 GPU 缓冲区数据
         /// </summary>
         private void UpdateGPUBuffers(string jsonText)
         {
@@ -232,24 +208,24 @@ namespace MineRTS.BigMap
                 BigMapSaveData mapData = JsonUtility.FromJson<BigMapSaveData>(jsonText);
                 if (mapData == null)
                 {
-                    Debug.LogWarning("<color=orange>[BigMapManager]</color> 无法解析JSON数据，跳过GPU缓冲区更新");
+                    Debug.LogWarning("<color=orange>[BigMapManager]</color> 无法解析 JSON 数据，跳过 GPU 缓冲区更新");
                     return;
                 }
 
-                // 更新GPU缓冲区管理器
+                // 更新 GPU 缓冲区管理器
                 if (BigMapGPUBufferManager.Instance != null)
                 {
                     BigMapGPUBufferManager.Instance.UpdateMapData(mapData);
-                    Debug.Log("<color=cyan>[BigMapManager]</color> GPU缓冲区数据已更新");
+                    Debug.Log("<color=cyan>[BigMapManager]</color> GPU 缓冲区数据已更新");
                 }
                 else
                 {
-                    Debug.LogWarning("<color=orange>[BigMapManager]</color> BigMapGPUBufferManager实例未找到，跳过GPU缓冲区更新");
+                    Debug.LogWarning("<color=orange>[BigMapManager]</color> BigMapGPUBufferManager 实例未找到，跳过 GPU 缓冲区更新");
                 }
             }
             catch (Exception e)
             {
-                Debug.LogError($"<color=red>[BigMapManager]</color> 更新GPU缓冲区时发生错误: {e.Message}");
+                Debug.LogError($"<color=red>[BigMapManager]</color> 更新 GPU 缓冲区时发生错误：{e.Message}");
             }
         }
 
@@ -270,9 +246,9 @@ namespace MineRTS.BigMap
         /// </summary>
         public void SetCameraView(Vector2 position, float zoomLevel)
         {
-            // 注意：BigMapRuntimeRenderer目前没有直接的setter方法
-            // 需要扩展RuntimeRenderer或在这里实现位置/缩放的设置逻辑
-            Debug.Log($"<color=yellow>[BigMapManager]</color> 设置摄像机位置和缩放功能待实现 - 位置: {position}, 缩放: {zoomLevel}");
+            // 注意：BigMapRuntimeRenderer 目前没有直接的 setter 方法
+            // 需要扩展 RuntimeRenderer 或在这里实现位置/缩放的设置逻辑
+            Debug.Log($"<color=yellow>[BigMapManager]</color> 设置摄像机位置和缩放功能待实现 - 位置：{position}, 缩放：{zoomLevel}");
         }
     }
 }

@@ -1,61 +1,67 @@
 using UnityEngine;
-using UnityEngine.UIElements;
 using System;
+using System.Collections.Generic;
 
 namespace MineRTS.BigMap
 {
     /// <summary>
-    /// 大地图运行时渲染器 - 基于正交摄像机投影的视口控制器
-    /// 架构：采用图形学投影管线，摒弃传统UI布局思维
-    /// 核心：世界空间坐标 → 屏幕像素坐标的正交投影变换
+    /// 大地图运行时渲染器 - GameObject 版本
+    /// 架构：实例化节点 Prefab，连线由 BigMapEdgeRenderer 使用 GPU 实例化渲染
+    /// 核心：JSON 坐标直接对应 Unity 世界坐标，无需 PPU 转换
     /// </summary>
-    [RequireComponent(typeof(UIDocument))]
     public class BigMapRuntimeRenderer : MonoBehaviour
     {
         [Header("地图数据")]
         [SerializeField] private TextAsset _mapJsonFile;
 
-        [Header("目标摄像机")]
-        [Tooltip("渲染地图使用的Unity正交摄像机，默认为Camera.main")]
-        [SerializeField] private Camera _targetCamera;
+        [Header("预制件引用")]
+        [Tooltip("节点预制件（需挂载 NodeController）")]
+        [SerializeField] private GameObject _nodePrefab;
 
-        // UI引用
-        private UIDocument _uiDocument;
-        private VisualElement _viewport;
-        private RuntimeMapContainer _mapContainer;
+        [Header("容器")]
+        [Tooltip("所有节点的父容器")]
+        [SerializeField] private Transform _mapRoot;
 
-        // 投影参数
-        private float _basePPU = -1f;                    // 基础像素每单位比例（仅初始化时计算一次）
-        private float _currentPPU = 1.0f;                // 当前像素每单位比例（动态计算）
+        [Header("Z 轴配置")]
+        [Tooltip("节点 Z 轴位置（世界坐标）")]
+        [SerializeField] private float _nodeZPosition = -2f;
 
         // 地图数据
         private BigMapSaveData _mapData;
+
+        // 节点映射表：StageID -> NodeController
+        private Dictionary<string, NodeController> _nodes = new Dictionary<string, NodeController>();
+
+        // 节点点击回调（可选，用于兼容旧代码）
+        private Action<string, string> _nodeClickCallback;
+
+        // 单例引用（用于 NodeController 和 BigMapManager 访问）
+        public static BigMapRuntimeRenderer Instance { get; private set; }
 
         // 初始化状态
         private bool _isInitialized = false;
 
         private void Awake()
         {
-            _uiDocument = GetComponent<UIDocument>();
-            if (_uiDocument == null)
+            // 设置单例
+            if (Instance == null)
             {
-                Debug.LogError("BigMapRuntimeRenderer: 需要UIDocument组件");
+                Instance = this;
+            }
+            else
+            {
+                Debug.LogWarning("BigMapRuntimeRenderer: 已存在实例，销毁重复对象");
+                Destroy(gameObject);
                 return;
             }
 
-            // 初始化目标摄像机
-            if (_targetCamera == null)
+            // 自动创建容器（如果未设置）
+            if (_mapRoot == null)
             {
-                _targetCamera = Camera.main;
-                if (_targetCamera == null)
-                {
-                    Debug.LogError("BigMapRuntimeRenderer: 未找到主摄像机，请手动指定目标摄像机");
-                    return;
-                }
+                var containerObj = new GameObject("MapRoot");
+                _mapRoot = containerObj.transform;
+                _mapRoot.SetParent(transform);
             }
-
-            // 初始化UI结构
-            InitializeUIStructure();
 
             // 解析地图数据
             if (_mapJsonFile != null)
@@ -64,240 +70,139 @@ namespace MineRTS.BigMap
             }
             else
             {
-                Debug.LogWarning("BigMapRuntimeRenderer: 未指定地图JSON文件");
+                Debug.LogWarning("BigMapRuntimeRenderer: 未指定地图 JSON 文件");
             }
 
             _isInitialized = true;
         }
 
-        private void OnEnable()
+        private void OnDestroy()
         {
-            if (!_isInitialized) return;
-
-            // 检查UI结构是否仍然有效
-            if (_uiDocument != null && _uiDocument.rootVisualElement != null)
+            if (Instance == this)
             {
-                // 如果_viewport为空或未附加到root，重新初始化
-                if (_viewport == null || !_uiDocument.rootVisualElement.Contains(_viewport))
-                {
-                    Debug.Log("BigMapRuntimeRenderer: UI结构失效，重新初始化");
-                    InitializeUIStructure();
-
-                    // 重新加载地图数据（如果已有数据）
-                    if (_mapData != null && _mapContainer != null)
-                    {
-                        // 使用基础PPU（如果已计算），否则使用当前PPU
-                        float ppuToUse = _basePPU > 0 ? _basePPU : _currentPPU;
-                        _mapContainer.RenderMap(_mapData, ppuToUse);
-                    }
-                }
+                Instance = null;
             }
         }
 
-        private void Start()
-        {
-            // Start方法可以留空，变换在LateUpdate中每帧更新
-        }
-
-        private void LateUpdate()
-        {
-            // 只有在激活状态且已初始化时才更新
-            if (!_isInitialized || !isActiveAndEnabled) return;
-            if (_targetCamera == null || _mapContainer == null) return;
-
-            // 【修复核心1】获取 UI Toolkit 实际的逻辑宽高
-            var rootLayout = _uiDocument.rootVisualElement.layout;
-            float panelWidth = rootLayout.width;
-            float panelHeight = rootLayout.height;
-
-            // 防御：如果 UI 还没完成初次布局（宽高为 0 或 NaN），先跳过这一帧
-            if (float.IsNaN(panelWidth) || panelWidth <= 0.1f) return;
-
-            // 【修复核心2】动态计算当前PPU：基于逻辑高度和正交尺寸
-            _currentPPU = panelHeight / (_targetCamera.orthographicSize * 2f);
-
-            // 计算缩放比例：CurrentPPU / BasePPU
-            if (_basePPU <= 0) return;
-            float scaleRatio = _currentPPU / _basePPU;
-
-            // 获取摄像机世界位置
-            Vector3 cameraWorldPos = _targetCamera.transform.position;
-
-            // 【修复核心3】平移量计算必须基于 panelWidth / panelHeight
-            float translateX = (panelWidth / 2f) - (cameraWorldPos.x * _currentPPU);
-            float translateY = (panelHeight / 2f) - (-cameraWorldPos.y * _currentPPU); // Y轴反转
-
-            // 应用容器级变换
-            _mapContainer.style.translate = new Translate(translateX, translateY);
-            _mapContainer.style.scale = new Scale(new Vector3(scaleRatio, scaleRatio, 1));
-
-            // 更新缩放比例（用于连线绘制）
-            _mapContainer.SetZoomRatio(scaleRatio);
-
-            // 强制重绘（触发连线绘制）
-            _mapContainer.MarkDirtyRepaint();
-        }
-
-
         /// <summary>
-        /// 初始化UI结构：Viewport → MapContainer
-        /// </summary>
-        private void InitializeUIStructure()
-        {
-            var root = _uiDocument.rootVisualElement;
-            if (root == null)
-            {
-                Debug.LogError("BigMapRuntimeRenderer: UIDocument的rootVisualElement为空");
-                return;
-            }
-
-            // 清除现有内容
-            root.Clear();
-
-            // 创建Viewport（全屏背景，允许点击事件穿透）
-            _viewport = new VisualElement();
-            _viewport.name = "BigMapViewport";
-            _viewport.style.width = Length.Percent(100);
-            _viewport.style.height = Length.Percent(100);
-            _viewport.style.position = Position.Relative;
-            _viewport.style.overflow = Overflow.Hidden;
-            _viewport.style.backgroundColor = Color.clear;
-            _viewport.pickingMode = PickingMode.Ignore;  // 允许点击事件穿透到下层UI
-
-            // 创建地图容器
-            _mapContainer = new RuntimeMapContainer();
-            _mapContainer.name = "MapContainer";
-            _mapContainer.style.position = Position.Absolute;
-            _mapContainer.style.width = Length.Percent(100);
-            _mapContainer.style.height = Length.Percent(100);
-
-            // 关键：设置变换原点为左上角 (0, 0)
-            _mapContainer.style.transformOrigin = new TransformOrigin(new Length(0), new Length(0));
-
-            // 构建层级
-            _viewport.Add(_mapContainer);
-            root.Add(_viewport);
-
-            Debug.Log("BigMapRuntimeRenderer: UI结构初始化完成");
-        }
-
-        /// <summary>
-        /// 加载地图数据并渲染
+        /// 加载地图数据并实例化节点
         /// </summary>
         public void LoadMapData(string jsonText)
         {
             try
             {
+                // 清理现有内容
+                ClearMap();
+
                 _mapData = JsonUtility.FromJson<BigMapSaveData>(jsonText);
                 if (_mapData == null)
                 {
-                    Debug.LogError("BigMapRuntimeRenderer: JSON解析失败");
+                    Debug.LogError("BigMapRuntimeRenderer: JSON 解析失败");
                     return;
                 }
 
                 Debug.Log($"BigMapRuntimeRenderer: 地图数据加载成功 - {_mapData.Nodes.Count}个节点，{_mapData.Edges.Count}条连线");
 
-                // 计算基础PPU：仅在地图加载时计算一次
-                if (_targetCamera == null)
+                // 实例化节点
+                foreach (var nodeData in _mapData.Nodes)
                 {
-                    Debug.LogError("BigMapRuntimeRenderer: 目标摄像机未设置");
-                    return;
+                    InstantiateNode(nodeData);
                 }
 
-                // 【修复核心4】在加载时获取面板逻辑高度，如果还没布局完成，退回到物理高度兜底
-                float initialHeight = _uiDocument.rootVisualElement.layout.height;
-                if (float.IsNaN(initialHeight) || initialHeight <= 0.1f)
-                {
-                    initialHeight = Screen.height; // 兜底方案
-                }
-                _basePPU = initialHeight / (_targetCamera.orthographicSize * 2f);
-                Debug.Log($"BigMapRuntimeRenderer: 基础PPU计算完成 - {_basePPU:F2} (面板高度: {initialHeight}, 正交尺寸: {_targetCamera.orthographicSize})");
+                // 设置连线数据到 BigMapEdgeRenderer
+                SetupEdgeRenderer();
 
-                // 渲染地图（传递基础PPU）
-                if (_mapContainer != null)
-                {
-                    _mapContainer.RenderMap(_mapData, _basePPU);
-                }
-
-                // 应用保存的视图状态（如果存在）
-                if (_mapData.CanvasOffset != Vector2.zero || Math.Abs(_mapData.CanvasZoom - 1.0f) > 0.001f)
-                {
-                    // 注意：这里需要将保存的CanvasOffset转换为世界坐标
-                    // 暂时简化处理，直接重置到初始状态
-                    ResetView();
-                }
+                Debug.Log("BigMapRuntimeRenderer: 地图渲染完成");
             }
             catch (Exception e)
             {
-                Debug.LogError($"BigMapRuntimeRenderer: 加载地图数据时发生错误: {e.Message}");
+                Debug.LogError($"BigMapRuntimeRenderer: 加载地图数据时发生错误：{e.Message}");
             }
         }
 
         /// <summary>
-        /// 指针按下事件（中键/右键开始拖拽）
+        /// 实例化单个节点
         /// </summary>
-
-        /// <summary>
-        /// 指针移动事件（拖拽中）
-        /// </summary>
-
-        /// <summary>
-        /// 指针抬起事件（结束拖拽）
-        /// </summary>
-
-        /// <summary>
-        /// 滚轮事件（缩放）
-        /// </summary>
-
-
-        /// <summary>
-        /// 屏幕坐标 → 世界坐标转换
-        /// </summary>
-
-        /// <summary>
-        /// 世界坐标 → 屏幕坐标转换
-        /// </summary>
-
-        /// <summary>
-        /// 重置视图到初始状态
-        /// </summary>
-        public void ResetView()
+        private void InstantiateNode(BigMapNodeData nodeData)
         {
-            // 注意：重构后，摄像机控制由CameraController负责
-            // 此方法不再生效，保留仅为API兼容性
-            Debug.LogWarning("BigMapRuntimeRenderer: ResetView()已废弃，摄像机控制由CameraController负责");
+            if (_nodePrefab == null)
+            {
+                Debug.LogError("BigMapRuntimeRenderer: 节点预制件未设置");
+                return;
+            }
+
+            // 实例化
+            GameObject nodeObj = Instantiate(_nodePrefab, _mapRoot);
+            NodeController nodeController = nodeObj.GetComponent<NodeController>();
+
+            if (nodeController == null)
+            {
+                Debug.LogError($"BigMapRuntimeRenderer: 预制件 {nodeObj.name} 没有 NodeController 组件");
+                Destroy(nodeObj);
+                return;
+            }
+
+            // 初始化（传入 Z 轴位置）
+            nodeController.Init(nodeData, _nodeZPosition);
+
+            // 添加到映射表
+            _nodes[nodeData.StageID] = nodeController;
         }
 
         /// <summary>
-        /// 设置地图数据（运行时切换地图）
+        /// 设置连线渲染器
         /// </summary>
-        public void SetMapData(BigMapSaveData data)
+        private void SetupEdgeRenderer()
         {
-            _mapData = data;
-
-            // 计算新的基础PPU（使用面板逻辑高度）
-            if (_targetCamera != null)
+            // 获取或创建 BigMapEdgeRenderer
+            var edgeRenderer = BigMapEdgeRenderer.Instance;
+            if (edgeRenderer == null)
             {
-                float initialHeight = _uiDocument.rootVisualElement.layout.height;
-                if (float.IsNaN(initialHeight) || initialHeight <= 0.1f)
+                Debug.LogWarning("BigMapRuntimeRenderer: BigMapEdgeRenderer 实例未找到");
+                return;
+            }
+
+            // 设置连线数据
+            edgeRenderer.SetEdges(_mapData.Edges);
+
+            // 设置节点位置
+            edgeRenderer.SetNodePositions(GetNodePositions());
+        }
+
+        /// <summary>
+        /// 获取所有节点位置映射表
+        /// </summary>
+        private Dictionary<string, Vector3> GetNodePositions()
+        {
+            var positions = new Dictionary<string, Vector3>();
+            foreach (var kvp in _nodes)
+            {
+                positions[kvp.Key] = kvp.Value.GetTransform().position;
+            }
+            return positions;
+        }
+
+        /// <summary>
+        /// 清理地图内容
+        /// </summary>
+        private void ClearMap()
+        {
+            // 销毁所有节点
+            foreach (var node in _nodes.Values)
+            {
+                if (node != null)
                 {
-                    initialHeight = Screen.height; // 兜底方案
+                    Destroy(node.gameObject);
                 }
-                _basePPU = initialHeight / (_targetCamera.orthographicSize * 2f);
             }
+            _nodes.Clear();
 
-            if (_mapContainer != null)
+            // 清空连线渲染器
+            var edgeRenderer = BigMapEdgeRenderer.Instance;
+            if (edgeRenderer != null)
             {
-                _mapContainer.RenderMap(_mapData, _basePPU > 0 ? _basePPU : _currentPPU);
+                edgeRenderer.ClearEdges();
             }
-        }
-
-        /// <summary>
-        /// 获取节点元素（根据节点ID）
-        /// </summary>
-        public RuntimeNodeElement GetNodeElement(string nodeId)
-        {
-            return _mapContainer?.GetNodeElement(nodeId);
         }
 
         /// <summary>
@@ -305,10 +210,46 @@ namespace MineRTS.BigMap
         /// </summary>
         public void SetNodeClickCallback(Action<string, string> callback)
         {
-            if (_mapContainer != null)
+            _nodeClickCallback = callback;
+        }
+
+        /// <summary>
+        /// 节点点击事件（由 NodeController 通过事件总线触发）
+        /// 此方法保留仅为兼容旧代码，新代码请使用 PostSystem
+        /// </summary>
+        public void OnNodeClicked(string stageId, string displayName)
+        {
+            Debug.Log($"BigMapRuntimeRenderer: 节点被点击 - 关卡 ID: {stageId}, 名称：{displayName}");
+
+            _nodeClickCallback?.Invoke(stageId, displayName);
+        }
+
+        /// <summary>
+        /// 获取节点控制器
+        /// </summary>
+        public NodeController GetNode(string nodeId)
+        {
+            _nodes.TryGetValue(nodeId, out NodeController node);
+            return node;
+        }
+
+        /// <summary>
+        /// 设置节点选中状态
+        /// </summary>
+        public void SetNodeSelected(string nodeId, bool selected)
+        {
+            if (_nodes.TryGetValue(nodeId, out NodeController node))
             {
-                _mapContainer.SetNodeClickCallback(callback);
+                node.SetSelected(selected);
             }
+        }
+
+        /// <summary>
+        /// 重置视图
+        /// </summary>
+        public void ResetView()
+        {
+            Debug.Log("BigMapRuntimeRenderer: 视图重置功能需要摄像机控制器配合实现");
         }
     }
 }

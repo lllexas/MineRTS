@@ -462,6 +462,19 @@ namespace MineRTS.BigMap
         }
 
         /// <summary>
+        /// 检查 GPU 缓冲区是否就绪（已初始化且 Buffer 有效）
+        /// </summary>
+        public bool IsReady
+        {
+            get
+            {
+                if (!_buffersInitialized) return false;
+                if (_nodeBuffer == null) return false;
+                return true;
+            }
+        }
+
+        /// <summary>
         /// 设置最大节点数量（需要重新初始化缓冲区）
         /// </summary>
         public void SetMaxNodes(int maxNodes)

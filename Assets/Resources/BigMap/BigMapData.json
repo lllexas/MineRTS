@@ -4,8 +4,8 @@
             "StageID": "Level_Test",
             "DisplayName": "西非走廊",
             "Position": {
-                "x": 1.6846652030944825,
-                "y": -1.1426472663879395
+                "x": -10.04563045501709,
+                "y": 1.354885220527649
             },
             "NodeType": "Default",
             "ExtraData": ""
@@ -14,8 +14,8 @@
             "StageID": "92455c2a-849a-42eb-8a88-12e546c2662d",
             "DisplayName": "落马",
             "Position": {
-                "x": 5.3419928550720219,
-                "y": 1.2133476734161378
+                "x": -0.2659602165222168,
+                "y": -3.682481527328491
             },
             "NodeType": "Default",
             "ExtraData": ""
@@ -24,8 +24,78 @@
             "StageID": "bbd26e1a-3e81-4454-9609-30d21fc482b1",
             "DisplayName": "瀚海浅滩",
             "Position": {
-                "x": 8.449136734008789,
-                "y": -3.2686996459960939
+                "x": 6.846865177154541,
+                "y": 3.80800199508667
+            },
+            "NodeType": "Default",
+            "ExtraData": ""
+        },
+        {
+            "StageID": "e7118fe6-0d22-4cf1-96f3-9fa163f9d207",
+            "DisplayName": "节点4",
+            "Position": {
+                "x": 10.456806182861329,
+                "y": -10.741000175476075
+            },
+            "NodeType": "Default",
+            "ExtraData": ""
+        },
+        {
+            "StageID": "6e269ea2-4f4c-4863-8e41-4e1cbbe15aa5",
+            "DisplayName": "节点5",
+            "Position": {
+                "x": 4.2016921043396,
+                "y": 13.649436950683594
+            },
+            "NodeType": "Default",
+            "ExtraData": ""
+        },
+        {
+            "StageID": "289195f4-ad3a-4de5-b6e8-2ef1b075c45c",
+            "DisplayName": "节点6",
+            "Position": {
+                "x": 10.147639274597168,
+                "y": 19.488248825073243
+            },
+            "NodeType": "Default",
+            "ExtraData": ""
+        },
+        {
+            "StageID": "e4fb290c-c83a-47b7-9b58-a996d70bbda3",
+            "DisplayName": "节点7",
+            "Position": {
+                "x": 25.578250885009767,
+                "y": -12.026301383972168
+            },
+            "NodeType": "Default",
+            "ExtraData": ""
+        },
+        {
+            "StageID": "d77fe979-7a68-4a37-bb51-60adabb25aa3",
+            "DisplayName": "节点8",
+            "Position": {
+                "x": -17.584957122802736,
+                "y": -10.815779685974121
+            },
+            "NodeType": "Default",
+            "ExtraData": ""
+        },
+        {
+            "StageID": "dccd0ab3-c43a-44a6-9c5b-a4bce40aec57",
+            "DisplayName": "节点9",
+            "Position": {
+                "x": 16.495038986206056,
+                "y": -19.135780334472658
+            },
+            "NodeType": "Default",
+            "ExtraData": ""
+        },
+        {
+            "StageID": "67002992-e05f-4a6a-be48-ea618f2bb2e6",
+            "DisplayName": "节点10",
+            "Position": {
+                "x": 26.97504234313965,
+                "y": -2.4957804679870607
             },
             "NodeType": "Default",
             "ExtraData": ""
@@ -43,12 +113,66 @@
             "ToNodeID": "92455c2a-849a-42eb-8a88-12e546c2662d",
             "Direction": 1,
             "ExtraData": ""
+        },
+        {
+            "FromNodeID": "bbd26e1a-3e81-4454-9609-30d21fc482b1",
+            "ToNodeID": "e7118fe6-0d22-4cf1-96f3-9fa163f9d207",
+            "Direction": 1,
+            "ExtraData": ""
+        },
+        {
+            "FromNodeID": "6e269ea2-4f4c-4863-8e41-4e1cbbe15aa5",
+            "ToNodeID": "bbd26e1a-3e81-4454-9609-30d21fc482b1",
+            "Direction": 1,
+            "ExtraData": ""
+        },
+        {
+            "FromNodeID": "289195f4-ad3a-4de5-b6e8-2ef1b075c45c",
+            "ToNodeID": "6e269ea2-4f4c-4863-8e41-4e1cbbe15aa5",
+            "Direction": 1,
+            "ExtraData": ""
+        },
+        {
+            "FromNodeID": "e4fb290c-c83a-47b7-9b58-a996d70bbda3",
+            "ToNodeID": "e7118fe6-0d22-4cf1-96f3-9fa163f9d207",
+            "Direction": 1,
+            "ExtraData": ""
+        },
+        {
+            "FromNodeID": "d77fe979-7a68-4a37-bb51-60adabb25aa3",
+            "ToNodeID": "Level_Test",
+            "Direction": 1,
+            "ExtraData": ""
+        },
+        {
+            "FromNodeID": "dccd0ab3-c43a-44a6-9c5b-a4bce40aec57",
+            "ToNodeID": "e7118fe6-0d22-4cf1-96f3-9fa163f9d207",
+            "Direction": 1,
+            "ExtraData": ""
+        },
+        {
+            "FromNodeID": "dccd0ab3-c43a-44a6-9c5b-a4bce40aec57",
+            "ToNodeID": "e4fb290c-c83a-47b7-9b58-a996d70bbda3",
+            "Direction": 1,
+            "ExtraData": ""
+        },
+        {
+            "FromNodeID": "67002992-e05f-4a6a-be48-ea618f2bb2e6",
+            "ToNodeID": "e4fb290c-c83a-47b7-9b58-a996d70bbda3",
+            "Direction": 1,
+            "ExtraData": ""
+        },
+        {
+            "FromNodeID": "67002992-e05f-4a6a-be48-ea618f2bb2e6",
+            "ToNodeID": "e7118fe6-0d22-4cf1-96f3-9fa163f9d207",
+            "Direction": 1,
+            "ExtraData": ""
         }
     ],
     "BackgroundImagePath": "",
     "CanvasOffset": {
-        "x": 241.50698852539063,
-        "y": 278.8697204589844
+        "x": 251.04959106445313,
+        "y": 283.84222412109377
     },
-    "CanvasZoom": 0.2926843464374542
+    "CanvasZoom": 0.10000000149011612
 }

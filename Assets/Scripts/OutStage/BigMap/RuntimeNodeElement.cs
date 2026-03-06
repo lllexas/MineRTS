@@ -4,29 +4,41 @@ using UnityEngine.UIElements;
 namespace MineRTS.BigMap
 {
     /// <summary>
-    /// 运行时节点元素 - 基于正交投影的单个节点可视化
-    /// 职责：将世界空间坐标转换为局部空间坐标，实现硬几何平面风格
-    /// 核心：Local_X = World.x * PPU, Local_Y = -World.y * PPU
+    /// 【已废弃】运行时节点元素 - UI Toolkit 版本
+    /// 架构：上下弓形（圆形被匾额截断）+ 横向匾额
+    /// 风格：平面设计，纯色填充，无描边
+    /// 
+    /// 注意：此类已废弃，请使用 NodeController（GameObject 版本）
     /// </summary>
+    [System.Obsolete("RuntimeNodeElement 已废弃，请使用 NodeController（GameObject 版本）")]
     public class RuntimeNodeElement : VisualElement
     {
         // 节点数据
         private BigMapNodeData _nodeData;
 
-        // 样式常量
-        private const float NODE_SIZE = 20f;
-        private const float BORDER_WIDTH = 2f;
-        private const float LABEL_OFFSET = 25f;
+        // 组件引用
+        private VisualElement _labelPlaque;    // 文字匾额
+        private Label _nameLabel;              // 文字标签
 
-        // 颜色定义（使用合法的颜色设置）
-        private static readonly Color NORMAL_BACKGROUND_COLOR = new Color(0.2f, 0.4f, 0.8f, 1.0f); // 科技蓝
-        private static readonly Color HOVER_BACKGROUND_COLOR = new Color(0.3f, 0.5f, 0.9f, 1.0f);  // 高亮蓝
-        private static readonly Color BORDER_COLOR = Color.white;
-        private static readonly Color TEXT_COLOR = Color.white;
-        private static readonly Color DISABLED_COLOR = new Color(0.5f, 0.5f, 0.5f, 0.7f);
+        // 尺寸常量
+        private const float CIRCLE_DIAMETER = 80f;
+        private const float CIRCLE_RADIUS = 40f;
+        private const float PLAQUE_WIDTH = 120f;
+        private const float PLAQUE_HEIGHT = 30f;
 
-        // 子元素
-        private Label _nameLabel;
+        // 颜色定义（扁平化涂鸦风格 - 严肃风格）
+        private static readonly Color CIRCLE_COLOR = new Color(0.15f, 0.15f, 0.18f, 1f);       // 深灰藏青 #26262E
+        private static readonly Color CIRCLE_HOVER_COLOR = new Color(0.2f, 0.2f, 0.25f, 1f);   // 亮灰 #333340
+        private static readonly Color PLAQUE_BACKGROUND_COLOR = new Color(0.95f, 0.95f, 0.95f, 1f); // 近白 #F2F2F2
+        private static readonly Color PLAQUE_HOVER_COLOR = new Color(1f, 1f, 1f, 1f);          // 纯白
+        private static readonly Color TEXT_COLOR = new Color(0.1f, 0.1f, 0.1f, 1f);            // 近黑 #1A1A1A
+        private static readonly Color DISABLED_COLOR = new Color(0.5f, 0.5f, 0.5f, 0.5f);
+
+        // 悬停状态
+        private bool _isHovered = false;
+        
+        // 选中状态
+        private bool _isSelected = false;
 
         /// <summary>
         /// 节点数据（只读）
@@ -35,7 +47,6 @@ namespace MineRTS.BigMap
 
         /// <summary>
         /// 构造函数
-        /// 公式：Local_X = World.x * PPU, Local_Y = -World.y * PPU
         /// </summary>
         /// <param name="nodeData">节点世界空间数据</param>
         /// <param name="ppu">像素每单位比例</param>
@@ -43,21 +54,96 @@ namespace MineRTS.BigMap
         {
             _nodeData = nodeData;
 
-            // 设置基本样式（只使用合法API）
-            SetupBaseStyle();
+            // 设置节点尺寸
+            style.width = CIRCLE_DIAMETER;
+            style.height = CIRCLE_DIAMETER + PLAQUE_HEIGHT;
+
+            // 创建匾额
+            CreateLabelPlaque();
+
+            // 注册绘制回调（绘制半圆）
+            generateVisualContent += OnGenerateVisualContent;
 
             // 应用局部空间坐标变换
             ApplyLocalPosition(ppu);
-
-            // 添加文本标签（简化版本，不使用阴影）
-            AddNameLabel();
 
             // 注册交互事件
             RegisterInteractionEvents();
 
             name = $"Node_{nodeData.DisplayName}_{nodeData.StageID.Substring(0, 8)}";
 
-            Debug.Log($"RuntimeNodeElement: 节点创建完成 - {nodeData.DisplayName} (世界位置: {nodeData.Position})");
+            Debug.Log($"RuntimeNodeElement: 节点创建完成 - {nodeData.DisplayName} (世界位置：{nodeData.Position})");
+        }
+
+        /// <summary>
+        /// 创建文字匾额（直角矩形，纯色背景）
+        /// </summary>
+        private void CreateLabelPlaque()
+        {
+            _labelPlaque = new VisualElement();
+            _labelPlaque.name = "LabelPlaque";
+
+            _labelPlaque.style.width = PLAQUE_WIDTH;
+            _labelPlaque.style.height = PLAQUE_HEIGHT;
+            _labelPlaque.style.position = Position.Absolute;
+            _labelPlaque.style.left = -PLAQUE_WIDTH / 2f;
+            _labelPlaque.style.top = (CIRCLE_DIAMETER + PLAQUE_HEIGHT) / 2f - PLAQUE_HEIGHT / 2f; // 垂直居中
+
+            // 纯色背景（无圆角，无描边）
+            _labelPlaque.style.backgroundColor = PLAQUE_BACKGROUND_COLOR;
+
+            // 文本标签
+            _nameLabel = new Label(_nodeData.DisplayName);
+            _nameLabel.style.color = TEXT_COLOR;
+            _nameLabel.style.fontSize = 16f;
+            _nameLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+            _nameLabel.style.width = Length.Percent(100);
+            _nameLabel.style.height = Length.Percent(100);
+            _nameLabel.pickingMode = PickingMode.Ignore;
+
+            _labelPlaque.Add(_nameLabel);
+            Add(_labelPlaque);
+        }
+
+        /// <summary>
+        /// 绘制上下弓形（圆形被匾额截断后的弓形区域）
+        /// 设计：一个完整圆被中间的匾额遮挡，只露出上下两个弓形
+        /// 注意：Unity UI Toolkit Painter2D 不支持 ScissorRect，需要手动计算弓形路径
+        /// </summary>
+        private void OnGenerateVisualContent(MeshGenerationContext ctx)
+        {
+            var painter = ctx.painter2D;
+            if (painter == null) return;
+
+            // 颜色定义提升
+            Color baseColor = _isSelected ? new Color(1f, 0.7f, 0.1f, 1f) : (_isHovered ? CIRCLE_HOVER_COLOR : CIRCLE_COLOR);
+            Color accentColor = _isSelected ? Color.white : new Color(0.4f, 0.8f, 1f, 0.8f); // 极细的装饰蓝
+
+            float r = CIRCLE_RADIUS;
+            Vector2 center = new Vector2(CIRCLE_RADIUS, (CIRCLE_DIAMETER + PLAQUE_HEIGHT) / 2f);
+
+            // 1. 绘制主体：不再是简单的圆弧，而是带有“加厚边缘”感的工业壳体
+            painter.BeginPath();
+            // 绘制上方壳体（稍微带一点点切角感）
+            painter.Arc(center, r, 240, 300); // 缩小开口，制造紧凑感
+            painter.LineTo(new Vector2(center.x + 35, center.y - 15));
+            painter.LineTo(new Vector2(center.x - 35, center.y - 15));
+            painter.ClosePath();
+            painter.fillColor = baseColor;
+            painter.Fill();
+
+            // 2. 增加“刻度线”装饰 (关键的近未来元素)
+            // 在壳体边缘画几条极细的平行线，模拟传感器或散热口
+            painter.BeginPath();
+            painter.lineWidth = 1.5f;
+            painter.strokeColor = accentColor;
+            painter.MoveTo(new Vector2(center.x - 20, center.y - 45));
+            painter.LineTo(new Vector2(center.x + 20, center.y - 45));
+            painter.Stroke();
+
+            // 3. 匾额的设计进化：不再是死板的矩形
+            // 我们在代码中通过 VisualElement 的 Border 模拟，或者直接在这里画
+            // 建议：给 _labelPlaque 增加一个左侧的“类别色块”
         }
 
         /// <summary>
@@ -69,87 +155,13 @@ namespace MineRTS.BigMap
             // 计算局部空间坐标（遵循正交投影公式）
             Vector2 localPosition = new Vector2(
                 _nodeData.Position.x * ppu,    // Local_X = World.x * PPU
-                -_nodeData.Position.y * ppu    // Local_Y = -World.y * PPU (抵消UI Y轴向下的差异)
+                -_nodeData.Position.y * ppu    // Local_Y = -World.y * PPU (抵消 UI Y 轴向下的差异)
             );
 
             // 设置绝对定位和位置（居中）
             style.position = Position.Absolute;
-            style.left = localPosition.x - NODE_SIZE / 2;
-            style.top = localPosition.y - NODE_SIZE / 2;
-            style.width = NODE_SIZE;
-            style.height = NODE_SIZE;
-        }
-
-        /// <summary>
-        /// 设置基础样式（硬几何平面风格）- 只使用合法API
-        /// </summary>
-        private void SetupBaseStyle()
-        {
-            // 背景颜色
-            style.backgroundColor = NORMAL_BACKGROUND_COLOR;
-
-            // 边框样式：2px白色实线边框（合法API）
-            style.borderTopWidth = BORDER_WIDTH;
-            style.borderBottomWidth = BORDER_WIDTH;
-            style.borderLeftWidth = BORDER_WIDTH;
-            style.borderRightWidth = BORDER_WIDTH;
-
-            style.borderTopColor = BORDER_COLOR;
-            style.borderBottomColor = BORDER_COLOR;
-            style.borderLeftColor = BORDER_COLOR;
-            style.borderRightColor = BORDER_COLOR;
-
-            // 圆角：轻微圆角（合法API）
-            style.borderTopLeftRadius = 2f;
-            style.borderTopRightRadius = 2f;
-            style.borderBottomLeftRadius = 2f;
-            style.borderBottomRightRadius = 2f;
-
-            // 注意：不使用boxShadow、zIndex、textShadow等非法API
-        }
-
-        /// <summary>
-        /// 添加名称标签（简化版本）
-        /// </summary>
-        private void AddNameLabel()
-        {
-            _nameLabel = new Label(_nodeData.DisplayName);
-
-            // 标签样式：居中对齐，清晰文本
-            _nameLabel.style.position = Position.Absolute;
-            _nameLabel.style.top = LABEL_OFFSET;
-            _nameLabel.style.left = -50f; // 临时值，会在布局完成后调整
-            _nameLabel.style.width = 100f;
-            _nameLabel.style.height = 20f;
-
-            // 文本样式（基本属性，不使用阴影）
-            _nameLabel.style.color = TEXT_COLOR;
-            _nameLabel.style.fontSize = 12;
-            _nameLabel.style.unityTextAlign = TextAnchor.UpperCenter;
-            _nameLabel.style.whiteSpace = WhiteSpace.Normal;
-            _nameLabel.style.textOverflow = TextOverflow.Ellipsis;
-
-            // 注意：不使用textShadow，因为Runtime不支持
-            // 替代方案：使用对比色或背景色增强可读性
-
-            // 添加到节点
-            Add(_nameLabel);
-
-            // 在布局完成后调整标签位置（使其居中）
-            RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
-        }
-
-        /// <summary>
-        /// 几何变化事件：调整标签位置使其居中
-        /// </summary>
-        private void OnGeometryChanged(GeometryChangedEvent evt)
-        {
-            // 计算标签位置使其在节点下方居中
-            float labelWidth = _nameLabel.resolvedStyle.width;
-            float nodeCenterX = layout.width / 2;
-            float labelLeft = nodeCenterX - labelWidth / 2;
-
-            _nameLabel.style.left = labelLeft;
+            style.left = localPosition.x - CIRCLE_DIAMETER / 2f;
+            style.top = localPosition.y - (CIRCLE_DIAMETER + PLAQUE_HEIGHT) / 2f;
         }
 
         /// <summary>
@@ -170,12 +182,13 @@ namespace MineRTS.BigMap
         /// </summary>
         private void OnMouseEnter(MouseEnterEvent evt)
         {
-            style.backgroundColor = HOVER_BACKGROUND_COLOR;
-            // 增强边框颜色作为悬停反馈
-            style.borderTopColor = new Color(1f, 1f, 1f, 0.9f);
-            style.borderBottomColor = new Color(1f, 1f, 1f, 0.9f);
-            style.borderLeftColor = new Color(1f, 1f, 1f, 0.9f);
-            style.borderRightColor = new Color(1f, 1f, 1f, 0.9f);
+            _isHovered = true;
+
+            // 触发重绘（改变半圆颜色）
+            MarkDirtyRepaint();
+
+            // 匾额高亮
+            _labelPlaque.style.backgroundColor = PLAQUE_HOVER_COLOR;
 
             evt.StopPropagation();
         }
@@ -185,11 +198,13 @@ namespace MineRTS.BigMap
         /// </summary>
         private void OnMouseLeave(MouseLeaveEvent evt)
         {
-            style.backgroundColor = NORMAL_BACKGROUND_COLOR;
-            style.borderTopColor = BORDER_COLOR;
-            style.borderBottomColor = BORDER_COLOR;
-            style.borderLeftColor = BORDER_COLOR;
-            style.borderRightColor = BORDER_COLOR;
+            _isHovered = false;
+
+            // 触发重绘（恢复半圆颜色）
+            MarkDirtyRepaint();
+
+            // 匾额恢复
+            _labelPlaque.style.backgroundColor = PLAQUE_BACKGROUND_COLOR;
 
             evt.StopPropagation();
         }
@@ -199,20 +214,19 @@ namespace MineRTS.BigMap
         /// </summary>
         private void OnClick(ClickEvent evt)
         {
-            Debug.Log($"RuntimeNodeElement: 节点 '{_nodeData.DisplayName}' 被点击 (世界位置: {_nodeData.Position})");
+            Debug.Log($"RuntimeNodeElement: 节点 '{_nodeData.DisplayName}' 被点击 (世界位置：{_nodeData.Position})");
 
-            // 添加点击动画效果（缩放）- 使用合法的scale API
-            style.scale = new Scale(new Vector3(0.9f, 0.9f, 1f));
+            // 添加点击动画效果（缩放匾额）
+            _labelPlaque.style.scale = new Scale(new Vector3(0.95f, 0.95f, 1f));
 
             // 延迟恢复
             schedule.Execute(() =>
             {
-                style.scale = new Scale(Vector3.one);
-            }).StartingIn(100); // 100ms后恢复
+                _labelPlaque.style.scale = new Scale(Vector3.one);
+            }).StartingIn(100); // 100ms 后恢复
 
             evt.StopPropagation();
         }
-
 
         /// <summary>
         /// 更新节点数据（动态更新）
@@ -221,13 +235,8 @@ namespace MineRTS.BigMap
         {
             _nodeData = newData;
 
-            // 更新位置（使用与ApplyLocalPosition相同的逻辑）
-            Vector2 localPosition = new Vector2(
-                _nodeData.Position.x * ppu,
-                -_nodeData.Position.y * ppu
-            );
-            style.left = localPosition.x - NODE_SIZE / 2;
-            style.top = localPosition.y - NODE_SIZE / 2;
+            // 更新位置
+            ApplyLocalPosition(ppu);
 
             // 更新标签文本
             if (_nameLabel != null)
@@ -244,31 +253,21 @@ namespace MineRTS.BigMap
         /// </summary>
         public void SetSelected(bool selected)
         {
+            _isSelected = selected;
+            
             if (selected)
             {
-                // 选中样式：金色边框和背景
-                Color selectedColor = new Color(1f, 0.9f, 0f, 1f); // 金色
-                style.borderTopColor = selectedColor;
-                style.borderBottomColor = selectedColor;
-                style.borderLeftColor = selectedColor;
-                style.borderRightColor = selectedColor;
-                style.borderTopWidth = 3f;
-                style.borderBottomWidth = 3f;
-                style.borderLeftWidth = 3f;
-                style.borderRightWidth = 3f;
+                // 选中样式：金色
+                _labelPlaque.style.backgroundColor = new Color(1f, 0.9f, 0f, 1f); // 金色
             }
             else
             {
                 // 恢复正常样式
-                style.borderTopColor = BORDER_COLOR;
-                style.borderBottomColor = BORDER_COLOR;
-                style.borderLeftColor = BORDER_COLOR;
-                style.borderRightColor = BORDER_COLOR;
-                style.borderTopWidth = BORDER_WIDTH;
-                style.borderBottomWidth = BORDER_WIDTH;
-                style.borderLeftWidth = BORDER_WIDTH;
-                style.borderRightWidth = BORDER_WIDTH;
+                _labelPlaque.style.backgroundColor = PLAQUE_BACKGROUND_COLOR;
             }
+            
+            // 触发重绘（改变圆颜色）
+            MarkDirtyRepaint();
         }
 
         /// <summary>
@@ -276,16 +275,17 @@ namespace MineRTS.BigMap
         /// </summary>
         public void SetActive(bool active)
         {
-            style.opacity = active ? 1.0f : 0.5f;
-
             if (!active)
             {
                 // 非激活状态：灰色外观
-                style.backgroundColor = DISABLED_COLOR;
+                _labelPlaque.style.backgroundColor = new Color(0.3f, 0.3f, 0.3f, 0.7f);
+                _nameLabel.style.color = new Color(0.7f, 0.7f, 0.7f, 1f);
             }
             else
             {
-                style.backgroundColor = NORMAL_BACKGROUND_COLOR;
+                // 恢复正常样式
+                _labelPlaque.style.backgroundColor = PLAQUE_BACKGROUND_COLOR;
+                _nameLabel.style.color = TEXT_COLOR;
             }
         }
 

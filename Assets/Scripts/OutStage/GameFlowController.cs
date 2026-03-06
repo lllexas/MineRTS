@@ -2,7 +2,7 @@ using UnityEngine;
 using MineRTS.BigMap;
 
 /// <summary>
-/// 【状态控制器】全局流程控制器，协调UI面板切换与游戏状态流转
+/// 【状态控制器】全局流程控制器，协调 UI 面板切换与游戏状态流转
 /// 职责：管理游戏状态（主菜单、大地图、战斗界面），协调数据层与表现层
 /// </summary>
 public class GameFlowController : SingletonMono<GameFlowController>
@@ -28,19 +28,72 @@ public class GameFlowController : SingletonMono<GameFlowController>
     protected override void Awake()
     {
         base.Awake();
-        Debug.Log("<color=cyan>[GameFlowController]</color> 初始化，当前状态: " + _currentState);
-        // 初始化状态：触发进入逻辑
-        HandleStateEnter(_currentState);
+        Debug.Log("<color=cyan>[GameFlowController]</color> 初始化，当前状态：" + _currentState);
+
+        // 注意：不在 Awake 中注册事件总线，留给 Start 做
+    }
+
+    private void Start()
+    {
+        // 1. 注册事件总线（确保所有单例已初始化）
+        PostSystem.Instance.Register(this);
+
+        // 2. 初始化游戏状态
+        InitializeGameState();
+    }
+
+    private void OnDestroy()
+    {
+        // 注销事件总线监听
+        if (PostSystem.Instance != null)
+            PostSystem.Instance.Unregister(this);
     }
 
     /// <summary>
-    /// 切换到指定状态，并更新UI面板显示
+    /// 初始化游戏状态：尝试退出所有其他状态，然后进入当前状态
+    /// 确保所有状态的清理逻辑都被执行，防止残留数据影响
+    /// </summary>
+    private void InitializeGameState()
+    {
+        Debug.Log("<color=cyan>[GameFlow]</color> 初始化游戏状态...");
+
+        // 1. 尝试退出所有其他状态（确保清理）
+        foreach (GameState state in System.Enum.GetValues(typeof(GameState)))
+        {
+            if (state != _currentState)
+            {
+                HandleStateExit(state);
+            }
+        }
+
+        // 2. 进入当前状态
+        HandleStateEnter(_currentState);
+
+        Debug.Log("<color=cyan>[GameFlow]</color> 游戏状态初始化完成，当前状态：" + _currentState);
+    }
+
+    /// <summary>
+    /// 监听大地图节点点击事件
+    /// </summary>
+    [Subscribe("BigMap.NodeClicked")]
+    void OnNodeClicked(object data)
+    {
+        var e = data as NodeClickEvent;
+        if (e != null && !string.IsNullOrEmpty(e.StageId))
+        {
+            Debug.Log($"<color=yellow>[GameFlow]</color> 收到节点点击事件：{e.DisplayName} ({e.StageId})");
+            EnterStage(e.StageId);
+        }
+    }
+
+    /// <summary>
+    /// 切换到指定状态，并更新 UI 面板显示
     /// </summary>
     public void SwitchToState(GameState newState)
     {
         if (_currentState == newState) return;
 
-        Debug.Log($"<color=orange>[GameFlow]</color> 状态切换: {_currentState} → {newState}");
+        Debug.Log($"<color=orange>[GameFlow]</color> 状态切换：{_currentState} → {newState}");
 
         // 退出当前状态
         HandleStateExit(_currentState);
@@ -75,11 +128,21 @@ public class GameFlowController : SingletonMono<GameFlowController>
                 }
                 else
                 {
-                    Debug.LogWarning("<color=orange>[GameFlow]</color> BigMapManager实例未找到，无法关闭大地图面板");
+                    Debug.LogWarning("<color=orange>[GameFlow]</color> BigMapManager 实例未找到，无法关闭大地图面板");
                 }
                 break;
             case GameState.InStage:
-                // 关卡状态退出：ECS清理在ReturnToMap中处理，这里只记录
+
+                // 1. UI 层面：
+                if (InStageUIManager.Instance != null)
+                {
+                    InStageUIManager.Instance.Close();
+                }
+                else
+                {
+                    Debug.LogWarning("<color=orange>[GameFlow]</color> InStageUIManager 实例未找到，无法打开战斗界面 UI");
+                }
+
                 Debug.Log("<color=orange>[GameFlow]</color> 退出关卡状态");
                 break;
         }
@@ -101,12 +164,16 @@ public class GameFlowController : SingletonMono<GameFlowController>
                 // 2. 背景层面：切换到主菜单背景（或者用 None 隐藏掉，节约性能）
                 if (ViewportBackgroundQuad.Instance != null)
                 {
-                    // 如果主菜单是全屏纯UI遮挡，可以直接传 ViewportMode.None 隐藏 Quad
+                    // 如果主菜单是全屏纯 UI 遮挡，可以直接传 ViewportMode.None 隐藏 Quad
                     ViewportBackgroundQuad.Instance.ApplyMode(ViewportMode.MainMenu);
                 }
 
                 // 3. 摄像机层面：同步主菜单专用的限制边界
-                if (CameraController.Instance != null) CameraController.Instance.SyncMainMenu();
+                if (CameraController.Instance != null)
+                {
+                    CameraController.Instance.SyncMainMenu();
+                    CameraController.Instance.SetGameMode(GameState.MainMenu);
+                }
                 break;
 
             case GameState.BigMap:
@@ -126,13 +193,22 @@ public class GameFlowController : SingletonMono<GameFlowController>
                 {
                     CameraController.Instance.SyncBigMap();
                     CameraController.Instance.GoToOrigin(); // 切到大地图时默认回原点
+                    CameraController.Instance.SetGameMode(GameState.BigMap);
                 }
                 break;
 
             case GameState.InStage:
                 Debug.Log("<color=orange>[GameFlow]</color> 进入战斗关卡状态");
 
-                // 1. UI 层面：(未来如果你有 BattleUIManager，可以在这里 Open)
+                // 1. UI 层面：
+                if (InStageUIManager.Instance != null)
+                {
+                    InStageUIManager.Instance.Open();
+                }
+                else
+                {
+                    Debug.LogWarning("<color=orange>[GameFlow]</color> InStageUIManager 实例未找到，无法打开战斗界面 UI");
+                }
 
                 // 2. 背景层面：切换到战斗用的基础正交网格
                 if (ViewportBackgroundQuad.Instance != null)
@@ -146,6 +222,7 @@ public class GameFlowController : SingletonMono<GameFlowController>
                     // 注意：因为 LoadStage 是在 EnterStage 触发的，此时 EntitySystem 里应该已经有数据了
                     CameraController.Instance.SyncBounds();
                     CameraController.Instance.InitializeCamera(); // 自动回原点并重置缩放
+                    CameraController.Instance.SetGameMode(GameState.InStage);
                 }
                 break;
         }
@@ -158,7 +235,7 @@ public class GameFlowController : SingletonMono<GameFlowController>
     {
         if (string.IsNullOrEmpty(stageID))
         {
-            Debug.LogError("<color=red>[GameFlow]</color> 关卡ID不能为空");
+            Debug.LogError("<color=red>[GameFlow]</color> 关卡 ID 不能为空");
             return;
         }
 
@@ -168,12 +245,12 @@ public class GameFlowController : SingletonMono<GameFlowController>
             return;
         }
 
-        Debug.Log($"<color=yellow>[GameFlow]</color> 正在进入关卡: {stageID}");
+        Debug.Log($"<color=yellow>[GameFlow]</color> 正在进入关卡：{stageID}");
 
         // 1. 更新数据层状态
         MainModel.Instance.SetCurrentStage(stageID);
 
-        // 2. 加载关卡到ECS系统
+        // 2. 加载关卡到 ECS 系统
         EntitySystem.Instance.LoadStage(stageID);
 
         // 3. 切换到战斗界面状态
@@ -241,7 +318,7 @@ public class GameFlowController : SingletonMono<GameFlowController>
             return;
         }
 
-        Debug.Log($"<color=orange>[GameFlow]</color> 正在从 ECS 提取关卡数据: {stageID}...");
+        Debug.Log($"<color=orange>[GameFlow]</color> 正在从 ECS 提取关卡数据：{stageID}...");
 
         // 1. 从 ECS 获取当前快照 (必须 Clone，防止引用污染)
         WholeComponent snapshot = EntitySystem.Instance.wholeComponent.Clone();
@@ -279,7 +356,7 @@ public class GameFlowController : SingletonMono<GameFlowController>
             return;
         }
 
-        Debug.Log($"<color=red>[GameFlow]</color> 正在重置关卡存档: {stageID}");
+        Debug.Log($"<color=red>[GameFlow]</color> 正在重置关卡存档：{stageID}");
 
         // 1. 从用户数据中移除该关卡的记录
         MainModel.Instance.CurrentUser.RemoveStage(stageID);

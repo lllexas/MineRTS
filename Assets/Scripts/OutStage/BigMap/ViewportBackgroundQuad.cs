@@ -4,17 +4,17 @@ using System.Collections.Generic;
 namespace MineRTS.BigMap
 {
     /// <summary>
-    /// 【桥接架构】视口背景Quad控制器 - 单例+桥接模式
-    /// 职责：几何变换协调器 + 桥接管理器 + GPU缓冲区同步
+    /// 【桥接架构】视口背景 Quad 控制器 - 单例 + 桥接模式
+    /// 职责：几何变换协调器 + 桥接管理器 + GPU 缓冲区同步
     /// 架构：
     ///   - 单例：全局唯一访问点
-    ///   - 桥接：几何变换（父）与Shader逻辑（子）解耦
+    ///   - 桥接：几何变换（父）与 Shader 逻辑（子）解耦
     ///   - 高性能：仅在相机参数变化时更新变换
     /// 特性：
     ///   - [ExecuteAlways] 支持编辑器实时预览
-    ///   - 自动发现并管理子物体上的Shader桥接器
+    ///   - 自动发现并管理子物体上的 Shader 桥接器
     ///   - 支持动态材质切换和桥接通知
-    ///   - 集成BigMapGPUBufferManager的GPU缓冲区同步
+    ///   - 集成 BigMapGPUBufferManager 的 GPU 缓冲区同步
     /// 设计模式：单例模式 + 桥接模式
     /// </summary>
     [ExecuteAlways]
@@ -31,7 +31,7 @@ namespace MineRTS.BigMap
             public Material material;
         }
         [Header("基础设置")]
-        [Tooltip("Quad在相机前的Z轴位置（深度），值越大越远")]
+        [Tooltip("Quad 在相机前的 Z 轴位置（深度），值越大越远")]
         [SerializeField] private float _zDepth = 10f;
 
         [Header("模式配置")]
@@ -40,6 +40,10 @@ namespace MineRTS.BigMap
 
         [Tooltip("模式与材质的映射关系")]
         [SerializeField] private List<ModeMaterialMap> _modeMaterials = new List<ModeMaterialMap>();
+
+        [Header("材质设置")]
+        [Tooltip("启用则创建材质实例，禁用则直接使用原始材质资源（方便 Inspector 调整）")]
+        [SerializeField] private bool _instantiateMaterial = true;
 
         [Header("调试")]
         [SerializeField] private bool _showDebugInfo = false;
@@ -65,7 +69,7 @@ namespace MineRTS.BigMap
         public Camera TargetCamera => _targetCamera;
 
         /// <summary>
-        /// 获取或设置Z深度
+        /// 获取或设置 Z 深度
         /// </summary>
         public float ZDepth
         {
@@ -84,7 +88,7 @@ namespace MineRTS.BigMap
 
         protected override void Awake()
         {
-            // 调用基类Awake（单例初始化）
+            // 调用基类 Awake（单例初始化）
             base.Awake();
 
             // 确保不跨场景保持（因为是相机子物体）
@@ -94,16 +98,16 @@ namespace MineRTS.BigMap
             _meshRenderer = GetComponent<MeshRenderer>();
             if (_meshRenderer == null)
             {
-                Debug.LogError("ViewportBackgroundQuad: 需要MeshRenderer组件");
+                Debug.LogError("ViewportBackgroundQuad: 需要 MeshRenderer 组件");
                 enabled = false;
                 return;
             }
 
-            // 获取父物体的Camera组件
+            // 获取父物体的 Camera 组件
             _targetCamera = transform.parent?.GetComponent<Camera>();
             if (_targetCamera == null)
             {
-                Debug.LogError("ViewportBackgroundQuad: 必须作为Camera的子物体挂载！");
+                Debug.LogError("ViewportBackgroundQuad: 必须作为 Camera 的子物体挂载！");
                 enabled = false;
                 return;
             }
@@ -116,17 +120,17 @@ namespace MineRTS.BigMap
             // 初始化材质
             InitializeMaterial();
 
-            // 初始化Shader桥接器
+            // 初始化 Shader 桥接器
             InitializeShaderBridges();
 
-            Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 初始化完成 - 目标相机: {_targetCamera.name}, Z深度: {_zDepth}, 桥接器: {_shaderBridges?.Count ?? 0}个");
+            Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 初始化完成 - 目标相机：{_targetCamera.name}, Z 深度：{_zDepth}, 桥接器：{_shaderBridges?.Count ?? 0}个");
 
             // 应用初始模式
             ApplyMode(_currentMode);
         }
 
         /// <summary>
-        /// 初始化Shader桥接器（搜集所有子物体上的桥接组件）
+        /// 初始化 Shader 桥接器（搜集所有子物体上的桥接组件）
         /// </summary>
         private void InitializeShaderBridges()
         {
@@ -140,7 +144,7 @@ namespace MineRTS.BigMap
                 // 跳过自身（如果脚本错误地挂在自身）
                 if (bridge.gameObject == gameObject)
                 {
-                    Debug.LogWarning("ViewportBackgroundQuad: 发现挂在自身的Shader桥接器，建议移到子物体上");
+                    Debug.LogWarning("ViewportBackgroundQuad: 发现挂在自身的 Shader 桥接器，建议移到子物体上");
                     continue;
                 }
 
@@ -160,7 +164,7 @@ namespace MineRTS.BigMap
             }
 
             _bridgesInitialized = true;
-            Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> Shader桥接器初始化完成 - 找到 {_shaderBridges.Count} 个桥接器，当前模式: {_currentMode}");
+            Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> Shader 桥接器初始化完成 - 找到 {_shaderBridges.Count} 个桥接器，当前模式：{_currentMode}");
         }
 
         /// <summary>
@@ -179,7 +183,7 @@ namespace MineRTS.BigMap
 
         private void OnValidate()
         {
-            // 在Inspector中修改Z深度时立即更新
+            // 在 Inspector 中修改 Z 深度时立即更新
             if (Application.isPlaying || _targetCamera != null)
             {
                 UpdateTransform();
@@ -189,19 +193,12 @@ namespace MineRTS.BigMap
             // 编辑器模式下验证模式材质配置
             ValidateModeMaterials();
 
-            // 编辑器模式下尝试初始化桥接器（用于预览）
+            // 编辑器模式下使用延迟调用初始化桥接器（用于预览）
+            // 这样可以避免 OnValidate 执行时对象处于"不稳定"状态的问题
             if (!Application.isPlaying)
             {
-                InitializeEditorBridges();
-
-                // 如果模式发生变化，应用新模式（编辑器预览）
-                // 注意：由于OnValidate可能被频繁调用，我们只在编辑器模式下处理模式切换
-                // 运行时模式切换应该通过ApplyMode方法
-                if (!Application.isPlaying && _bridgesInitialized && _shaderBridges != null)
-                {
-                    // 应用当前模式（仅限编辑器预览）
-                    ApplyModeInEditor();
-                }
+                UnityEditor.EditorApplication.delayCall -= InitializeEditorBridges;
+                UnityEditor.EditorApplication.delayCall += InitializeEditorBridges;
             }
 #endif
         }
@@ -235,11 +232,11 @@ namespace MineRTS.BigMap
 
             if (duplicateModes.Count > 0)
             {
-                Debug.LogWarning($"<color=orange>[ViewportBackgroundQuad]</color> 发现重复的模式配置: {string.Join(", ", duplicateModes)}。将使用第一个匹配项。");
+                Debug.LogWarning($"<color=orange>[ViewportBackgroundQuad]</color> 发现重复的模式配置：{string.Join(", ", duplicateModes)}。将使用第一个匹配项。");
             }
 
-            // 检查当前模式是否有材质配置（None模式不需要材质）
-            if (_currentMode == ViewportMode.None) return; // None模式不需要材质检查
+            // 检查当前模式是否有材质配置（None 模式不需要材质）
+            if (_currentMode == ViewportMode.None) return; // None 模式不需要材质检查
 
             bool hasCurrentModeMaterial = false;
             foreach (var map in _modeMaterials)
@@ -262,6 +259,8 @@ namespace MineRTS.BigMap
         /// </summary>
         private void ApplyModeInEditor()
         {
+            if (this == null) return; // 防止对象在延迟期间被销毁
+
             if (_currentMode == ViewportMode.None)
             {
                 if (_meshRenderer != null) _meshRenderer.enabled = false;
@@ -271,7 +270,7 @@ namespace MineRTS.BigMap
                 {
                     foreach (var bridge in _shaderBridges) bridge.enabled = false;
                 }
-                Debug.Log($"<color=yellow>[ViewportBackgroundQuad]</color> 编辑器模式 - 已预览模式: None (隐藏)");
+                Debug.Log($"<color=yellow>[ViewportBackgroundQuad]</color> 编辑器模式 - 已预览模式：None (隐藏)");
                 return;
             }
 
@@ -281,7 +280,7 @@ namespace MineRTS.BigMap
                 _meshRenderer.enabled = true;
             }
 
-            // 步骤1：查找并应用对应材质（编辑器模式使用sharedMaterial）
+            // 步骤 1：查找并应用对应材质（编辑器模式使用 sharedMaterial）
             Material targetMaterial = null;
             foreach (var map in _modeMaterials)
             {
@@ -327,7 +326,7 @@ namespace MineRTS.BigMap
                 }
             }
 
-            // 步骤2：激活/禁用桥接器
+            // 步骤 2：激活/禁用桥接器
             if (_bridgesInitialized && _shaderBridges != null)
             {
                 foreach (var bridge in _shaderBridges)
@@ -344,7 +343,7 @@ namespace MineRTS.BigMap
                 }
             }
 
-            Debug.Log($"<color=yellow>[ViewportBackgroundQuad]</color> 编辑器模式 - 已预览模式: {_currentMode}");
+            Debug.Log($"<color=yellow>[ViewportBackgroundQuad]</color> 编辑器模式 - 已预览模式：{_currentMode}");
         }
 
         /// <summary>
@@ -352,6 +351,9 @@ namespace MineRTS.BigMap
         /// </summary>
         private void InitializeEditorBridges()
         {
+            // 防止对象在延迟调用期间被销毁
+            if (this == null) return;
+
             // 确保组件引用已获取
             if (_meshRenderer == null)
                 _meshRenderer = GetComponent<MeshRenderer>();
@@ -389,6 +391,12 @@ namespace MineRTS.BigMap
                     Debug.Log($"<color=yellow>[ViewportBackgroundQuad]</color> 编辑器模式 - 发现 {_shaderBridges.Count} 个桥接器");
                 }
             }
+
+            // 延迟调用后应用当前模式（仅限编辑器预览）
+            if (_bridgesInitialized && _shaderBridges != null)
+            {
+                ApplyModeInEditor();
+            }
         }
 #endif
 
@@ -419,22 +427,22 @@ namespace MineRTS.BigMap
                 UpdateTransform();
             }
 
-            // 应用GPU缓冲区到材质
+            // 应用 GPU 缓冲区到材质
             ApplyGPUBuffersToMaterial();
 
-            // 更新所有Shader桥接器
+            // 更新所有 Shader 桥接器
             UpdateShaderBridges();
 
             // 调试信息
             if (_showDebugInfo && Time.frameCount % 60 == 0)
             {
-                Debug.Log($"<color=yellow>[ViewportBackgroundQuad]</color> 状态 - 正交尺寸: {_targetCamera.orthographicSize:F2}, 宽高比: {_targetCamera.aspect:F2}, " +
-                         $"缩放: {transform.localScale.x:F2}x{transform.localScale.y:F2}, Z深度: {_zDepth:F2}, 桥接器: {_shaderBridges?.Count ?? 0}个");
+                Debug.Log($"<color=yellow>[ViewportBackgroundQuad]</color> 状态 - 正交尺寸：{_targetCamera.orthographicSize:F2}, 宽高比：{_targetCamera.aspect:F2}, " +
+                         $"缩放：{transform.localScale.x:F2}x{transform.localScale.y:F2}, Z 深度：{_zDepth:F2}, 桥接器：{_shaderBridges?.Count ?? 0}个");
             }
         }
 
         /// <summary>
-        /// 更新所有Shader桥接器（每帧调用）
+        /// 更新所有 Shader 桥接器（每帧调用）
         /// 只更新当前模式下激活的桥接器
         /// </summary>
         private void UpdateShaderBridges()
@@ -459,7 +467,7 @@ namespace MineRTS.BigMap
         }
 
         /// <summary>
-        /// 更新Quad的变换以完全覆盖相机视口
+        /// 更新 Quad 的变换以完全覆盖相机视口
         /// 计算公式：
         ///   localScale.y = Camera.orthographicSize * 2
         ///   localScale.x = localScale.y * Camera.aspect
@@ -475,7 +483,7 @@ namespace MineRTS.BigMap
             // 应用缩放
             transform.localScale = new Vector3(scaleX, scaleY, 1f);
 
-            // 确保Quad在相机前方指定深度
+            // 确保 Quad 在相机前方指定深度
             transform.localPosition = new Vector3(0f, 0f, _zDepth);
         }
 
@@ -500,11 +508,18 @@ namespace MineRTS.BigMap
 
             if (modeMaterial != null)
             {
-                // 使用模式配置的材质
-                _currentMaterial = new Material(modeMaterial); // 创建实例
-                _currentMaterial.name = $"{modeMaterial.name}_Instance";
+                // 根据开关决定是否创建实例
+                if (_instantiateMaterial)
+                {
+                    _currentMaterial = new Material(modeMaterial);
+                    _currentMaterial.name = $"{modeMaterial.name}_Instance";
+                }
+                else
+                {
+                    _currentMaterial = modeMaterial; // 直接使用原始材质
+                }
                 _meshRenderer.material = _currentMaterial;
-                Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 使用模式配置材质，模式: {_currentMode}, Shader: {modeMaterial.shader?.name}");
+                Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 使用模式配置材质，模式：{_currentMode}, Shader: {modeMaterial.shader?.name}, 实例化：{_instantiateMaterial}");
                 return;
             }
 
@@ -517,26 +532,44 @@ namespace MineRTS.BigMap
                 Shader gridShader = Shader.Find("MineRTS/InfiniteWorldGrid");
                 if (gridShader != null)
                 {
-                    existingMaterial = new Material(gridShader);
-                    existingMaterial.name = $"{gridShader.name}_Instance";
+                    if (_instantiateMaterial)
+                    {
+                        existingMaterial = new Material(gridShader);
+                        existingMaterial.name = $"{gridShader.name}_Instance";
+                    }
+                    else
+                    {
+                        // 创建临时材质用于测试
+                        existingMaterial = new Material(gridShader);
+                        existingMaterial.name = gridShader.name;
+                    }
                     Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 创建了默认材质，Shader: {gridShader.name}");
                 }
                 else
                 {
-                    Debug.LogError("ViewportBackgroundQuad: 找不到'MineRTS/InfiniteWorldGrid' Shader，请确保Shader已正确导入");
+                    Debug.LogError("ViewportBackgroundQuad: 找不到'MineRTS/InfiniteWorldGrid' Shader，请确保 Shader 已正确导入");
 
-                    // 尝试使用备用Shader
+                    // 尝试使用备用 Shader
                     Shader fallbackShader = Shader.Find("Unlit/Transparent");
                     if (fallbackShader != null)
                     {
-                        existingMaterial = new Material(fallbackShader);
-                        existingMaterial.color = new Color(0.1f, 0.2f, 0.5f, 0.3f); // 测试颜色
-                        existingMaterial.name = "FallbackMaterial";
-                        Debug.LogWarning("ViewportBackgroundQuad: 使用备用Shader Unlit/Transparent");
+                        if (_instantiateMaterial)
+                        {
+                            existingMaterial = new Material(fallbackShader);
+                            existingMaterial.color = new Color(0.1f, 0.2f, 0.5f, 0.3f); // 测试颜色
+                            existingMaterial.name = "FallbackMaterial_Instance";
+                        }
+                        else
+                        {
+                            existingMaterial = new Material(fallbackShader);
+                            existingMaterial.color = new Color(0.1f, 0.2f, 0.5f, 0.3f);
+                            existingMaterial.name = "FallbackMaterial";
+                        }
+                        Debug.LogWarning("ViewportBackgroundQuad: 使用备用 Shader Unlit/Transparent");
                     }
                     else
                     {
-                        Debug.LogError("ViewportBackgroundQuad: 也找不到备用Shader");
+                        Debug.LogError("ViewportBackgroundQuad: 也找不到备用 Shader");
                         enabled = false;
                         return;
                     }
@@ -553,13 +586,13 @@ namespace MineRTS.BigMap
         }
 
         /// <summary>
-        /// 将GPU缓冲区应用到材质
+        /// 将 GPU 缓冲区应用到材质
         /// </summary>
         private void ApplyGPUBuffersToMaterial()
         {
             if (_currentMaterial == null) return;
 
-            // 如果GPU缓冲区管理器存在，将缓冲区应用到材质
+            // 如果 GPU 缓冲区管理器存在，将缓冲区应用到材质
             if (BigMapGPUBufferManager.Instance != null)
             {
                 if (BigMapGPUBufferManager.Instance.AreBuffersInitialized())
@@ -568,14 +601,14 @@ namespace MineRTS.BigMap
                     // 仅在调试时输出日志
                     if (_showDebugInfo && Time.frameCount % 300 == 0)
                     {
-                        Debug.Log("<color=cyan>[ViewportBackgroundQuad]</color> GPU缓冲区已应用到材质");
+                        Debug.Log("<color=cyan>[ViewportBackgroundQuad]</color> GPU 缓冲区已应用到材质");
                     }
                 }
                 else
                 {
                     if (_showDebugInfo && Time.frameCount % 300 == 0)
                     {
-                        Debug.LogWarning("<color=orange>[ViewportBackgroundQuad]</color> GPU缓冲区未初始化，跳过应用");
+                        Debug.LogWarning("<color=orange>[ViewportBackgroundQuad]</color> GPU 缓冲区未初始化，跳过应用");
                     }
                 }
             }
@@ -583,7 +616,7 @@ namespace MineRTS.BigMap
             {
                 if (_showDebugInfo && Time.frameCount % 300 == 0)
                 {
-                    Debug.LogWarning("<color=orange>[ViewportBackgroundQuad]</color> BigMapGPUBufferManager实例未找到，无法应用GPU缓冲区");
+                    Debug.LogWarning("<color=orange>[ViewportBackgroundQuad]</color> BigMapGPUBufferManager 实例未找到，无法应用 GPU 缓冲区");
                 }
             }
         }
@@ -591,9 +624,9 @@ namespace MineRTS.BigMap
         /// <summary>
         /// 应用指定视口模式
         /// 步骤：
-        /// 1. 从_modeMaterials里根据mode找到对应的材质并应用
-        /// 2. 遍历所有_shaderBridges，检查ActiveInModes列表，启用/禁用桥接器
-        /// 3. 调用NotifyBridgesMaterialChanged
+        /// 1. 从_modeMaterials 里根据 mode 找到对应的材质并应用
+        /// 2. 遍历所有_shaderBridges，检查 ActiveInModes 列表，启用/禁用桥接器
+        /// 3. 调用 NotifyBridgesMaterialChanged
         /// </summary>
         /// <param name="mode">要应用的视口模式</param>
         public void ApplyMode(ViewportMode mode)
@@ -610,7 +643,7 @@ namespace MineRTS.BigMap
                 {
                     foreach (var bridge in _shaderBridges) bridge.enabled = false;
                 }
-                Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 已切换到模式: None (隐藏背景)");
+                Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 已切换到模式：None (隐藏背景)");
                 return;
             }
 
@@ -659,7 +692,7 @@ namespace MineRTS.BigMap
 
                         if (_showDebugInfo)
                         {
-                            Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 桥接器 {bridge.GetType().Name} 已{(shouldBeActive ? "激活" : "禁用")} (模式: {mode})");
+                            Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 桥接器 {bridge.GetType().Name} 已{(shouldBeActive ? "激活" : "禁用")} (模式：{mode})");
                         }
                     }
                     catch (System.Exception ex)
@@ -669,7 +702,7 @@ namespace MineRTS.BigMap
                 }
             }
 
-            Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 已切换到模式: {mode}");
+            Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 已切换到模式：{mode}");
         }
 
         /// <summary>
@@ -746,9 +779,9 @@ namespace MineRTS.BigMap
 
         /// <summary>
         /// 切换材质（支持动态更换材质）
-        /// 切换后会通知所有Shader桥接器材质已更新
+        /// 切换后会通知所有 Shader 桥接器材质已更新
         /// </summary>
-        /// <param name="newMaterial">新材质（将创建实例化副本）</param>
+        /// <param name="newMaterial">新材质</param>
         public void SwitchMaterial(Material newMaterial)
         {
             if (newMaterial == null)
@@ -757,17 +790,24 @@ namespace MineRTS.BigMap
                 return;
             }
 
-            // 创建材质实例（避免修改原材质资源）
-            Material materialInstance = new Material(newMaterial);
-            materialInstance.name = $"{newMaterial.name}_Instance";
+            // 根据开关决定是否创建实例
+            if (_instantiateMaterial)
+            {
+                Material materialInstance = new Material(newMaterial);
+                materialInstance.name = $"{newMaterial.name}_Instance";
+                _currentMaterial = materialInstance;
+            }
+            else
+            {
+                _currentMaterial = newMaterial; // 直接使用原始材质
+            }
 
-            _currentMaterial = materialInstance;
             _meshRenderer.material = _currentMaterial;
 
-            Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 材质已切换 - Shader: {newMaterial.shader?.name}");
+            Debug.Log($"<color=cyan>[ViewportBackgroundQuad]</color> 材质已切换 - Shader: {newMaterial.shader?.name}, 实例化：{_instantiateMaterial}");
 
-            // 通知所有Shader桥接器材质已更新
-            NotifyBridgesMaterialChanged(materialInstance);
+            // 通知所有 Shader 桥接器材质已更新
+            NotifyBridgesMaterialChanged(_currentMaterial);
         }
 
         /// <summary>
@@ -807,7 +847,7 @@ namespace MineRTS.BigMap
         }
 
         /// <summary>
-        /// 设置Z深度并立即更新变换
+        /// 设置 Z 深度并立即更新变换
         /// </summary>
         public void SetZDepth(float depth)
         {
@@ -833,7 +873,7 @@ namespace MineRTS.BigMap
 
         /// <summary>
         /// 获取当前视口尺寸（世界单位）
-        /// 返回：Vector2(宽度, 高度)
+        /// 返回：Vector2(宽度，高度)
         /// </summary>
         public Vector2 GetViewportWorldSize()
         {
@@ -845,7 +885,7 @@ namespace MineRTS.BigMap
         }
 
         /// <summary>
-        /// 获取当前材质（用于动态设置Shader属性）
+        /// 获取当前材质（用于动态设置 Shader 属性）
         /// </summary>
         public Material GetQuadMaterial()
         {
@@ -865,11 +905,11 @@ namespace MineRTS.BigMap
         }
 
         /// <summary>
-        /// 【示例代码】相机属性Shader桥接器
+        /// 【示例代码】相机属性 Shader 桥接器
         /// 使用方法：
-        /// 1. 创建新脚本继承ViewportShaderBridge
-        /// 2. 实现OnMaterialReady和UpdateShaderProperties方法
-        /// 3. 将脚本挂在ViewportBackgroundQuad的子物体上
+        /// 1. 创建新脚本继承 ViewportShaderBridge
+        /// 2. 实现 OnMaterialReady 和 UpdateShaderProperties 方法
+        /// 3. 将脚本挂在 ViewportBackgroundQuad 的子物体上
         /// 4. 系统会自动发现并管理
         ///
         /// 示例实现：
@@ -878,7 +918,7 @@ namespace MineRTS.BigMap
         ///     public override void OnMaterialReady(Material material)
         ///     {
         ///         base.OnMaterialReady(material);
-        ///         Debug.Log($"相机属性桥接器已连接到材质: {material.shader?.name}");
+        ///         Debug.Log($"相机属性桥接器已连接到材质：{material.shader?.name}");
         ///     }
         ///
         ///     public override void UpdateShaderProperties()
@@ -888,7 +928,7 @@ namespace MineRTS.BigMap
         ///         var camera = GetTargetCamera();
         ///         var material = GetCurrentMaterial();
         ///
-        ///         // 设置相机参数到Shader
+        ///         // 设置相机参数到 Shader
         ///         if (material.HasProperty("_CameraOrthoSize"))
         ///             material.SetFloat("_CameraOrthoSize", camera.orthographicSize);
         ///
@@ -909,7 +949,7 @@ namespace MineRTS.BigMap
         public void ExampleShaderBridgeUsage()
         {
             // 此方法仅为文档说明，无实际功能
-            Debug.Log("请参考上述注释创建自定义Shader桥接器");
+            Debug.Log("请参考上述注释创建自定义 Shader 桥接器");
         }
     }
 }
