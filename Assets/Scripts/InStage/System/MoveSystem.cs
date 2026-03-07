@@ -150,7 +150,7 @@ public class MoveSystem : SingletonMono<MoveSystem>
                     // Debug.Log("发现一个起点");
                     // 只要单位在起点格子上，或者离起点很近，直接无脑推进到下一个目标！
                     // 别在那等计时器了，赶紧看下一个路标喵！
-                    if (m.LogicalPosition == currentWp.Pos)
+                    if ((Vector2Int)m.LogicalPosition == currentWp.Pos)
                     {
                         // 只要后面还有路，就推进
                         if (m.Waypoints.Count > 1)
@@ -164,7 +164,7 @@ public class MoveSystem : SingletonMono<MoveSystem>
                 {
                     // 终点必须精确到达，我们不推进 Index (因为后面没路了)
                     // 逻辑保持在原地，直到外部指令切换路径
-                    if (m.LogicalPosition == currentWp.Pos)
+                    if ((Vector2Int)m.LogicalPosition == currentWp.Pos)
                     {
                         // 已经到了，啥也不用做，HasNextStep 会在 Boids 里自然熄灭
                         shouldAdvance = false;

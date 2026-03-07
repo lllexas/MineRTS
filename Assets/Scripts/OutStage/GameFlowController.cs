@@ -130,6 +130,13 @@ public class GameFlowController : SingletonMono<GameFlowController>
                 {
                     Debug.LogWarning("<color=orange>[GameFlow]</color> BigMapManager 实例未找到，无法关闭大地图面板");
                 }
+
+                // 关闭大地图 UI 管理器
+                if (BigMapUIManager.Instance != null)
+                {
+                    BigMapUIManager.Instance.Close();
+                    Debug.Log("<color=orange>[GameFlow]</color> 大地图 UI 管理器已关闭");
+                }
                 break;
             case GameState.InStage:
 
@@ -140,7 +147,7 @@ public class GameFlowController : SingletonMono<GameFlowController>
                 }
                 else
                 {
-                    Debug.LogWarning("<color=orange>[GameFlow]</color> InStageUIManager 实例未找到，无法打开战斗界面 UI");
+                    Debug.LogWarning("<color=orange>[GameFlow]</color> InStageUIManager 实例未找到，无法关闭战斗界面 UI");
                 }
 
                 Debug.Log("<color=orange>[GameFlow]</color> 退出关卡状态");
@@ -181,6 +188,9 @@ public class GameFlowController : SingletonMono<GameFlowController>
 
                 // 1. UI 层面：打开大地图面板
                 if (BigMapManager.Instance != null) BigMapManager.Instance.Open();
+
+                // 1.5 UI 层面：打开大地图 UI 管理器（保存、设置等按钮）
+                if (BigMapUIManager.Instance != null) BigMapUIManager.Instance.Open();
 
                 // 2. 背景层面：切换到大地图炫酷底板
                 if (ViewportBackgroundQuad.Instance != null)

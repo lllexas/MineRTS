@@ -38,20 +38,25 @@ public class MainMenuManager : SingletonMono<MainMenuManager>, IMenuPanel
             Debug.Log("<color=cyan>[MainMenuManager]</color> 加载游戏按钮事件已绑定");
         }
 
-        // 其他按钮暂时不实现功能
+        // 新游戏按钮
         if (_newGameButton != null)
         {
-            Debug.Log("<color=yellow>[MainMenuManager]</color> 新游戏按钮引用已设置，功能待实现");
+            _newGameButton.onClick.AddListener(OnNewGameClicked);
+            Debug.Log("<color=cyan>[MainMenuManager]</color> 新游戏按钮事件已绑定");
         }
 
+        // 设置按钮
         if (_settingsButton != null)
         {
+            _settingsButton.onClick.AddListener(OnSettingsClicked);
             Debug.Log("<color=yellow>[MainMenuManager]</color> 设置按钮引用已设置，功能待实现");
         }
 
+        // 退出按钮
         if (_quitButton != null)
         {
-            Debug.Log("<color=yellow>[MainMenuManager]</color> 退出按钮引用已设置，功能待实现");
+            _quitButton.onClick.AddListener(OnQuitClicked);
+            Debug.Log("<color=cyan>[MainMenuManager]</color> 退出按钮事件已绑定");
         }
     }
 
@@ -135,6 +140,49 @@ public class MainMenuManager : SingletonMono<MainMenuManager>, IMenuPanel
     {
         Debug.Log("<color=cyan>[MainMenuManager]</color> 加载游戏按钮被点击");
         OpenSaveSelection();
+    }
+
+    /// <summary>
+    /// 新游戏按钮点击事件处理
+    /// </summary>
+    private void OnNewGameClicked()
+    {
+        Debug.Log("<color=cyan>[MainMenuManager]</color> 新游戏按钮被点击");
+        StartNewGame();
+    }
+
+    /// <summary>
+    /// 设置按钮点击事件处理
+    /// </summary>
+    private void OnSettingsClicked()
+    {
+        Debug.Log("<color=yellow>[MainMenuManager]</color> 设置按钮被点击（功能待实现）");
+        // TODO: 打开设置面板
+    }
+
+    /// <summary>
+    /// 退出按钮点击事件处理
+    /// </summary>
+    private void OnQuitClicked()
+    {
+        Debug.Log("<color=cyan>[MainMenuManager]</color> 退出按钮被点击");
+        QuitGame();
+    }
+
+    /// <summary>
+    /// 退出游戏
+    /// </summary>
+    public void QuitGame()
+    {
+        Debug.Log("<color=yellow>[MainMenuManager]</color> 正在退出游戏...");
+
+#if UNITY_EDITOR
+        // 编辑器模式下停止播放
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        // 构建版本中退出应用程序
+        Application.Quit();
+#endif
     }
 
     /// <summary>

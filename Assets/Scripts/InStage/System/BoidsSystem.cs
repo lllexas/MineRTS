@@ -38,7 +38,7 @@ public class BoidsSystem : SingletonMono<BoidsSystem>
             m.NextStepTile = proposedTile;
 
             // 如果打算移动，注册竞争
-            if (proposedTile != m.LogicalPosition)
+            if (proposedTile != (Vector2Int)m.LogicalPosition)
             {
                 if (!_competitionTable.TryGetValue(proposedTile, out var list))
                 {

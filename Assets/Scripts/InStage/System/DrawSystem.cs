@@ -119,7 +119,7 @@ public class DrawSystem : SingletonMono<DrawSystem>
             // 1. 同步 Transform
             // 注意 Z 轴：Debug 模式下设为 0 或者 -0.1 以防被背景遮挡
             go.transform.position = new Vector3(core.Position.x, core.Position.y, 0);
-            go.transform.rotation = Quaternion.Euler(0, 0, Vector2.SignedAngle(Vector2.up, core.Rotation));
+            go.transform.rotation = Quaternion.Euler(0, 0, Vector2.SignedAngle(Vector2.up, (Vector2Int)core.Rotation));
             go.transform.localScale = new Vector3(core.VisualScale.x, core.VisualScale.y, 1);
 
             // 2. 同步 SpriteRenderer
@@ -250,7 +250,7 @@ public class DrawSystem : SingletonMono<DrawSystem>
             Vector3 pos = new Vector3(core.Position.x, core.Position.y + jumpOffset, zPos);
 
             // 2. 旋转逻辑保持不变
-            Quaternion rot = Quaternion.Euler(0, 0, Vector2.SignedAngle(Vector2.up, core.Rotation));
+            Quaternion rot = Quaternion.Euler(0, 0, Vector2.SignedAngle(Vector2.up, (Vector2Int)core.Rotation));
 
             // 3. 应用形变到缩放
             Vector3 scaleVal = new Vector3(

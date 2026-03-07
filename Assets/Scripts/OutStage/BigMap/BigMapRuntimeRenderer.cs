@@ -251,5 +251,13 @@ namespace MineRTS.BigMap
         {
             Debug.Log("BigMapRuntimeRenderer: 视图重置功能需要摄像机控制器配合实现");
         }
+
+        /// <summary>
+        /// 获取当前地图数据
+        /// </summary>
+        public BigMapSaveData GetCurrentMapData()
+        {
+            return _mapData;
+        }
     }
 }

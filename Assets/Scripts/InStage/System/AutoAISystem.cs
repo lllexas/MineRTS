@@ -43,7 +43,7 @@ public class AutoAISystem : SingletonMono<AutoAISystem>
 
         // 检查是否需要状态转换
         if (ai.CurrentCommand == newCmd &&
-            ai.CommandPos == cmdPos &&
+            (Vector2Int)ai.CommandPos == cmdPos &&
             ai.TargetEntity == targetHandle)
         {
             // 相同的命令和参数，无需转换
@@ -376,7 +376,7 @@ public class AutoAISystem : SingletonMono<AutoAISystem>
             if ((targetCore.Type & (UnitType.Building | UnitType.Minion | UnitType.Hero)) == 0) continue;
 
             // 距离计算 (如果以后有巨型 Boss，这里可以改成边缘距离)
-            float distSq = (targetCore.Position - selfPos).sqrMagnitude;
+            float distSq = ((Vector2)(targetCore.Position - selfPos)).sqrMagnitude;
             if (distSq < minDistSq)
             {
                 minDistSq = distSq;

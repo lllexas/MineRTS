@@ -2,6 +2,8 @@
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using MineRTS.BigMap;
+using Newtonsoft.Json;
 
 public class SaveManager : SingletonMono<SaveManager>
 {
@@ -13,6 +15,14 @@ public class SaveManager : SingletonMono<SaveManager>
 
     // 存档存放目录
     private string SaveDirectory => Path.Combine(Application.persistentDataPath, "Saves");
+
+    // Newtonsoft.Json 序列化设置
+    private static readonly JsonSerializerSettings JsonSettings = new JsonSerializerSettings
+    {
+        Formatting = Formatting.Indented,
+        TypeNameHandling = TypeNameHandling.None, // 不存储类型信息，保证安全
+        NullValueHandling = NullValueHandling.Ignore
+    };
 
     protected override void Awake()
     {
@@ -30,7 +40,7 @@ public class SaveManager : SingletonMono<SaveManager>
     /// </summary>
     public void CreateNewSave(string saveName)
     {
-        Debug.Log($"<color=cyan>[SaveManager]</color> 正在创建新存档: {saveName}...");
+        Debug.Log($"<color=cyan>[SaveManager]</color> 正在创建新存档：{saveName}...");
 
         // 1. 强制清理当前的运行时状态
         UnloadCurrentWorld();
@@ -38,15 +48,91 @@ public class SaveManager : SingletonMono<SaveManager>
         // 2. new 一个全新的 User Model 并设置到 MainModel
         UserModel newUser = new UserModel();
         newUser.Metadata.PlayerName = "指挥官-" + saveName;
+
+        // 3. 初始化大地图数据
+        // 从 BigMapManager 获取当前的大地图地理信息（如果没有，则使用默认地图）
+        if (MineRTS.BigMap.BigMapManager.Instance != null)
+        {
+            // 尝试从 RuntimeRenderer 获取当前加载的地图数据
+            var runtimeRenderer = MineRTS.BigMap.BigMapManager.Instance.GetRuntimeRenderer();
+            if (runtimeRenderer != null)
+            {
+                var currentMapData = runtimeRenderer.GetCurrentMapData();
+                if (currentMapData != null)
+                {
+                    // 深拷贝一份到存档中
+                    newUser.BigMapData = CloneBigMapData(currentMapData);
+                }
+                else
+                {
+                    // 如果没有当前地图数据，使用默认地图
+                    LoadDefaultBigMap(newUser);
+                }
+            }
+            else
+            {
+                LoadDefaultBigMap(newUser);
+            }
+        }
+        else
+        {
+            // BigMapManager 不存在，使用默认地图
+            LoadDefaultBigMap(newUser);
+        }
+
+        // 4. 初始化经济数据字典（从大地图节点数据转换）
+        Dictionary<string, BigMapEconomyData> economyDict = newUser.BigMapData.CreateEconomyDictFromNodes();
+        foreach (var kvp in economyDict)
+        {
+            newUser.SetEconomyData(kvp.Key, kvp.Value);
+        }
+        Debug.Log($"<color=yellow>[SaveManager]</color> 已初始化 {economyDict.Count} 个关卡的经济数据");
+
+        // 5. 设置到 MainModel
         MainModel.Instance.SetCurrentUser(newUser);
 
-        // 3. 标记当前文件名
+        // 6. 标记当前文件名
         CurrentSaveFileName = saveName;
 
-        // 4. 立即落地到磁盘
+        // 7. 立即落地到磁盘
         SaveGameToDisk();
 
         Debug.Log($"<color=green>[SaveManager]</color> 新存档 {saveName} 已创建并就绪！");
+    }
+
+    /// <summary>
+    /// 从默认地图加载 BigMapData
+    /// </summary>
+    private void LoadDefaultBigMap(UserModel user)
+    {
+        // 尝试从 BigMapManager 获取默认地图配置
+        var bigMapManager = MineRTS.BigMap.BigMapManager.Instance;
+        if (bigMapManager != null)
+        {
+            var defaultMapJson = bigMapManager.GetDefaultMapJson();
+            if (defaultMapJson != null)
+            {
+                user.BigMapData = UnityEngine.JsonUtility.FromJson<MineRTS.BigMap.BigMapSaveData>(defaultMapJson.text);
+                Debug.Log("<color=cyan>[SaveManager]</color> 已从默认 JSON 加载大地图数据");
+                return;
+            }
+        }
+
+        // 如果都没有，就创建一个空的 BigMapData
+        user.BigMapData = new MineRTS.BigMap.BigMapSaveData();
+        Debug.LogWarning("<color=orange>[SaveManager]</color> 使用空的大地图数据（未找到默认地图配置）");
+    }
+
+    /// <summary>
+    /// 深拷贝 BigMapSaveData（防止引用共享导致的问题）
+    /// </summary>
+    private MineRTS.BigMap.BigMapSaveData CloneBigMapData(MineRTS.BigMap.BigMapSaveData source)
+    {
+        if (source == null) return new MineRTS.BigMap.BigMapSaveData();
+
+        // 使用 Unity 的 JsonUtility 处理 Unity 类型（Vector2 等）
+        var json = UnityEngine.JsonUtility.ToJson(source);
+        return UnityEngine.JsonUtility.FromJson<MineRTS.BigMap.BigMapSaveData>(json);
     }
 
     /// <summary>
@@ -61,7 +147,7 @@ public class SaveManager : SingletonMono<SaveManager>
             return;
         }
 
-        Debug.Log($"<color=yellow>[SaveManager]</color> 正在读取存档: {saveName}...");
+        Debug.Log($"<color=yellow>[SaveManager]</color> 正在读取存档：{saveName}...");
 
         // 1. 清理现场
         UnloadCurrentWorld();
@@ -71,13 +157,15 @@ public class SaveManager : SingletonMono<SaveManager>
             // 2. 读取文本
             string json = File.ReadAllText(fullPath);
 
-            // 3. 反序列化
-            UserModel loadedUser = JsonUtility.FromJson<UserModel>(json);
+            // 3. 使用 Newtonsoft.Json 反序列化
+            UserModel loadedUser = JsonConvert.DeserializeObject<UserModel>(json, JsonSettings);
 
-            // 4. 重建字典索引 (关键！)
-            loadedUser.RebuildRuntimeCache();
+            if (loadedUser == null)
+            {
+                throw new System.Exception("反序列化返回 null");
+            }
 
-            // 5. 设置到 MainModel
+            // 4. 设置到 MainModel
             MainModel.Instance.SetCurrentUser(loadedUser);
 
             // 5. 更新当前文件名引用
@@ -85,14 +173,43 @@ public class SaveManager : SingletonMono<SaveManager>
 
             Debug.Log($"<color=green>[SaveManager]</color> 存档 {saveName} 加载完毕喵！");
 
-            // 存档读取成功，就说明得进入大地图了
+            // 6. 通知 BigMapManager 重新加载地图数据
+            LoadBigMapForCurrentUser();
+
+            // 7. 进入大地图
             GameFlowController.Instance.SwitchToState(GameFlowController.GameState.BigMap);
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"[SaveManager] 坏档了喵！原因: {e.Message}");
+            Debug.LogError($"[SaveManager] 坏档了喵！原因：{e.Message}");
+            Debug.LogException(e);
             // 坏档处理：可以选择回退或者创建一个新的空档
         }
+    }
+
+    /// <summary>
+    /// 为当前用户加载大地图数据到渲染器
+    /// </summary>
+    private void LoadBigMapForCurrentUser()
+    {
+        var user = MainModel.Instance.CurrentUser;
+        if (user?.BigMapData == null)
+        {
+            Debug.LogWarning("<color=orange>[SaveManager]</color> 当前用户没有大地图数据，跳过渲染");
+            return;
+        }
+
+        if (MineRTS.BigMap.BigMapManager.Instance == null)
+        {
+            Debug.LogWarning("<color=orange>[SaveManager]</color> BigMapManager 不存在，跳过渲染");
+            return;
+        }
+
+        // 将 BigMapData 转换为 JSON 并传递给渲染器
+        string mapJson = UnityEngine.JsonUtility.ToJson(user.BigMapData);
+        MineRTS.BigMap.BigMapManager.Instance.LoadMapFromSaveData(mapJson);
+
+        Debug.Log("<color=cyan>[SaveManager]</color> 大地图渲染数据已加载");
     }
 
     /// <summary>
@@ -111,12 +228,12 @@ public class SaveManager : SingletonMono<SaveManager>
             GameFlowController.Instance.SaveCurrentStageFromSystem();
         }
 
-        // 2. 序列化并写入
-        string json = JsonUtility.ToJson(currentUser, true);
+        // 2. 使用 Newtonsoft.Json 序列化
+        string json = JsonConvert.SerializeObject(currentUser, JsonSettings);
         string fullPath = Path.Combine(SaveDirectory, CurrentSaveFileName + ".json");
 
         File.WriteAllText(fullPath, json);
-        Debug.Log($"<color=cyan>[SaveManager]</color> 磁盘写入完毕: {fullPath}");
+        Debug.Log($"<color=cyan>[SaveManager]</color> 磁盘写入完毕：{fullPath}");
     }
 
     /// <summary>
@@ -182,12 +299,12 @@ public class SaveManager : SingletonMono<SaveManager>
                 Debug.Log($"<color=cyan>[SaveManager]</color> 当前活跃存档名称已更新为 '{newName}'");
             }
 
-            // 6. 如果该存档已加载到内存中，更新UserModel的元数据
+            // 6. 如果该存档已加载到内存中，更新 UserModel 的元数据
             if (MainModel.Instance.CurrentUser != null && CurrentSaveFileName == newName)
             {
-                // 更新PlayerName以反映新存档名
+                // 更新 PlayerName 以反映新存档名
                 MainModel.Instance.CurrentUser.Metadata.PlayerName = "指挥官-" + newName;
-                Debug.Log($"<color=cyan>[SaveManager]</color> 已更新内存中UserModel的元数据");
+                Debug.Log($"<color=cyan>[SaveManager]</color> 已更新内存中 UserModel 的元数据");
             }
 
             return true;

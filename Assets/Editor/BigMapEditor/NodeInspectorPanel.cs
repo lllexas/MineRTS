@@ -141,12 +141,12 @@ public class NodeInspectorPanel : VisualElement
 
         // 节点位置
         var positionContainer = CreatePropertyContainer("位置");
-        _positionField = new Vector2Field { value = nodeData.Position };
+        _positionField = new Vector2Field { value = (Vector2)nodeData.Position };
         _positionField.RegisterCallback<FocusOutEvent>(evt =>
         {
-            if (_currentNodeData != null && _currentNodeData.Position != _positionField.value)
+            if (_currentNodeData != null && (Vector2)_currentNodeData.Position != _positionField.value)
             {
-                _currentNodeData.Position = _positionField.value;
+                _currentNodeData.Position = (SerializableVector2)_positionField.value;
                 MarkDataChanged();
             }
         });
@@ -250,7 +250,7 @@ public class NodeInspectorPanel : VisualElement
         if (_currentNodeData == null) return;
 
         // 仅在值不同时使用 SetValueWithoutNotify，防止光标丢失或死循环
-        if (_positionField != null && _positionField.value != _currentNodeData.Position)
+        if (_positionField != null && _positionField.value != (Vector2)_currentNodeData.Position)
         {
             _positionField.SetValueWithoutNotify(_currentNodeData.Position);
         }

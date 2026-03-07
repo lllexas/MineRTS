@@ -872,7 +872,7 @@ public class TransportSystem : SingletonMono<TransportSystem>
             {
                 // 检查这个实体的逻辑格子坐标是否匹配
                 // 注意：这里用 wholeComponent.moveComponent，因为那是实时位置数据喵
-                if (EntitySystem.Instance.wholeComponent.moveComponent[entityIdx].LogicalPosition == gridPos)
+                if ((Vector2Int)EntitySystem.Instance.wholeComponent.moveComponent[entityIdx].LogicalPosition == gridPos)
                 {
                     return i; // 找到了，这就是第 i 段
                 }

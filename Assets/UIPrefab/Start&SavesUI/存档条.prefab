@@ -103,8 +103,6 @@ MonoBehaviour:
   RenameButton: {fileID: 2933751659271930571}
   RenamePanel: {fileID: 5133951411926983087}
   RenameInputField: {fileID: 6392476081531667432}
-  ConfirmRenameButton: {fileID: 0}
-  CancelRenameButton: {fileID: 0}
 --- !u!114 &1525651302406397770
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -215,7 +213,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Enter text...
+  m_text: "\u5728\u8FD9\u91CC\u8F93\u5165\u2026\u2026"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 4914af340d9968e4aa2d3c72f24127c0, type: 2}
   m_sharedMaterial: {fileID: -6195840679719683439, guid: 4914af340d9968e4aa2d3c72f24127c0, type: 2}
@@ -997,8 +995,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -249, y: -0.000097752}
-  m_SizeDelta: {x: 422.48, y: 60.488}
+  m_AnchoredPosition: {x: -273.7, y: -3.4}
+  m_SizeDelta: {x: 387.1131, y: 60.488}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &4373243251754100529
 CanvasRenderer:

@@ -15,6 +15,10 @@ namespace MineRTS.BigMap
     /// </summary>
     public static class BigMapEvents
     {
+        // 节点事件
         public const string NodeClicked = "BigMap.NodeClicked";
+
+        // UI 事件
+        public const string ShowConfirmBack = "BigMap.ShowConfirmBack";
     }
 }

@@ -142,7 +142,7 @@ public class AttackWaveBrain : AIBrainBar
             if (core.Active && core.Team == 1 && (core.Type & UnitType.Building) != 0 && health.IsAlive)
             {
                 buildingCount++;
-                float distSq = (core.Position - center).sqrMagnitude;
+                float distSq = ((Vector2)(core.Position - center)).sqrMagnitude;
                 if (distSq < minDistSq)
                 {
                     minDistSq = distSq;

@@ -1,0 +1,152 @@
+{
+    "StoryID": "",
+    "BoundStageID": "",
+    "Sequences": [],
+    "Root": {
+        "NodeID": "STORY_ROOT",
+        "EditorPosition": {
+            "x": 105.5999984741211,
+            "y": 24.0
+        }
+    },
+    "SpineNodes": [
+        {
+            "NodeID": "968a450c-8824-4bc2-877a-534a93a69365",
+            "EditorPosition": {
+                "x": 356.8000183105469,
+                "y": 23.200000762939454
+            },
+            "StoryProcessID": "起始",
+            "NextSpineNodeIDs": [
+                "73580321-fb67-4f26-bc04-74b8f8b28139",
+                "3df34884-1439-4476-8077-e262a35a8bfd"
+            ],
+            "IsConnectedToRoot": true
+        },
+        {
+            "NodeID": "3df34884-1439-4476-8077-e262a35a8bfd",
+            "EditorPosition": {
+                "x": 644.7999877929688,
+                "y": 100.80000305175781
+            },
+            "StoryProcessID": "",
+            "NextSpineNodeIDs": [],
+            "IsConnectedToRoot": false
+        },
+        {
+            "NodeID": "73580321-fb67-4f26-bc04-74b8f8b28139",
+            "EditorPosition": {
+                "x": 645.6000366210938,
+                "y": -30.400001525878908
+            },
+            "StoryProcessID": "",
+            "NextSpineNodeIDs": [],
+            "IsConnectedToRoot": false
+        }
+    ],
+    "LeafNodes": [
+        {
+            "NodeID": "c08d7ca3-1d46-4028-811e-347ab77f26ad",
+            "EditorPosition": {
+                "x": 283.20001220703127,
+                "y": 324.79998779296877
+            },
+            "StoryProcessID": "起始",
+            "SequenceID": "",
+            "ConnectedCommandNodeIDs": [
+                "127a47b7-935d-47f0-87f0-b5a237262813",
+                "0f89f544-af99-4212-a31d-677e513a35ca"
+            ]
+        }
+    ],
+    "Triggers": [
+        {
+            "NodeID": "d288617c-c4eb-49f7-b991-b7091a4b87af",
+            "EditorPosition": {
+                "x": -93.60000610351563,
+                "y": 236.0
+            },
+            "Trigger": {
+                "UseEnumTrigger": true,
+                "TriggerType": 3,
+                "CustomEventName": "",
+                "TriggerParam": "0"
+            },
+            "NextNodeIDs": [
+                "c08d7ca3-1d46-4028-811e-347ab77f26ad"
+            ]
+        },
+        {
+            "NodeID": "f87a0b91-a91b-4634-840d-48f795f49a3c",
+            "EditorPosition": {
+                "x": -99.20000457763672,
+                "y": 453.5999755859375
+            },
+            "Trigger": {
+                "UseEnumTrigger": true,
+                "TriggerType": 3,
+                "CustomEventName": "",
+                "TriggerParam": "0"
+            },
+            "NextNodeIDs": [
+                "c08d7ca3-1d46-4028-811e-347ab77f26ad"
+            ]
+        },
+        {
+            "NodeID": "a9637802-cf95-457e-a0b8-f318dd965d06",
+            "EditorPosition": {
+                "x": -413.5999755859375,
+                "y": 237.59999084472657
+            },
+            "Trigger": {
+                "UseEnumTrigger": true,
+                "TriggerType": 3,
+                "CustomEventName": "",
+                "TriggerParam": "0"
+            },
+            "NextNodeIDs": [
+                "d288617c-c4eb-49f7-b991-b7091a4b87af"
+            ]
+        }
+    ],
+    "Commands": [
+        {
+            "NodeID": "127a47b7-935d-47f0-87f0-b5a237262813",
+            "EditorPosition": {
+                "x": 576.7999877929688,
+                "y": 300.0
+            },
+            "Command": {
+                "CommandType": "",
+                "CommandParam": ""
+            },
+            "NextCommandNodeIDs": [
+                "fe1d6b9c-83f2-4190-8caa-ae9b81cce75c"
+            ]
+        },
+        {
+            "NodeID": "0f89f544-af99-4212-a31d-677e513a35ca",
+            "EditorPosition": {
+                "x": 576.7999877929688,
+                "y": 489.5999755859375
+            },
+            "Command": {
+                "CommandType": "",
+                "CommandParam": ""
+            },
+            "NextCommandNodeIDs": []
+        },
+        {
+            "NodeID": "fe1d6b9c-83f2-4190-8caa-ae9b81cce75c",
+            "EditorPosition": {
+                "x": 908.0,
+                "y": 307.1999816894531
+            },
+            "Command": {
+                "CommandType": "",
+                "CommandParam": ""
+            },
+            "NextCommandNodeIDs": []
+        }
+    ]
+}

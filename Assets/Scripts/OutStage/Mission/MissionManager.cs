@@ -49,7 +49,7 @@ public class MissionManager : SingletonMono<MissionManager>
 
         Debug.Log($"<color=magenta>[Mission]</color> 剧本「{path}」装载成功！当前总任务数: {ActiveMissions.Count}");
 
-        DirectorSystem.Instance.LoadScenario(pack);
+        TriggerSystem.Instance.LoadTrigger(pack);
     }
 
     /// <summary>

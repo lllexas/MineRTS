@@ -18,7 +18,6 @@ namespace MineRTS.BigMap
         [SerializeField] private BigMapRuntimeRenderer _runtimeRenderer; // 节点渲染器
         [SerializeField] private BigMapEdgeRenderer _edgeRenderer; // 连线渲染器
         [SerializeField] private TextAsset _defaultMapJson; // 默认大地图 JSON 文件
-        [SerializeField] private GameObject _BG; // 大地图背景图（可选）
 
         // IMenuPanel 接口实现
         private bool _isOpen = false;
@@ -74,7 +73,6 @@ namespace MineRTS.BigMap
             if (_isOpen != PanelRoot.activeSelf)
             {
                 PanelRoot.SetActive(_isOpen);
-                _BG.SetActive(_isOpen);
             }
         }
 
@@ -87,7 +85,6 @@ namespace MineRTS.BigMap
 
             _isOpen = true;
             PanelRoot.SetActive(true);
-            _BG.SetActive(true);
 
             // 激活世界空间渲染器
             if (_runtimeRenderer != null)
@@ -118,7 +115,6 @@ namespace MineRTS.BigMap
 
             _isOpen = false;
             PanelRoot.SetActive(false);
-            _BG.SetActive(false);
 
             // 禁用世界空间渲染器（节省性能）
             if (_runtimeRenderer != null)
@@ -249,6 +245,50 @@ namespace MineRTS.BigMap
             // 注意：BigMapRuntimeRenderer 目前没有直接的 setter 方法
             // 需要扩展 RuntimeRenderer 或在这里实现位置/缩放的设置逻辑
             Debug.Log($"<color=yellow>[BigMapManager]</color> 设置摄像机位置和缩放功能待实现 - 位置：{position}, 缩放：{zoomLevel}");
+        }
+
+        // ==================== 公共访问器方法（供 SaveManager 使用） ====================
+
+        /// <summary>
+        /// 从存档数据加载大地图（用于 SaveManager 加载存档后）
+        /// </summary>
+        /// <param name="mapJson">BigMapSaveData 的 JSON 字符串</param>
+        public void LoadMapFromSaveData(string mapJson)
+        {
+            if (_runtimeRenderer == null)
+            {
+                Debug.LogError("<color=red>[BigMapManager]</color> 无法加载地图：RuntimeRenderer 为空");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(mapJson))
+            {
+                Debug.LogError("<color=red>[BigMapManager]</color> 地图 JSON 为空");
+                return;
+            }
+
+            Debug.Log("<color=cyan>[BigMapManager]</color> 正在从存档数据加载大地图...");
+            _runtimeRenderer.LoadMapData(mapJson);
+            _mapLoaded = true;
+
+            // 更新 GPU 缓冲区（如果存在）
+            UpdateGPUBuffers(mapJson);
+        }
+
+        /// <summary>
+        /// 获取 RuntimeRenderer 组件
+        /// </summary>
+        public BigMapRuntimeRenderer GetRuntimeRenderer()
+        {
+            return _runtimeRenderer;
+        }
+
+        /// <summary>
+        /// 获取默认地图 JSON 文件
+        /// </summary>
+        public TextAsset GetDefaultMapJson()
+        {
+            return _defaultMapJson;
         }
     }
 }

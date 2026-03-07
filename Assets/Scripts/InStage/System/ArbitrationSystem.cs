@@ -132,7 +132,7 @@ public class ArbitrationSystem : SingletonMono<ArbitrationSystem>
             Vector2Int entryCell = GetEntryCell(chosenPortal, currentNode, lane);
 
             // 如果单位已经站在入口，立即转正预约并推进到门后点
-            if (move.LogicalPosition == entryCell)
+            if ((Vector2Int)move.LogicalPosition == entryCell)
             {
                 // 预约转正
                 move.CurrentReservedPortal = chosenPortal;

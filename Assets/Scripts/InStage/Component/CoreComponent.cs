@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using Newtonsoft.Json;
 
 public struct CoreComponent
 {
@@ -11,15 +12,15 @@ public struct CoreComponent
     public EntityHandle SelfHandle;
     public int Team; // 是否属于玩家阵营，或者敌对阵营（可以用不同的数字表示不同的敌对阵营）
     public int Type; // 位掩码
-    public Vector2 Position;
-    public Vector2Int Rotation;
+    public SerializableVector2 Position;
+    public SerializableVector2Int Rotation;
     // 逻辑尺寸：例如 1x1, 2x2, 3x3。用于 GridSystem 的占据计算和视觉中心偏移计算
-    public Vector2Int LogicSize;
+    public SerializableVector2Int LogicSize;
 
     // 视觉缩放：大部分建筑设为 (1,1) 即可，资源实体可以设为 (0.4, 0.4)
-    public Vector2 VisualScale;
+    public SerializableVector2 VisualScale;
     // 蓝图名称，用于反查端口定义等静态数据
-    public string BlueprintName; 
+    public string BlueprintName;
     // 建造序号 (或叫创建索引)
     public int CreationIndex;
 }
@@ -31,20 +32,20 @@ public static class UnitType
     public const int Building = 1 << 2; // 4: 建筑
     public const int ResourceItem = 1 << 3; // <--- 新增：掉落在地上的矿石或物资包
     public const int Projectile = 1 << 4; // <--- 【新增】实体子弹
-    public const int Flyer = 1 << 5;      // <--- 【新增】飞行单位标记(辅助位)
+    public const int Flyer = 1 << 5;      // <--- 【新增】飞行单位标记 (辅助位)
     // ... 以后可以加 Flying, Boss 等
 }
 
 public struct MoveComponent
 {
     // --- 逻辑数据 ---
-    public Vector2Int LogicalPosition;    // 当前（或即将到达的）格子
-    public Vector2Int PreviousLogicalPosition; // 正在离开的格子
-    public Vector2Int TargetGridPosition; // 最终想要去的格子
+    public SerializableVector2Int LogicalPosition;    // 当前（或即将到达的）格子
+    public SerializableVector2Int PreviousLogicalPosition; // 正在离开的格子
+    public SerializableVector2Int TargetGridPosition; // 最终想要去的格子
 
-    // --- 节奏控制 (Tick化) ---
-    public int MoveIntervalTicks; // 移动一格所需的总Tick数 (例如：0.5s = 5 Ticks)
-    public int MoveTimerTicks;    // 剩余Tick倒计时
+    // --- 节奏控制 (Tick 化) ---
+    public int MoveIntervalTicks; // 移动一格所需的总 Tick 数 (例如：0.5s = 5 Ticks)
+    public int MoveTimerTicks;    // 剩余 Tick 倒计时
     public int StuckTimerTicks; // 🔥 新增：用于记录连续被堵了多少个 Tick
 
     // --- 【新增：旧代码兼容访问器】 ---
@@ -74,30 +75,30 @@ public struct MoveComponent
     // ----------------------------------
 
     // --- 视觉插值 ---
-    public Vector2 LastVisualPosition;
+    public SerializableVector2 LastVisualPosition;
 
     public bool IsFlyer;
 
     //------
     // 【修改】核心路径数据
     // 旧的 List<Vector2Int> CurrentPath 被废弃。
-    // 我们不再存储一整条确定的格子路径，而是存储“战略骨架”。
+    // 我们不再存储一整条确定的格子路径，而是存储"战略骨架"。
 
     // 1. 战略层 (Strategy)：由 PathfindingSystem 生成
     // 存储的是带有 RangeMin/RangeMax 的门户序列
     public List<PathfindingSystem.Waypoint> Waypoints;
     public int WaypointIndex; // 当前目标是 Waypoints[WaypointIndex]
-    public Vector2Int CurrentReservedTile; // 用于 Gizmos 绘制预定路径
+    public SerializableVector2Int CurrentReservedTile; // 用于 Gizmos 绘制预定路径
 
     // 2. 战术层 (Tactics)：由 ArbitrationSystem (仲裁系统) 生成
-    // 仲裁系统每一帧(或每一步)会根据 Waypoints 和当前拥堵情况，计算出“当下这一步”具体踩哪
-    public Vector2Int NextStepTile;
+    // 仲裁系统每一帧 (或每一步) 会根据 Waypoints 和当前拥堵情况，计算出"当下这一步"具体踩哪
+    public SerializableVector2Int NextStepTile;
     public bool HasNextStep; // true 表示仲裁系统已经下达了下一步指令，MoveSystem 可以执行了
 
     // 3. 避让与状态 (Avoidance)
-    // 用于实现类似星际的“撞墙-等待-侧滑”逻辑
+    // 用于实现类似星际的"撞墙 - 等待 - 侧滑"逻辑
     public bool IsBlocked;       // 当前是否因为拥堵而无法移动
-    public int BlockWaitTimerTicks; // 阻塞等待Tick数
+    public int BlockWaitTimerTicks; // 阻塞等待 Tick 数
     //-----
 
     public bool IsPathPending; // 是否正在等待寻路结果
@@ -107,7 +108,7 @@ public struct MoveComponent
     /// 当前正在前往的门后格子（如果非空，表示单位已预约并正在前往此出口）
     /// 到达后应推进 WaypointIndex
     /// </summary>
-    public Vector2Int? TargetPortalExit;
+    public SerializableVector2Int? TargetPortalExit;
     public NavPortal CurrentReservedPortal;  // 当前成功预约的门户
     public int CurrentReservedLane;          // 预约的车道索引
     public ulong CurrentReservedMask;        // 预约的掩码（用于释放）
@@ -118,13 +119,13 @@ public struct AttackComponent
 {
     public int TargetEntityId;      // 当前锁定的目标 ID
 
-    // --- 攻击属性 (从蓝图复制，可能被Buff修改) ---
+    // --- 攻击属性 (从蓝图复制，可能被 Buff 修改) ---
     public float AttackRange;
     public float AttackDamage;
 
-    // --- Tick化攻击属性 ---
-    public int AttackCooldownTicks;  // 攻击冷却tick数
-    public long LastAttackTick;      // 上次攻击的tick
+    // --- Tick 化攻击属性 ---
+    public int AttackCooldownTicks;  // 攻击冷却 tick 数
+    public long LastAttackTick;      // 上次攻击的 tick
 
     // --- 兼容性属性 (秒为单位) ---
     public float AttackCooldown
@@ -136,7 +137,7 @@ public struct AttackComponent
     public float LastAttackTime
     {
         get => LastAttackTick * TimeTicker.SecondsPerTick;
-        set => LastAttackTick = TimeTicker.ToTicks(value); // ToTicks返回int，隐式转换为long
+        set => LastAttackTick = TimeTicker.ToTicks(value); // ToTicks 返回 int，隐式转换为 long
     }
 
     // --- 状态控制 ---
@@ -154,7 +155,7 @@ public struct HealthComponent
     public bool IsAlive;
 
     // --- 死亡行为 (从蓝图复制) ---
-    public bool ExplodeOnDeath;     // 是否殉爆 (如: 自爆虫, 净化者)
+    public bool ExplodeOnDeath;     // 是否殉爆 (如：自爆虫，净化者)
     // 殉爆伤害通常直接取 AttackDamage，范围取 AttackRange
     public int LastAttackerFaction;     // 最后造成伤害的阵营，用于任务广播
 }
@@ -162,7 +163,7 @@ public struct ProjectileComponent
 {
     public int SourceEntityId;      // 谁射的？(防止打到自己人，或者计算击杀统计)
     public int TargetEntityId;      // 锁定目标 (如果是追踪弹)
-    public Vector2 TargetPosition;  // 目标地点 (如果是非追踪弹)
+    public SerializableVector2 TargetPosition;  // 目标地点 (如果是非追踪弹)
 
     public float Speed;
     public float Damage;
@@ -184,8 +185,10 @@ public struct SpawnComponent
 
 public struct DrawComponent
 {
+    [JsonIgnore]
     public Matrix4x4 Matrix;
     public int SpriteId;
+    [JsonIgnore]
     public Color TeamColor;
     public float AnimationFrame;
     public bool IsSelected; // <--- 新增：是否被选中
@@ -194,7 +197,7 @@ public struct DrawComponent
 public struct EntityHandle : IEquatable<EntityHandle>
 {
     public int Id;      // 唯一的身份证号（对应查询表的下标）
-    public int Version; // 版本号（防止复用ID时，旧的Handle指向了新的实体）
+    public int Version; // 版本号（防止复用 ID 时，旧的 Handle 指向了新的实体）
 
     public static EntityHandle None => new EntityHandle { Id = -1, Version = 0 };
 
@@ -229,20 +232,20 @@ public struct AIComponent
     public AIState CurrentState;       // 脊髓当前的执行状态 (Idle, Moving, Attacking)
 
     public EntityHandle TargetEntity;  // 锁定的目标
-    public Vector2Int CommandPos;      // 目标坐标 (Move 或 AttackMove 的终点)
+    public SerializableVector2Int CommandPos;      // 目标坐标 (Move 或 AttackMove 的终点)
 
     public float ScanTimer;            // 扫描计时器 (脊髓不需要每帧扫描，0.2s 一次足矣)
     public float ScanRange;            // 索敌半径
 }
 public struct UserControlComponent
 {
-    // 0: 无, 1-4: 对应快捷键槽位
+    // 0: 无，1-4: 对应快捷键槽位
     public int HeroSlot;
 }
 
 public struct ResourceComponent
 {
-    public int ResourceType; // 0: 无, 1: 铁矿, 2: 铜矿, 3: 加工后的补给物资
+    public int ResourceType; // 0: 无，1: 铁矿，2: 铜矿，3: 加工后的补给物资
     public float Amount;     // 物资含量 (比如一坨矿石代表 5 个单位)
 }
 
@@ -265,7 +268,7 @@ public struct InventorySlot
     public bool IsFull => Count >= MaxCapacity;
 
     // 尝试添加物品
-    // 返回值: 实际添加了多少个
+    // 返回值：实际添加了多少个
     public int TryAdd(int itemType, int amount)
     {
         // 1. 如果槽位有东西，且类型不匹配 -> 滚蛋
@@ -330,8 +333,8 @@ public struct HandoverTask
     public int PortIndex;    // 对应 Blueprint.Ports[i] 的序号
 
     // 物理轨迹
-    public Vector2 StartPos;
-    public Vector2 EndPos;
+    public SerializableVector2 StartPos;
+    public SerializableVector2 EndPos;
     public float Progress;   // 0-1
     public float Speed;      // 1/Time
 
@@ -436,8 +439,8 @@ public enum PortType
 
 public struct BuildingPort
 {
-    public Vector2Int Offset;    // 相对于建筑逻辑中心 (move.LogicalPosition) 的偏移
-    public Vector2Int Direction; // 接口的朝向 (Vector2Int.up, down, left, right)
+    public SerializableVector2Int Offset;    // 相对于建筑逻辑中心 (move.LogicalPosition) 的偏移
+    public SerializableVector2Int Direction; // 接口的朝向 (Vector2Int.up, down, left, right)
     public PortType Type;
     public int MapToSlotIndex;   // <--- 【关键新增】该端口关联的槽位序号
 }
@@ -453,7 +456,7 @@ public struct ConveyorComponent
 public struct PowerComponent
 {
     // --- 状态 ---
-    public int NetID;           // 所属电网ID，-1表示未联网
+    public int NetID;           // 所属电网 ID，-1 表示未联网
 
     // --- 属性 (来自蓝图) ---
     public bool IsNode;         // 是否为电网节点（供电桩/发电机/蓄电池）
@@ -491,19 +494,19 @@ public class PowerNet
 /// <summary>
 /// 围棋规则组件
 /// 标记实体是否为围棋棋子，并记录当前气数
-/// 注意：建筑虽然参与网格投影（作为墙壁），但IsGoPiece为false
+/// 注意：建筑虽然参与网格投影（作为墙壁），但 IsGoPiece 为 false
 /// </summary>
 public struct GoComponent
 {
     /// <summary>
     /// 是否为围棋棋子（需要呼吸）
-    /// 地面单位（Hero/Minion）为true，建筑、飞行单位、子弹、掉落物等为false
+    /// 地面单位（Hero/Minion）为 true，建筑、飞行单位、子弹、掉落物等为 false
     /// </summary>
     public bool IsGoPiece;
 
     /// <summary>
     /// 当前这块棋的气数（空相邻格子数量）
-    /// 供UI显示或AI逃跑参考
+    /// 供 UI 显示或 AI 逃跑参考
     /// </summary>
     public int CurrentLiberties;
 }

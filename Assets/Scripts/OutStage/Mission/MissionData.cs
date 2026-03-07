@@ -24,24 +24,18 @@ public enum GoalType
     EarnMoney
 }
 
-[Serializable]
-public enum TriggerType { Time, MissionCompleted, AreaReached }
+// TriggerType 已移动到 Common/Trigger/TriggerType.cs 中统一喵~
 
 [Serializable]
 public enum ActionType { SpawnUnits, SetAITarget, ShowDialogue, ToggleGlobalPower }
 
-[Serializable]
-public class ScenarioEventData
-{
-    public string EventID;
-    [HideInInspector] public Vector2 EditorPosition;
-    public TriggerType Trigger;
-    public string TriggerParam;
-    public bool HasTriggered;
-
-    // [新增] 连向的行为节点 ID
-    public string NextSpawnID;
-}
+// TriggerEventData 已删除，统一使用 TriggerNodeData（定义在 StoryData.cs 中）
+// TriggerNodeData 包含以下字段：
+// - NodeID (节点唯一 ID)
+// - EditorPosition (编辑器位置)
+// - Trigger (TriggerData 触发器数据)
+// - NextNodeIDs (下一个节点 ID 列表，用于一对多连线)
+// - NextSpawnID (连向的召唤节点 ID，Mission 系统专用)
 
 // --- [新增] 召唤动作数据 ---
 [Serializable]
@@ -125,7 +119,8 @@ public class MissionPackData
     public List<MissionData> Missions = new List<MissionData>();
     // --- [NEW] 专门存奖励节点及其位置 ---
     public List<RewardSaveData> Rewards = new List<RewardSaveData>();
-    public List<ScenarioEventData> ScenarioEvents = new List<ScenarioEventData>();
+    // [触发器节点列表] - 统一使用 TriggerNodeData
+    public List<TriggerNodeData> Triggers = new List<TriggerNodeData>();
     public List<SpawnActionData> SpawnActions = new List<SpawnActionData>();
     public List<AIBrainActionData> AIBrainActions = new List<AIBrainActionData>();
     public List<MapNodeData> MapNodes = new List<MapNodeData>();

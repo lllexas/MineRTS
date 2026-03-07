@@ -66,61 +66,66 @@
             }
         }
     ],
-    "ScenarioEvents": [
+    "Triggers": [
         {
-            "EventID": "f263f743-5775-4d2d-ab3c-4ea75713c86b",
+            "NodeID": "d5465e64-6c2f-40ac-b135-b3952cd93287",
             "EditorPosition": {
-                "x": 252.8000030517578,
-                "y": 800.7999877929688
+                "x": 191.1999969482422,
+                "y": 419.1999816894531
             },
-            "Trigger": 0,
-            "TriggerParam": "90",
-            "HasTriggered": false,
-            "NextSpawnID": "a7ab7f1b-aa2d-4712-a5c7-07184edc318a"
-        },
-        {
-            "EventID": "ab764c32-ba55-465e-878a-84ea5bdb8dcd",
-            "EditorPosition": {
-                "x": 260.8000183105469,
-                "y": 974.3999633789063
+            "Trigger": {
+                "UseEnumTrigger": true,
+                "TriggerType": 0,
+                "CustomEventName": "",
+                "TriggerParam": "30"
             },
-            "Trigger": 0,
-            "TriggerParam": "120",
-            "HasTriggered": false,
-            "NextSpawnID": "fa5c1568-6ac1-471f-be5d-37c4d56ff2a5"
-        },
-        {
-            "EventID": "060c22f9-81bd-4746-a3b7-888946587b3a",
-            "EditorPosition": {
-                "x": 254.39999389648438,
-                "y": 628.0
-            },
-            "Trigger": 0,
-            "TriggerParam": "60",
-            "HasTriggered": false,
-            "NextSpawnID": "0932cd3f-234c-4e9b-baf9-e8bbdcfca5fe"
-        },
-        {
-            "EventID": "8a652881-f0a4-4c48-9d5e-953c526ba8ff",
-            "EditorPosition": {
-                "x": 249.59999084472657,
-                "y": 470.3999938964844
-            },
-            "Trigger": 0,
-            "TriggerParam": "30",
-            "HasTriggered": false,
+            "NextNodeIDs": [],
             "NextSpawnID": "8d17a8e2-100a-4eae-b32b-e17a20e33d5b"
         },
         {
-            "EventID": "e14d0a51-2c50-472b-b5fb-987d2dcb9b99",
+            "NodeID": "2fa849fc-cd4d-4e85-b08e-887a0cec3755",
             "EditorPosition": {
-                "x": 365.6000061035156,
-                "y": 96.80000305175781
+                "x": 196.0,
+                "y": 584.0
             },
-            "Trigger": 1,
-            "TriggerParam": "dde5aea2-7de1-44cb-8a90-62655306f1e0",
-            "HasTriggered": false,
-            "NextSpawnID": "5527f84f-7f77-4f65-9413-71d43f22f0e0"
+            "Trigger": {
+                "UseEnumTrigger": true,
+                "TriggerType": 0,
+                "CustomEventName": "",
+                "TriggerParam": "60"
+            },
+            "NextNodeIDs": [],
+            "NextSpawnID": "0932cd3f-234c-4e9b-baf9-e8bbdcfca5fe"
+        },
+        {
+            "NodeID": "0c1f7a5b-4703-494b-a6a4-c0328aff1eef",
+            "EditorPosition": {
+                "x": 197.59999084472657,
+                "y": 751.2000122070313
+            },
+            "Trigger": {
+                "UseEnumTrigger": true,
+                "TriggerType": 0,
+                "CustomEventName": "",
+                "TriggerParam": "90"
+            },
+            "NextNodeIDs": [],
+            "NextSpawnID": "a7ab7f1b-aa2d-4712-a5c7-07184edc318a"
+        },
+        {
+            "NodeID": "14272dbf-8e14-4500-a8c8-5d3c07289ddb",
+            "EditorPosition": {
+                "x": 189.59999084472657,
+                "y": 928.0
+            },
+            "Trigger": {
+                "UseEnumTrigger": true,
+                "TriggerType": 0,
+                "CustomEventName": "",
+                "TriggerParam": "120"
+            },
+            "NextNodeIDs": [],
+            "NextSpawnID": "fa5c1568-6ac1-471f-be5d-37c4d56ff2a5"
         }
     ],
     "SpawnActions": [
@@ -199,25 +204,6 @@
                 }
             ],
             "AttachAIBrainID": "1264fc13-78c9-41eb-b1ff-00c1049837c6"
-        },
-        {
-            "SpawnID": "5527f84f-7f77-4f65-9413-71d43f22f0e0",
-            "EditorPosition": {
-                "x": 320.8000183105469,
-                "y": 226.40000915527345
-            },
-            "Team": 2,
-            "SpawnPos": {
-                "x": -50,
-                "y": 70
-            },
-            "Units": [
-                {
-                    "BlueprintId": "g_maggot",
-                    "Count": 10
-                }
-            ],
-            "AttachAIBrainID": "d11a2f59-af84-46e5-b321-ec429440acde"
         }
     ],
     "AIBrainActions": [
@@ -262,18 +248,6 @@
             "EditorPosition": {
                 "x": 820.7999877929688,
                 "y": 803.2000122070313
-            },
-            "BrainIdentifier": "Red_Dot_Wave",
-            "TargetPos": {
-                "x": 0,
-                "y": 0
-            }
-        },
-        {
-            "BrainNodeID": "d11a2f59-af84-46e5-b321-ec429440acde",
-            "EditorPosition": {
-                "x": 572.7999877929688,
-                "y": 225.60000610351563
             },
             "BrainIdentifier": "Red_Dot_Wave",
             "TargetPos": {

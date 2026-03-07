@@ -63,7 +63,7 @@ public class AttackSystem : SingletonMono<AttackSystem>
                 // --- 执行攻击 ---
 
                 // A. 调整朝向 (看向目标)
-                Vector2 dir = (targetCore.Position - core.Position).normalized;
+                Vector2 dir = ((Vector2)(targetCore.Position - core.Position)).normalized;
                 if (dir != Vector2.zero)
                 {
                     // 将方向向量转为网格方向 Vector2Int (-1~1)

@@ -52,8 +52,17 @@ public class MissionGraphWindow : EditorWindow
 
         // --- [NEW] 新建奖励节点按钮 ---
         toolbar.Add(new Button(() => _graphView.CreateRewardNode(new MissionReward { Blueprints = new List<string>() }, new Vector2(50, 50))) { text = "新建奖励" });
-        // >>>>>>>>>>> [新增：导演节点按钮] >>>>>>>>>>>
-        toolbar.Add(new Button(() => _graphView.CreateDirectorNode(new ScenarioEventData { EventID = System.Guid.NewGuid().ToString() }, new Vector2(100, 100))) { text = "🎬 触发器" });
+        // >>>>>>>>>>> [新增：触发器节点按钮] >>>>>>>>>>>
+        toolbar.Add(new Button(() => _graphView.CreateTriggerNode(new TriggerNodeData 
+        { 
+            NodeID = System.Guid.NewGuid().ToString(),
+            Trigger = new TriggerData 
+            { 
+                UseEnumTrigger = true, 
+                TriggerType = TriggerType.Time, 
+                TriggerParam = "0" 
+            } 
+        }, new Vector2(100, 100))) { text = "🎬 触发器" });
         toolbar.Add(new Button(() => _graphView.CreateSpawnNode(new SpawnActionData { SpawnID = System.Guid.NewGuid().ToString(), Units = new List<SpawnUnitEntry>() }, new Vector2(350, 100))) { text = "⚔️ 召唤" });
         toolbar.Add(new Button(() => _graphView.CreateAIBrainNode(new AIBrainActionData { BrainNodeID = System.Guid.NewGuid().ToString() }, new Vector2(600, 100))) { text = "🧠 挂载AI" });
 
@@ -171,7 +180,7 @@ public class MissionGraphView : GraphView
     {
         public List<MissionData> Missions = new List<MissionData>();
         public List<RewardSaveData> Rewards = new List<RewardSaveData>();
-        public List<ScenarioEventData> Directors = new List<ScenarioEventData>();
+        public List<TriggerNodeData> Triggers = new List<TriggerNodeData>();
         public List<SpawnActionData> Spawns = new List<SpawnActionData>();
         public List<AIBrainActionData> AIBrains = new List<AIBrainActionData>();
         public List<MapNodeData> MapNodes = new List<MapNodeData>();
@@ -206,10 +215,10 @@ public class MissionGraphView : GraphView
                     });
                     break;
 
-                case DirectorNode directorNode:
-                    var directorData = directorNode.Data;
-                    directorData.EditorPosition = pos;
-                    copyData.Directors.Add(directorData);
+                case TriggerNode triggerNode:
+                    var nodeData = triggerNode.Data;
+                    nodeData.EditorPosition = pos;
+                    copyData.Triggers.Add(nodeData);
                     break;
 
                 case SpawnNode spawnNode:
@@ -275,11 +284,11 @@ public class MissionGraphView : GraphView
                 AddToSelection(node);
             }
 
-            foreach (var directorData in copyData.Directors)
+            foreach (var nodeData in copyData.Triggers)
             {
-                var newDirectorData = CloneDirectorData(directorData);
-                newDirectorData.EditorPosition += pasteOffset;
-                var node = CreateDirectorNode(newDirectorData, newDirectorData.EditorPosition);
+                var newTriggerData = CloneTriggerData(nodeData);
+                newTriggerData.EditorPosition += pasteOffset;
+                var node = CreateTriggerNode(newTriggerData, newTriggerData.EditorPosition);
                 newNodes.Add(node);
                 AddToSelection(node);
             }
@@ -374,15 +383,18 @@ public class MissionGraphView : GraphView
         };
     }
 
-    private ScenarioEventData CloneDirectorData(ScenarioEventData original)
+    private TriggerNodeData CloneTriggerData(TriggerNodeData original)
     {
-        return new ScenarioEventData
+        return new TriggerNodeData
         {
-            EventID = System.Guid.NewGuid().ToString(),
+            NodeID = System.Guid.NewGuid().ToString(),
             EditorPosition = original.EditorPosition,
-            Trigger = original.Trigger,
-            TriggerParam = original.TriggerParam,
-            HasTriggered = false,
+            Trigger = new TriggerData
+            {
+                UseEnumTrigger = original.Trigger.UseEnumTrigger,
+                TriggerType = original.Trigger.TriggerType,
+                TriggerParam = original.Trigger.TriggerParam
+            },
             NextSpawnID = "" // 清空连接
         };
     }
@@ -439,9 +451,9 @@ public class MissionGraphView : GraphView
     public override List<Port> GetCompatiblePorts(Port startPort, NodeAdapter nodeAdapter)
     {
         return ports.ToList().Where(endPort =>
-            endPort.direction != startPort.direction &&
-            endPort.node != startPort.node &&
-            endPort.portType == startPort.portType).ToList();
+            endPort.direction != startPort.direction &&  // 输入连输出
+            endPort.node != startPort.node               // 不能连自己
+        ).ToList();
     }
 
     public MissionNode CreateMissionNode(MissionData data, Vector2 pos)
@@ -459,9 +471,9 @@ public class MissionGraphView : GraphView
         AddElement(node);
         return node;
     }
-    public DirectorNode CreateDirectorNode(ScenarioEventData data, Vector2 pos)
+    public TriggerNode CreateTriggerNode(TriggerNodeData data, Vector2 pos)
     {
-        var node = new DirectorNode(data);
+        var node = new TriggerNode(data);
         node.SetPosition(new Rect(pos, Vector2.zero));
         AddElement(node);
         return node;
@@ -541,17 +553,33 @@ public class MissionGraphView : GraphView
             pack.Missions.Add(data);
         }
 
-        // >>>>>>>>>>> [新增：保存剧本事件] >>>>>>>>>>>
-        foreach (var dNode in allNodes.OfType<DirectorNode>())
+        // >>>>>>>>>>> [新增：保存触发器事件] >>>>>>>>>>>
+        foreach (var tNode in allNodes.OfType<TriggerNode>())
         {
-            var data = dNode.Data; data.EditorPosition = dNode.GetPosition().position;
-            var triggerEdge = this.edges.ToList().FirstOrDefault(e => e.input == dNode.InputPort && e.output.node is MissionNode);
-            if (triggerEdge != null) { data.Trigger = TriggerType.MissionCompleted; data.TriggerParam = ((MissionNode)triggerEdge.output.node).Data.MissionID; }
+            var data = tNode.Data; data.EditorPosition = tNode.GetPosition().position;
+            var triggerEdge = this.edges.ToList().FirstOrDefault(e => e.input == tNode.InputPort && e.output.node is MissionNode);
+            if (triggerEdge != null) 
+            { 
+                data.Trigger.TriggerType = TriggerType.MissionCompleted; 
+                data.Trigger.TriggerParam = ((MissionNode)triggerEdge.output.node).Data.MissionID; 
+            }
 
-            // [新增] 记录 Director -> Spawn 连线
-            var spawnEdge = this.edges.ToList().FirstOrDefault(e => e.output == dNode.OutputPort && e.input.node is SpawnNode);
+            // [新增] 记录 Trigger -> Spawn 连线
+            var spawnEdge = this.edges.ToList().FirstOrDefault(e => e.output == tNode.OutputPort && e.input.node is SpawnNode);
             data.NextSpawnID = spawnEdge != null ? ((SpawnNode)spawnEdge.input.node).Data.SpawnID : "";
-            pack.ScenarioEvents.Add(data);
+            
+            // 保存一对多连线
+            var nextEdges = this.edges.ToList().Where(e => e.output.node == tNode && e.output == tNode.OutputPort);
+            data.NextNodeIDs.Clear();
+            foreach (var edge in nextEdges)
+            {
+                if (edge.input.node is TriggerNode nextTrigger)
+                    data.NextNodeIDs.Add(nextTrigger.Data.NodeID);
+                else if (edge.input.node is LeafIDNode leafNode)
+                    data.NextNodeIDs.Add(leafNode.Data.NodeID);
+            }
+            
+            pack.Triggers.Add(data);
         }
 
         // [新增] 序列化 Spawn 和 AIBrain
@@ -631,7 +659,7 @@ public class MissionGraphView : GraphView
 
         var missionMap = new Dictionary<string, MissionNode>();
         var rewardMap = new Dictionary<string, RewardNode>();
-        var directorMap = new Dictionary<string, DirectorNode>();
+        var triggerMap = new Dictionary<string, TriggerNode>();
         var spawnMap = new Dictionary<string, SpawnNode>();
         var aiMap = new Dictionary<string, AIBrainNode>();
         var mapMap = new Dictionary<string, MapNode>(); // 新增：地图节点映射
@@ -652,13 +680,13 @@ public class MissionGraphView : GraphView
             var mNode = CreateMissionNode(m, m.EditorPosition);
             missionMap[m.MissionID] = mNode;
         }
-        // >>> [新增：还原导演节点] >>>
-        if (pack.ScenarioEvents != null)
+        // >>> [新增：还原触发器节点] >>>
+        if (pack.Triggers != null)
         {
-            foreach (var d in pack.ScenarioEvents)
+            foreach (var nodeData in pack.Triggers)
             {
-                var dNode = CreateDirectorNode(d, d.EditorPosition);
-                directorMap[d.EventID] = dNode;
+                var tNode = CreateTriggerNode(nodeData, nodeData.EditorPosition);
+                triggerMap[nodeData.NodeID] = tNode;
             }
         }
 
@@ -698,17 +726,24 @@ public class MissionGraphView : GraphView
                 AddElement(edge);
             }
         }
-        // >>> [新增：还原导演节点的连线] >>>
-        if (pack.ScenarioEvents != null)
+        // >>> [新增：还原触发器节点的连线] >>>
+        if (pack.Triggers != null)
         {
-            foreach (var d in pack.ScenarioEvents)
+            foreach (var nodeData in pack.Triggers)
             {
-                if (d.Trigger == TriggerType.MissionCompleted && missionMap.ContainsKey(d.TriggerParam))
-                    AddElement(missionMap[d.TriggerParam].OutputPort.ConnectTo(directorMap[d.EventID].InputPort));
+                if (nodeData.Trigger.TriggerType == TriggerType.MissionCompleted && missionMap.ContainsKey(nodeData.Trigger.TriggerParam))
+                    AddElement(missionMap[nodeData.Trigger.TriggerParam].OutputPort.ConnectTo(triggerMap[nodeData.NodeID].InputPort));
 
-                // [新增] 还原 Director -> Spawn 连线
-                if (!string.IsNullOrEmpty(d.NextSpawnID) && spawnMap.ContainsKey(d.NextSpawnID))
-                    AddElement(directorMap[d.EventID].OutputPort.ConnectTo(spawnMap[d.NextSpawnID].InputPort));
+                // [新增] 还原 Trigger -> Spawn 连线
+                if (!string.IsNullOrEmpty(nodeData.NextSpawnID) && spawnMap.ContainsKey(nodeData.NextSpawnID))
+                    AddElement(triggerMap[nodeData.NodeID].OutputPort.ConnectTo(spawnMap[nodeData.NextSpawnID].InputPort));
+                
+                // 还原一对多连线
+                foreach (var nextId in nodeData.NextNodeIDs)
+                {
+                    if (triggerMap.TryGetValue(nextId, out var nextTrigger))
+                        AddElement(triggerMap[nodeData.NodeID].OutputPort.ConnectTo(nextTrigger.InputPort));
+                }
             }
         }
         // [新增] 还原 Spawn -> AIBrain 连线
@@ -996,18 +1031,21 @@ public class RewardNode : BaseNode
     public override void UpdateData() { }
 }
 
-// --- [纯触发器节点] ---
-public class DirectorNode : BaseNode
+#if false // TriggerNode 已移动到独立的 Scripts/Editor/TriggerNode.cs 文件中喵~
+// --- [触发器节点] ---
+public class TriggerNode : BaseNode
 {
-    public ScenarioEventData Data;
+    public TriggerEventData Data;
     public Port InputPort;
     public Port OutputPort; // [新增] 输出动作
+    private EnumField _triggerTypeField;
     private TextField _paramField;
+    private Toggle _useEnumToggle;
 
-    public DirectorNode(ScenarioEventData data)
+    public TriggerNode(TriggerEventData data)
     {
         Data = data; GUID = data.EventID; title = "🎬 触发器";
-        style.width = 200; titleContainer.style.backgroundColor = new Color(0.4f, 0.1f, 0.4f);
+        style.width = 250; titleContainer.style.backgroundColor = new Color(0.4f, 0.1f, 0.4f);
 
         InputPort = InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(bool));
         InputPort.portName = "条件"; inputContainer.Add(InputPort);
@@ -1015,28 +1053,54 @@ public class DirectorNode : BaseNode
         OutputPort = InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Single, typeof(SpawnActionData));
         OutputPort.portName = "触发行为"; outputContainer.Add(OutputPort);
 
-        var triggerField = new EnumField("类型", Data.Trigger);
-        triggerField.RegisterValueChangedCallback(evt =>
+        // --- 使用 TriggerData 统一结构喵~ ---
+        var foldout = new Foldout() { text = "触发器配置", value = true };
+
+        // 使用枚举触发器开关
+        _useEnumToggle = new Toggle("使用预设触发器");
+        _useEnumToggle.value = Data.Trigger.UseEnumTrigger;
+        _useEnumToggle.RegisterValueChangedCallback(evt =>
         {
-            Data.Trigger = (TriggerType)evt.newValue;
+            Data.Trigger.UseEnumTrigger = evt.newValue;
+            UpdateUIVisibility();
+        });
+        foldout.Add(_useEnumToggle);
+
+        // 枚举触发器类型
+        _triggerTypeField = new EnumField("触发类型", Data.Trigger.TriggerType);
+        _triggerTypeField.RegisterValueChangedCallback(evt =>
+        {
+            Data.Trigger.TriggerType = (TriggerType)evt.newValue;
             UpdateParamFieldHint();
         });
-        extensionContainer.Add(triggerField);
+        foldout.Add(_triggerTypeField);
 
-        _paramField = new TextField("参数") { value = Data.TriggerParam };
-        _paramField.RegisterValueChangedCallback(evt => Data.TriggerParam = evt.newValue);
-        extensionContainer.Add(_paramField);
+        // 触发参数
+        _paramField = new TextField("参数");
+        _paramField.value = Data.Trigger.TriggerParam;
+        _paramField.RegisterValueChangedCallback(evt => Data.Trigger.TriggerParam = evt.newValue);
+        foldout.Add(_paramField);
 
-        // 初始化提示
+        extensionContainer.Add(foldout);
+
+        // 初始化 UI 状态和提示
+        UpdateUIVisibility();
         UpdateParamFieldHint();
 
         RefreshExpandedState();
     }
 
+    private void UpdateUIVisibility()
+    {
+        bool useEnum = Data.Trigger.UseEnumTrigger;
+        _triggerTypeField.style.display = useEnum ? DisplayStyle.Flex : DisplayStyle.None;
+        _paramField.style.display = useEnum ? DisplayStyle.Flex : DisplayStyle.None;
+    }
+
     private void UpdateParamFieldHint()
     {
-        string hint = GetTriggerParamHint(Data.Trigger);
-        string example = GetTriggerParamExample(Data.Trigger);
+        string hint = GetTriggerParamHint(Data.Trigger.TriggerType);
+        string example = GetTriggerParamExample(Data.Trigger.TriggerType);
 
         // 在tooltip中同时显示提示和示例
         if (!string.IsNullOrEmpty(example))
@@ -1051,7 +1115,7 @@ public class DirectorNode : BaseNode
         // 尝试更新TextField的标签（如果支持）
         try
         {
-            string labelText = GetTriggerParamLabel(Data.Trigger);
+            string labelText = GetTriggerParamLabel(Data.Trigger.TriggerType);
             // 直接尝试设置label属性（如果存在）
             // Unity UI Elements的TextField有label属性
             _paramField.label = labelText;
@@ -1107,8 +1171,18 @@ public class DirectorNode : BaseNode
         }
     }
 
-    public override void UpdateData() { }
+    public override void UpdateData()
+    {
+        // 更新 TriggerData 数据
+        Data.Trigger.UseEnumTrigger = _useEnumToggle.value;
+        Data.Trigger.TriggerType = (TriggerType)_triggerTypeField.value;
+        Data.Trigger.TriggerParam = _paramField.value;
+    }
 }
+#endif
+
+// TriggerNode 已移动到独立的 Scripts/Editor/TriggerNode.cs 文件中喵~
+// 这样 Mission 和 Story 系统可以共用同一个 TriggerNode 类
 
 // --- [召唤节点] ---
 public class SpawnNode : BaseNode
@@ -1528,12 +1602,12 @@ public class MissionNodeSearchWindow : ScriptableObject, ISearchWindowProvider
             userData = new CreateNodeData { NodeType = NodeType.Reward }
         });
 
-        // 导演节点
-        tree.Add(new SearchTreeGroupEntry(new GUIContent("导演节点"), 1));
+        // 触发器节点
+        tree.Add(new SearchTreeGroupEntry(new GUIContent("触发器节点"), 1));
         tree.Add(new SearchTreeEntry(new GUIContent("新建触发器节点"))
         {
             level = 2,
-            userData = new CreateNodeData { NodeType = NodeType.Director }
+            userData = new CreateNodeData { NodeType = NodeType.Trigger }
         });
 
         // 召唤节点
@@ -1630,12 +1704,16 @@ public class MissionNodeSearchWindow : ScriptableObject, ISearchWindowProvider
                 }, graphMousePos);
                 break;
 
-            case NodeType.Director:
-                GraphView.CreateDirectorNode(new ScenarioEventData
+            case NodeType.Trigger:
+                GraphView.CreateTriggerNode(new TriggerNodeData
                 {
-                    EventID = System.Guid.NewGuid().ToString(),
-                    Trigger = TriggerType.Time,
-                    TriggerParam = "0"
+                    NodeID = System.Guid.NewGuid().ToString(),
+                    Trigger = new TriggerData
+                    {
+                        UseEnumTrigger = true,
+                        TriggerType = TriggerType.Time,
+                        TriggerParam = "0"
+                    }
                 }, graphMousePos);
                 break;
 
@@ -1673,7 +1751,7 @@ public class MissionNodeSearchWindow : ScriptableObject, ISearchWindowProvider
         return true;
     }
 
-    private enum NodeType { Mission, Reward, Director, Spawn, AIBrain, Map }
+    private enum NodeType { Mission, Reward, Trigger, Spawn, AIBrain, Map }
 
     private class CreateNodeData
     {

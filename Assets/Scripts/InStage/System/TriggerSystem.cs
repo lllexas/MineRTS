@@ -3,9 +3,13 @@ using System.Linq;
 using AIBrain;
 using UnityEngine;
 
-public class DirectorSystem : SingletonMono<DirectorSystem>
+/// <summary>
+/// 触发器系统 - 监听游戏事件并触发相应动作喵~
+/// （原导演系统，现统一命名为触发器系统）
+/// </summary>
+public class TriggerSystem : SingletonMono<TriggerSystem>
 {
-    private List<ScenarioEventData> _activeEvents = new List<ScenarioEventData>();
+    private List<TriggerNodeData> _activeEvents = new List<TriggerNodeData>();
     private Dictionary<string, SpawnActionData> _spawnDict;
     private Dictionary<string, AIBrainActionData> _aiDict;
 
@@ -15,17 +19,17 @@ public class DirectorSystem : SingletonMono<DirectorSystem>
         PostSystem.Instance.Register(this);
     }
 
-    public void LoadScenario(MissionPackData pack)
+    public void LoadTrigger(MissionPackData pack)
     {
         if (pack == null) return;
-        _activeEvents = pack.ScenarioEvents ?? new List<ScenarioEventData>();
+        _activeEvents = pack.Triggers ?? new List<TriggerNodeData>();
 
         _spawnDict = pack.SpawnActions?.ToDictionary(s => s.SpawnID) ?? new Dictionary<string, SpawnActionData>();
         _aiDict = pack.AIBrainActions?.ToDictionary(a => a.BrainNodeID) ?? new Dictionary<string, AIBrainActionData>();
 
         foreach (var e in _activeEvents) e.HasTriggered = false;
 
-        Debug.Log($"<color=cyan>[Director]</color> 剧本事件加载完毕，共 {_activeEvents.Count} 个事件喵！");
+        Debug.Log($"<color=cyan>[Trigger]</color> 触发器事件加载完毕，共 {_activeEvents.Count} 个事件喵！");
     }
 
     // =========================================================
@@ -36,11 +40,11 @@ public class DirectorSystem : SingletonMono<DirectorSystem>
         if (TimeSystem.Instance == null || TimeSystem.Instance.IsPaused) return;
 
         // 优化：只筛选出还没触发且类型是 Time 的事件
-        var timeEvents = _activeEvents.Where(e => !e.HasTriggered && e.Trigger == TriggerType.Time);
+        var timeEvents = _activeEvents.Where(e => !e.HasTriggered && e.Trigger.TriggerType == TriggerType.Time);
 
         foreach (var evt in timeEvents)
         {
-            if (float.TryParse(evt.TriggerParam, out float targetTime))
+            if (float.TryParse(evt.Trigger.TriggerParam, out float targetTime))
             {
                 if (TimeSystem.Instance.TotalElapsedSeconds >= targetTime)
                 {
@@ -62,15 +66,15 @@ public class DirectorSystem : SingletonMono<DirectorSystem>
     {
         if (data is MissionData mission)
         {
-            // 找到所有等待这个任务完成的导演事件
+            // 找到所有等待这个任务完成的触发器事件
             var relatedEvents = _activeEvents.Where(e =>
                 !e.HasTriggered &&
-                e.Trigger == TriggerType.MissionCompleted &&
-                e.TriggerParam == mission.MissionID);
+                e.Trigger.TriggerType == TriggerType.MissionCompleted &&
+                e.Trigger.TriggerParam == mission.MissionID);
 
             foreach (var evt in relatedEvents)
             {
-                Debug.Log($"<color=cyan>[Director]</color> 检测到前置任务 [{mission.Title}] 已完成，触发导演事件！");
+                Debug.Log($"<color=cyan>[Trigger]</color> 检测到前置任务 [{mission.Title}] 已完成，触发事件！");
                 TriggerEvent(evt);
             }
         }
@@ -80,14 +84,13 @@ public class DirectorSystem : SingletonMono<DirectorSystem>
     // 3. 核心执行逻辑
     // =========================================================
 
-    private void TriggerEvent(ScenarioEventData evt)
+    private void TriggerEvent(TriggerNodeData evt)
     {
         evt.HasTriggered = true;
         ExecuteAction(evt);
     }
 
-    // 在 DirectorSystem.cs 中
-    private void ExecuteAction(ScenarioEventData evt)
+    private void ExecuteAction(TriggerNodeData evt)
     {
         // 1. 顺藤摸瓜找到【召唤节点】数据
         if (string.IsNullOrEmpty(evt.NextSpawnID) || !_spawnDict.TryGetValue(evt.NextSpawnID, out var spawnData))

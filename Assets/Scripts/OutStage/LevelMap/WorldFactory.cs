@@ -26,7 +26,6 @@ public static class WorldFactory
         newWorld.mapWidth = levelData.width;
         newWorld.mapHeight = levelData.height;
         newWorld.entityCount = 0; // 初始没有动态实体
-        newWorld.nextEntityId = 1;
         newWorld.minX = levelData.originX;
         newWorld.minY = levelData.originY;
 

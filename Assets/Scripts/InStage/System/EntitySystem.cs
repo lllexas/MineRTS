@@ -1,9 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using Newtonsoft.Json;
 
 public static class TimeTicker
 {
@@ -861,34 +865,194 @@ public class WholeComponent
     public int minX;
     public int minY;
     public string sceneName;
-    public int nextEntityId; // 用于生成唯一 ID 的计数器
 
-    // --- 组件数组 ---
+    // --- 组件数组 (稀疏序列化) ---
+    [JsonConverter(typeof(SparseArrayConverter<CoreComponent>))]
     public CoreComponent[] coreComponent;
+    [JsonConverter(typeof(SparseArrayConverter<MoveComponent>))]
     public MoveComponent[] moveComponent;
+    [JsonConverter(typeof(SparseArrayConverter<AttackComponent>))]
     public AttackComponent[] attackComponent;
+    [JsonConverter(typeof(SparseArrayConverter<HealthComponent>))]
     public HealthComponent[] healthComponent;
+    [JsonConverter(typeof(SparseArrayConverter<SpawnComponent>))]
     public SpawnComponent[] spawnComponent;
+    [JsonConverter(typeof(SparseArrayConverter<DrawComponent>))]
     public DrawComponent[] drawComponent;
+    [JsonConverter(typeof(SparseArrayConverter<AIComponent>))]
     public AIComponent[] aiComponent;
+    [JsonConverter(typeof(SparseArrayConverter<UserControlComponent>))]
     public UserControlComponent[] userControlComponent;
 
-    // --- 【新加入的工业组件数组】 ---
+    // --- 【新加入的工业组件数组】(稀疏序列化) ---
+    [JsonConverter(typeof(SparseArrayConverter<ResourceComponent>))]
     public ResourceComponent[] resourceComponent;
+    [JsonConverter(typeof(SparseArrayConverter<InventoryComponent>))]
     public InventoryComponent[] inventoryComponent;
+    [JsonConverter(typeof(SparseArrayConverter<WorkComponent>))]
     public WorkComponent[] workComponent;
+    [JsonConverter(typeof(SparseArrayConverter<ConveyorComponent>))]
     public ConveyorComponent[] conveyorComponent;
+    [JsonConverter(typeof(SparseArrayConverter<PowerComponent>))]
     public PowerComponent[] powerComponent;
 
-    // --- 【战斗辅助】 ---
+    // --- 【战斗辅助】(稀疏序列化) ---
+    [JsonConverter(typeof(SparseArrayConverter<ProjectileComponent>))]
     public ProjectileComponent[] projectileComponent;
 
-    // --- 【围棋规则】 ---
+    // --- 【围棋规则】(稀疏序列化) ---
+    [JsonConverter(typeof(SparseArrayConverter<GoComponent>))]
     public GoComponent[] goComponent;
 
+    [JsonIgnore]
     public int[] groundMap;
+    [JsonIgnore]
     public int[] gridMap;
+    [JsonIgnore]
     public int[] effectMap;
+
+    // --- Base64 压缩字段（序列化用） ---
+    [JsonIgnore]
+    public bool _useBase64Compression = true;
+
+    // groundMap 的长度字段（用于解压时分配数组）
+    public int groundMapLength;
+    // groundMap 的 Base64 压缩字段
+    public string groundMapBase64
+    {
+        get
+        {
+            if (!_useBase64Compression || groundMap == null) return null;
+            // int[] → byte[]
+            byte[] rawBytes = new byte[groundMap.Length * 4];
+            Buffer.BlockCopy(groundMap, 0, rawBytes, 0, rawBytes.Length);
+            
+            // Gzip 压缩 → Base64
+            using var output = new MemoryStream();
+            using (var gzip = new GZipStream(output, System.IO.Compression.CompressionLevel.Optimal))
+            {
+                gzip.Write(rawBytes, 0, rawBytes.Length);
+            }
+            byte[] compressed = output.ToArray();
+            return Convert.ToBase64String(compressed);
+        }
+        set
+        {
+            if (value == null) { groundMap = null; return; }
+            // Base64 → byte[] (压缩数据)
+            byte[] compressed = Convert.FromBase64String(value);
+            
+            // Gzip 解压 → byte[]
+            using var input = new MemoryStream(compressed);
+            using var gzip = new GZipStream(input, CompressionMode.Decompress);
+            byte[] rawBytes = new byte[groundMapLength * 4];
+            gzip.Read(rawBytes, 0, rawBytes.Length);
+            
+            groundMap = new int[groundMapLength];
+            Buffer.BlockCopy(rawBytes, 0, groundMap, 0, rawBytes.Length);
+        }
+    }
+
+    // gridMap 的长度字段
+    public int gridMapLength;
+    // gridMap 的 Base64 压缩字段
+    public string gridMapBase64
+    {
+        get
+        {
+            if (!_useBase64Compression || gridMap == null) return null;
+            byte[] rawBytes = new byte[gridMap.Length * 4];
+            Buffer.BlockCopy(gridMap, 0, rawBytes, 0, rawBytes.Length);
+            
+            using var output = new MemoryStream();
+            using (var gzip = new GZipStream(output, System.IO.Compression.CompressionLevel.Optimal))
+            {
+                gzip.Write(rawBytes, 0, rawBytes.Length);
+            }
+            byte[] compressed = output.ToArray();
+            return Convert.ToBase64String(compressed);
+        }
+        set
+        {
+            if (value == null) { gridMap = null; return; }
+            byte[] compressed = Convert.FromBase64String(value);
+            
+            using var input = new MemoryStream(compressed);
+            using var gzip = new GZipStream(input, CompressionMode.Decompress);
+            byte[] rawBytes = new byte[gridMapLength * 4];
+            gzip.Read(rawBytes, 0, rawBytes.Length);
+            
+            gridMap = new int[gridMapLength];
+            Buffer.BlockCopy(rawBytes, 0, gridMap, 0, rawBytes.Length);
+        }
+    }
+
+    // effectMap 的长度字段
+    public int effectMapLength;
+    // effectMap 的 Base64 压缩字段
+    public string effectMapBase64
+    {
+        get
+        {
+            if (!_useBase64Compression || effectMap == null) return null;
+            byte[] rawBytes = new byte[effectMap.Length * 4];
+            Buffer.BlockCopy(effectMap, 0, rawBytes, 0, rawBytes.Length);
+            
+            using var output = new MemoryStream();
+            using (var gzip = new GZipStream(output, System.IO.Compression.CompressionLevel.Optimal))
+            {
+                gzip.Write(rawBytes, 0, rawBytes.Length);
+            }
+            byte[] compressed = output.ToArray();
+            return Convert.ToBase64String(compressed);
+        }
+        set
+        {
+            if (value == null) { effectMap = null; return; }
+            byte[] compressed = Convert.FromBase64String(value);
+            
+            using var input = new MemoryStream(compressed);
+            using var gzip = new GZipStream(input, CompressionMode.Decompress);
+            byte[] rawBytes = new byte[effectMapLength * 4];
+            gzip.Read(rawBytes, 0, rawBytes.Length);
+            
+            effectMap = new int[effectMapLength];
+            Buffer.BlockCopy(rawBytes, 0, effectMap, 0, rawBytes.Length);
+        }
+    }
+
+    // --- 序列化回调：设置地图数组长度字段 ---
+    [OnSerializing]
+    public void OnSerializing(StreamingContext context)
+    {
+        // 组件数组由 SparseArrayConverter 自动处理稀疏序列化，无需手动截断喵~
+
+        // 设置地图数组长度字段（用于 Base64 解压时分配数组）
+        groundMapLength = groundMap?.Length ?? 0;
+        gridMapLength = gridMap?.Length ?? 0;
+        effectMapLength = effectMap?.Length ?? 0;
+    }
+
+    [OnSerialized]
+    public void OnSerialized(StreamingContext context)
+    {
+        // 无需处理，地图数组由 Base64 属性自动序列化喵~
+    }
+
+    // --- 反序列化回调：初始化地图数组 ---
+    [OnDeserialized]
+    public void OnDeserialized(StreamingContext context)
+    {
+        // 组件数组由 SparseArrayConverter 自动还原，无需手动扩展喵~
+
+        // 恢复地图数组长度字段（用于后续 Base64 解压）
+        if (groundMap == null && groundMapLength > 0)
+            groundMap = new int[groundMapLength];
+        if (gridMap == null && gridMapLength > 0)
+            gridMap = new int[gridMapLength];
+        if (effectMap == null && effectMapLength > 0)
+            effectMap = new int[effectMapLength];
+    }
 
     public WholeComponent Clone()
     {
@@ -901,31 +1065,53 @@ public class WholeComponent
             minY = this.minY,
             sceneName = this.sceneName,
 
-            coreComponent = (this.coreComponent != null) ? (CoreComponent[])this.coreComponent.Clone() : null,
-            moveComponent = (this.moveComponent != null) ? (MoveComponent[])this.moveComponent.Clone() : null,
-            attackComponent = (this.attackComponent != null) ? (AttackComponent[])this.attackComponent.Clone() : null,
-            healthComponent = (this.healthComponent != null) ? (HealthComponent[])this.healthComponent.Clone() : null,
-            spawnComponent = (this.spawnComponent != null) ? (SpawnComponent[])this.spawnComponent.Clone() : null,
-            drawComponent = (this.drawComponent != null) ? (DrawComponent[])this.drawComponent.Clone() : null,
-            aiComponent = (this.aiComponent != null) ? (AIComponent[])this.aiComponent.Clone() : null,
-            userControlComponent = (this.userControlComponent != null) ? (UserControlComponent[])this.userControlComponent.Clone() : null,
+            // 只克隆实际使用的部分 (0 ~ entityCount-1)，然后扩展到标准容量
+            coreComponent = (this.coreComponent != null && entityCount > 0) ? this.coreComponent.Take(entityCount).ToArray() : new CoreComponent[1024],
+            moveComponent = (this.moveComponent != null && entityCount > 0) ? this.moveComponent.Take(entityCount).ToArray() : new MoveComponent[1024],
+            attackComponent = (this.attackComponent != null && entityCount > 0) ? this.attackComponent.Take(entityCount).ToArray() : new AttackComponent[1024],
+            healthComponent = (this.healthComponent != null && entityCount > 0) ? this.healthComponent.Take(entityCount).ToArray() : new HealthComponent[1024],
+            spawnComponent = (this.spawnComponent != null && entityCount > 0) ? this.spawnComponent.Take(entityCount).ToArray() : new SpawnComponent[1024],
+            drawComponent = (this.drawComponent != null && entityCount > 0) ? this.drawComponent.Take(entityCount).ToArray() : new DrawComponent[1024],
+            aiComponent = (this.aiComponent != null && entityCount > 0) ? this.aiComponent.Take(entityCount).ToArray() : new AIComponent[1024],
+            userControlComponent = (this.userControlComponent != null && entityCount > 0) ? this.userControlComponent.Take(entityCount).ToArray() : new UserControlComponent[1024],
 
             // --- 克隆新组件 ---
-            resourceComponent = (this.resourceComponent != null) ? (ResourceComponent[])this.resourceComponent.Clone() : null,
-            inventoryComponent = (this.inventoryComponent != null) ? (InventoryComponent[])this.inventoryComponent.Clone() : null,
-            workComponent = (this.workComponent != null) ? (WorkComponent[])this.workComponent.Clone() : null,
-            conveyorComponent = (this.conveyorComponent != null) ? (ConveyorComponent[])this.conveyorComponent.Clone() : null,
-            powerComponent = (this.powerComponent != null) ? (PowerComponent[])this.powerComponent.Clone() : null,
+            resourceComponent = (this.resourceComponent != null && entityCount > 0) ? this.resourceComponent.Take(entityCount).ToArray() : new ResourceComponent[1024],
+            inventoryComponent = (this.inventoryComponent != null && entityCount > 0) ? this.inventoryComponent.Take(entityCount).ToArray() : new InventoryComponent[1024],
+            workComponent = (this.workComponent != null && entityCount > 0) ? this.workComponent.Take(entityCount).ToArray() : new WorkComponent[1024],
+            conveyorComponent = (this.conveyorComponent != null && entityCount > 0) ? this.conveyorComponent.Take(entityCount).ToArray() : new ConveyorComponent[1024],
+            powerComponent = (this.powerComponent != null && entityCount > 0) ? this.powerComponent.Take(entityCount).ToArray() : new PowerComponent[1024],
 
-            projectileComponent = (this.projectileComponent != null) ? (ProjectileComponent[])this.projectileComponent.Clone() : null,
+            projectileComponent = (this.projectileComponent != null && entityCount > 0) ? this.projectileComponent.Take(entityCount).ToArray() : new ProjectileComponent[1024],
 
             // --- 克隆围棋组件 ---
-            goComponent = (this.goComponent != null) ? (GoComponent[])this.goComponent.Clone() : null,
+            goComponent = (this.goComponent != null && entityCount > 0) ? this.goComponent.Take(entityCount).ToArray() : new GoComponent[1024],
 
             groundMap = (this.groundMap != null) ? (int[])this.groundMap.Clone() : null,
             gridMap = (this.gridMap != null) ? (int[])this.gridMap.Clone() : null,
             effectMap = (this.effectMap != null) ? (int[])this.effectMap.Clone() : null
         };
+
+        // 如果克隆后的数组长度不足 1024，扩展到标准容量
+        if (clone.coreComponent.Length < 1024)
+        {
+            Array.Resize(ref clone.coreComponent, 1024);
+            Array.Resize(ref clone.moveComponent, 1024);
+            Array.Resize(ref clone.attackComponent, 1024);
+            Array.Resize(ref clone.healthComponent, 1024);
+            Array.Resize(ref clone.spawnComponent, 1024);
+            Array.Resize(ref clone.drawComponent, 1024);
+            Array.Resize(ref clone.aiComponent, 1024);
+            Array.Resize(ref clone.userControlComponent, 1024);
+            Array.Resize(ref clone.resourceComponent, 1024);
+            Array.Resize(ref clone.inventoryComponent, 1024);
+            Array.Resize(ref clone.workComponent, 1024);
+            Array.Resize(ref clone.conveyorComponent, 1024);
+            Array.Resize(ref clone.powerComponent, 1024);
+            Array.Resize(ref clone.projectileComponent, 1024);
+            Array.Resize(ref clone.goComponent, 1024);
+        }
+
         return clone;
     }
 }
