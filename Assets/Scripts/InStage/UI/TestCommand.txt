@@ -24,3 +24,6 @@ army x_dog 0,0 20,20 1
 
 mission_load Missions/Test_Missions
 nav_info
+
+ui_show NodeInfoPanel
+ui_show 史山2

@@ -110,28 +110,39 @@ public class PostSystem : SingletonMono<PostSystem>
     // =========================================================
 
     /// <summary>
-    /// 扫描对象上所有 [Subscribe] 标签并自动注册。
+    /// 扫描对象上所有 [Subscribe] 标签并自动注册（包括基类中的标签）。
     /// </summary>
     public void Register(object target)
     {
         if (target == null) return;
 
-        var methods = target.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-        foreach (var method in methods)
+        var type = target.GetType();
+        
+        // 递归扫描该类型及其所有基类，直到 System.Object
+        while (type != null && type != typeof(object))
         {
-            var attr = method.GetCustomAttribute<Subscribe>();
-            if (attr == null) continue;
+            var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
 
-            try
+            foreach (var method in methods)
             {
-                var action = (Action<object>)Delegate.CreateDelegate(typeof(Action<object>), target, method);
-                AddHandler(attr.EventName, target, action, attr.Priority);
+                var attrs = method.GetCustomAttributes<Subscribe>();
+                if (attrs == null) continue;
+
+                foreach (var attr in attrs)
+                {
+                    try
+                    {
+                        var action = (Action<object>)Delegate.CreateDelegate(typeof(Action<object>), target, method);
+                        AddHandler(attr.EventName, target, action, attr.Priority);
+                    }
+                    catch
+                    {
+                        Debug.LogError($"[PostSystem] Register Error: {target.GetType().Name}.{method.Name} signature mismatch.");
+                    }
+                }
             }
-            catch
-            {
-                Debug.LogError($"[PostSystem] Register Error: {target.GetType().Name}.{method.Name} signature mismatch.");
-            }
+            
+            type = type.BaseType;
         }
     }
 

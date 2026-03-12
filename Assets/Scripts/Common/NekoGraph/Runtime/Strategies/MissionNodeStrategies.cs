@@ -72,7 +72,7 @@ public class MissionNodeAStrategy : INodeStrategy
         foreach (var conn in node.OutputConnections)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = conn.TargetNodeID;
+            newSignal.CurrentNodeId = conn.TargetNodeID;
             instance.InjectSignal(newSignal);
         }
 
@@ -80,7 +80,7 @@ public class MissionNodeAStrategy : INodeStrategy
         foreach (var nextId in node.OutPutNodeIDs)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = nextId;
+            newSignal.CurrentNodeId = nextId;
             instance.InjectSignal(newSignal);
         }
     }
@@ -154,7 +154,7 @@ public class MissionNodeSStrategy : INodeStrategy
         foreach (var conn in node.OutputConnections)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = conn.TargetNodeID;
+            newSignal.CurrentNodeId = conn.TargetNodeID;
             instance.InjectSignal(newSignal);
         }
 
@@ -162,7 +162,7 @@ public class MissionNodeSStrategy : INodeStrategy
         foreach (var nextId in node.OutPutNodeIDs)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = nextId;
+            newSignal.CurrentNodeId = nextId;
             instance.InjectSignal(newSignal);
         }
     }
@@ -232,7 +232,7 @@ public class MissionNodeFStrategy : INodeStrategy
         foreach (var conn in node.OutputConnections)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = conn.TargetNodeID;
+            newSignal.CurrentNodeId = conn.TargetNodeID;
             instance.InjectSignal(newSignal);
         }
 
@@ -240,7 +240,7 @@ public class MissionNodeFStrategy : INodeStrategy
         foreach (var nextId in node.OutPutNodeIDs)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = nextId;
+            newSignal.CurrentNodeId = nextId;
             instance.InjectSignal(newSignal);
         }
     }
@@ -324,7 +324,7 @@ public class MissionNodeRStrategy : INodeStrategy
         foreach (var conn in node.OutputConnections)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = conn.TargetNodeID;
+            newSignal.CurrentNodeId = conn.TargetNodeID;
             instance.InjectSignal(newSignal);
         }
 
@@ -332,7 +332,7 @@ public class MissionNodeRStrategy : INodeStrategy
         foreach (var nextId in node.OutPutNodeIDs)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = nextId;
+            newSignal.CurrentNodeId = nextId;
             instance.InjectSignal(newSignal);
         }
     }

@@ -1,3 +1,4 @@
+#if false   // 【OLD】已废弃，保留参考喵~
 using UnityEngine;
 using System;
 
@@ -5,14 +6,11 @@ namespace MineRTS.BigMap.UI
 {
     /// <summary>
     /// 世界空间 UI 管理器（单例）
-    /// 职责：管理所有世界空间 UI 面板的显示/隐藏和交互逻辑
+    /// 职责：只负责管理面板的创建和销毁，我们大部分时候用不上它。
     /// </summary>
+    [Obsolete("WorldSpaceUIManager 已废弃，等待删除中...")]
     public class WorldSpaceUIManager : SingletonMono<WorldSpaceUIManager>
     {
-        [Header("Canvas 引用")]
-        [Tooltip("世界空间 UI Canvas 控制器")]
-        [SerializeField] private WorldSpaceUIAnimateUnit _canvasController;
-
         [Header("UI 面板")]
         [Tooltip("节点信息面板 Prefab")]
         [SerializeField] private NodeInfoPanel _nodeInfoPanelPrefab;
@@ -38,12 +36,6 @@ namespace MineRTS.BigMap.UI
         protected override void Awake()
         {
             base.Awake();
-
-            // 自动获取 Canvas 控制器
-            if (_canvasController == null)
-            {
-                _canvasController = GetComponent<WorldSpaceUIAnimateUnit>();
-            }
 
             Debug.Log("<color=cyan>[WorldSpaceUIManager]</color> 初始化完成");
         }
@@ -248,3 +240,4 @@ namespace MineRTS.BigMap.UI
         }
     }
 }
+#endif

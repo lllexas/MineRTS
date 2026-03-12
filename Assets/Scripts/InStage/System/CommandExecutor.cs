@@ -32,7 +32,8 @@ public class CommandExecutor : SingletonMono<CommandExecutor>
         }
 
         // 委托给 CommandRegistry 执行喵~
-        return CommandRegistry.Execute(command.CommandName, command.Parameters?.ToArray() ?? new string[0], null);
+        var output = CommandRegistry.Execute(command.CommandName, command.Parameters?.ToArray() ?? new string[0], null, null);
+        return output.Result;
     }
 
     /// <summary>

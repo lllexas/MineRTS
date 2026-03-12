@@ -196,15 +196,8 @@ public class GameFlowController : SingletonMono<GameFlowController>
                 // 1.5 UI 层面：打开大地图 UI 管理器（保存、设置等按钮）
                 if (BigMapUIManager.Instance != null) BigMapUIManager.Instance.Open();
 
-                // 1.6 UI 层面：初始化世界空间 UI 管理器
-                if (WorldSpaceUIManager.Instance != null)
-                {
-                    Debug.Log("<color=cyan>[GameFlow]</color> WorldSpaceUIManager 已初始化");
-                }
-                else
-                {
-                    Debug.LogWarning("<color=orange>[GameFlow]</color> WorldSpaceUIManager 实例未找到，请检查场景中是否有 BigMapUIManager GameObject");
-                }
+                // 1.6 事件层面：发布"进入根界面"事件，通知分布式 UI 浮现
+                PostSystem.Instance.Send("进入根界面", null);
 
                 // 2. 背景层面：切换到大地图炫酷底板
                 if (ViewportBackgroundQuad.Instance != null)

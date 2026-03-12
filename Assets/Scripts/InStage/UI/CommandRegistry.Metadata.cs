@@ -15,11 +15,14 @@ using UnityEngine;
 /// </summary>
 public static partial class CommandRegistry
 {
-    // 命令执行委托喵~
+    // 命令执行委托喵~（新管道版本）
+    public delegate CommandOutput CommandHandlerWithOutput(DeveloperConsole console, string[] args, object payload);
+
+    // 命令执行委托喵~（旧版本，兼容用）
     public delegate CommandResult CommandHandler(DeveloperConsole console, string[] args);
 
     // 命令处理器缓存喵~
-    private static Dictionary<string, CommandHandler> _commandHandlers;
+    private static Dictionary<string, CommandHandlerWithOutput> _commandHandlers;
     private static Dictionary<string, CommandInfoAttribute> _commandMetadatas;
 
     // 是否已初始化喵~
@@ -37,6 +40,28 @@ public static partial class CommandRegistry
     }
 
     /// <summary>
+    /// 命令输出 - 包含执行结果、日志消息和管道数据喵~
+    /// </summary>
+    public class CommandOutput
+    {
+        public CommandResult Result { get; set; }   // 执行结果
+        public string Message { get; set; }         // 日志消息（给人看的）
+        public object Payload { get; set; }         // 管道数据（给下游命令用的）
+
+        public static CommandOutput Success(string message = null, object payload = null)
+            => new CommandOutput { Result = CommandResult.Success, Message = message, Payload = payload };
+
+        public static CommandOutput Fail(string error)
+            => new CommandOutput { Result = CommandResult.Failed, Message = error, Payload = null };
+
+        public static CommandOutput Skip()
+            => new CommandOutput { Result = CommandResult.Skipped, Message = null, Payload = null };
+
+        public static CommandOutput Pending()
+            => new CommandOutput { Result = CommandResult.Pending, Message = null, Payload = null };
+    }
+
+    /// <summary>
     /// 初始化命令注册表（反射扫描）喵~
     /// </summary>
     [RuntimeInitializeOnLoadMethod]
@@ -44,7 +69,7 @@ public static partial class CommandRegistry
     {
         if (_isInitialized) return;
 
-        _commandHandlers = new Dictionary<string, CommandHandler>();
+        _commandHandlers = new Dictionary<string, CommandHandlerWithOutput>();
         _commandMetadatas = new Dictionary<string, CommandInfoAttribute>();
 
         // 反射扫描所有带 [CommandInfo] 的静态方法
@@ -56,22 +81,23 @@ public static partial class CommandRegistry
             var attr = method.GetCustomAttribute<CommandInfoAttribute>();
             if (attr != null)
             {
-                // 检查方法签名是否正确：(DeveloperConsole, string[])
+                // 检查方法签名是否正确：(DeveloperConsole, string[], object) 返回 CommandOutput
                 var parameters = method.GetParameters();
-                if (parameters.Length == 2 &&
+                if (parameters.Length == 3 &&
                     parameters[0].ParameterType == typeof(DeveloperConsole) &&
-                    parameters[1].ParameterType == typeof(string[]))
+                    parameters[1].ParameterType == typeof(string[]) &&
+                    parameters[2].ParameterType == typeof(object) &&
+                    method.ReturnType == typeof(CommandOutput))
                 {
                     // 创建委托
-                    var handler = (CommandHandler)Delegate.CreateDelegate(typeof(CommandHandler), method);
+                    var handler = (CommandHandlerWithOutput)Delegate.CreateDelegate(typeof(CommandHandlerWithOutput), method);
                     _commandHandlers[attr.Name.ToLower()] = handler;
-                    _commandMetadatas[attr.Name.ToLower()] = attr;
 
                     Debug.Log($"[CommandRegistry] 注册命令：{attr.Name} ({attr.DisplayName}) 喵~");
                 }
                 else
                 {
-                    Debug.LogWarning($"[CommandRegistry] 命令方法 {method.Name} 签名不正确，需要 (DeveloperConsole, string[]) 喵~");
+                    Debug.LogWarning($"[CommandRegistry] 命令方法 {method.Name} 签名不正确，需要 (DeveloperConsole, string[], object) 返回 CommandOutput 喵~");
                 }
             }
         }
@@ -90,25 +116,31 @@ public static partial class CommandRegistry
         foreach (var kvp in _commandHandlers)
         {
             string commandName = kvp.Key;
-            CommandHandler handler = kvp.Value;
+            CommandHandlerWithOutput handler = kvp.Value;
 
             console.AddCommand(commandName, (args) =>
             {
-                handler.Invoke(console, args);
+                var output = handler.Invoke(console, args, null);  // 控制台调用没有 payload
+                // 如果有消息，打印到控制台
+                if (!string.IsNullOrEmpty(output.Message))
+                {
+                    console?.Log(output.Message, output.Result == CommandResult.Success ? Color.green : Color.red);
+                }
+                // 不再返回 output.Result，因为 AddCommand 期望的是 void 返回
             });
         }
     }
 
     /// <summary>
-    /// 统一的命令执行入口喵~
+    /// 统一的命令执行入口喵~（返回 CommandOutput）
     /// </summary>
-    public static CommandResult Execute(string commandName, string[] args, DeveloperConsole console = null)
+    public static CommandOutput Execute(string commandName, string[] args, object payload = null, DeveloperConsole console = null)
     {
         Initialize();
 
         if (string.IsNullOrEmpty(commandName))
         {
-            return CommandResult.Skipped;
+            return CommandOutput.Skip();
         }
 
         string key = commandName.ToLower();
@@ -116,17 +148,17 @@ public static partial class CommandRegistry
         {
             try
             {
-                return handler.Invoke(console, args);
+                return handler.Invoke(console, args, payload);
             }
             catch (Exception e)
             {
                 Debug.LogError($"[CommandRegistry] 执行命令 {commandName} 失败：{e} 喵~");
-                return CommandResult.Failed;
+                return CommandOutput.Fail($"执行命令 {commandName} 失败：{e.Message}");
             }
         }
 
         Debug.LogWarning($"[CommandRegistry] 未知命令：{commandName} 喵~");
-        return CommandResult.Failed;
+        return CommandOutput.Fail($"未知命令：{commandName}");
     }
 
     /// <summary>

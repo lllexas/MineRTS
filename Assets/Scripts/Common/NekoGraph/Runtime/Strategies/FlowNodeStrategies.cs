@@ -34,7 +34,7 @@ public class RootNodeStrategy : INodeStrategy
         foreach (var conn in node.OutputConnections)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = conn.TargetNodeID;
+            newSignal.CurrentNodeId = conn.TargetNodeID;
             instance.InjectSignal(newSignal);
         }
     }
@@ -87,7 +87,7 @@ public class SpineNodeStrategy : INodeStrategy
 
                 // 向 Leaf A 节点发送信号
                 var newSignal = context.Clone();
-                newSignal.SourceNodeId = leaf.NodeID;
+                newSignal.CurrentNodeId = leaf.NodeID;
                 instance.InjectSignal(newSignal);
             }
         }
@@ -99,7 +99,7 @@ public class SpineNodeStrategy : INodeStrategy
         foreach (var conn in node.OutputConnections)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = conn.TargetNodeID;
+            newSignal.CurrentNodeId = conn.TargetNodeID;
             instance.InjectSignal(newSignal);
         }
 
@@ -107,7 +107,7 @@ public class SpineNodeStrategy : INodeStrategy
         foreach (var nextId in node.NextSpineNodeIDs)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = nextId;
+            newSignal.CurrentNodeId = nextId;
             instance.InjectSignal(newSignal);
         }
     }
@@ -131,7 +131,7 @@ public class LeafNodeAStrategy : INodeStrategy
         foreach (var conn in leafNode.OutputConnections)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = conn.TargetNodeID;
+            newSignal.CurrentNodeId = conn.TargetNodeID;
             instance.InjectSignal(newSignal);
         }
 
@@ -158,7 +158,7 @@ public class LeafNodeAStrategy : INodeStrategy
                 }
 
                 var newSignal = context.Clone();
-                newSignal.SourceNodeId = leafB.NodeID;
+                newSignal.CurrentNodeId = leafB.NodeID;
                 instance.InjectSignal(newSignal);
             }
         }
@@ -183,7 +183,7 @@ public class LeafNodeBStrategy : INodeStrategy
         foreach (var conn in leafNode.OutputConnections)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = conn.TargetNodeID;
+            newSignal.CurrentNodeId = conn.TargetNodeID;
             instance.InjectSignal(newSignal);
         }
     }

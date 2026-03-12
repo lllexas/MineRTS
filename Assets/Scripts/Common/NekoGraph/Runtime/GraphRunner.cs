@@ -202,25 +202,19 @@ public class GraphRunner : SingletonMono<GraphRunner>
     /// </summary>
     private void ProcessSignal(SignalContext signal, RuntimeGraphInstance instance)
     {
-        if (signal.Depth > MaxSignalDepth)
+        // 找到信号当前所在的节点
+        if (!string.IsNullOrEmpty(signal.CurrentNodeId) &&
+            instance.NodeMap.TryGetValue(signal.CurrentNodeId, out var currentNode))
         {
-            Debug.LogWarning($"[GraphRunner] 信号传播深度超过限制 ({MaxSignalDepth})，终止传播喵~");
-            return;
-        }
-
-        // 找到信号来源节点
-        if (!string.IsNullOrEmpty(signal.SourceNodeId) &&
-            instance.NodeMap.TryGetValue(signal.SourceNodeId, out var sourceNode))
-        {
-            var strategy = GetStrategy(sourceNode);
+            var strategy = GetStrategy(currentNode);
             if (strategy != null)
             {
-                strategy.OnSignalEnter(sourceNode, signal, instance);
+                strategy.OnSignalEnter(currentNode, signal, instance);
             }
         }
         else
         {
-            // 没有来源节点，可能是初始信号，需要找到入口节点（如 Root 节点）
+            // 没有当前节点，可能是初始信号，需要找到入口节点（如 Root 节点）
             var rootNodes = instance.GetNodesOfType<RootNodeData>();
             foreach (var rootNode in rootNodes)
             {

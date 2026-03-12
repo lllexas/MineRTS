@@ -42,14 +42,14 @@ public struct SerializableVector2
     /// 归一化向量 (只读计算属性，不会被序列化)
     /// </summary>
     [Newtonsoft.Json.JsonIgnore]
-    public SerializableVector2 normalized
+    public Vector2 normalized
     {
         get
         {
             float mag = magnitude;
             if (mag > 0f)
-                return new SerializableVector2(x / mag, y / mag);
-            return zero; // 使用自己的 zero 属性，避免循环依赖喵~
+                return new Vector2(x / mag, y / mag);
+            return Vector2.zero;
         }
     }
 

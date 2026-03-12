@@ -140,6 +140,39 @@ public static class CommandRegistryInfo
     }
 
     /// <summary>
+    /// 获取所有分类列表喵~
+    /// </summary>
+    public static List<string> GetAllCategories()
+    {
+        EnsureInitialized();
+        return new List<string>(_categories);
+    }
+
+    /// <summary>
+    /// 获取指定分类下的命令显示名列表喵~
+    /// </summary>
+    public static List<string> GetCommandsInCategory(string category)
+    {
+        EnsureInitialized();
+        return _commands.Values
+            .Where(c => c.Category == category)
+            .OrderBy(c => c.DisplayName)
+            .Select(c => c.DisplayName)
+            .ToList();
+    }
+
+    /// <summary>
+    /// 获取命令的分类喵~
+    /// </summary>
+    public static string GetCategoryFromCommandName(string commandName)
+    {
+        EnsureInitialized();
+        if (_commands.TryGetValue(commandName, out var info))
+            return info.Category;
+        return "System";
+    }
+
+    /// <summary>
     /// 根据显示名获取命令名喵~
     /// </summary>
     public static string GetCommandNameFromDisplayName(string displayName)

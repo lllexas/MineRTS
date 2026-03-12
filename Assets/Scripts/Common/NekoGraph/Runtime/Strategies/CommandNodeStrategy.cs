@@ -54,10 +54,25 @@ public class CommandNodeStrategy : INodeStrategy
         // 构建命令参数
         var args = BuildCommandArgs(command, context);
 
-        // 【重构后】直接调用 CommandRegistry 统一入口喵~
+        // 【管道重构后】直接调用 CommandRegistry 统一入口喵~
         try
         {
-            CommandRegistry.Execute(command.CommandName, args, null);
+            var output = CommandRegistry.Execute(command.CommandName, args, context.Args, null);
+            
+            // 将命令输出的 Payload 传递给下游节点
+            if (output.Payload != null)
+            {
+                context.Args = output.Payload;
+            }
+            
+            // 如果有日志消息，打印出来
+            if (!string.IsNullOrEmpty(output.Message))
+            {
+                if (output.Result == CommandRegistry.CommandResult.Failed)
+                    Debug.LogError($"[CommandNode] {output.Message}");
+                else if (GraphRunner.Instance.EnableDebugLog)
+                    Debug.Log($"[CommandNode] {output.Message}");
+            }
         }
         catch (Exception e)
         {
@@ -79,13 +94,13 @@ public class CommandNodeStrategy : INodeStrategy
         }
 
         // 从信号上下文中提取额外参数
-        if (context.EventData != null)
+        if (context.Args != null)
         {
-            if (context.EventData is string strData)
+            if (context.Args is string strData)
             {
                 argsList.Add(strData);
             }
-            else if (context.EventData is MissionArgs args)
+            else if (context.Args is MissionArgs args)
             {
                 if (!string.IsNullOrEmpty(args.StringKey))
                     argsList.Add(args.StringKey);
@@ -105,14 +120,14 @@ public class CommandNodeStrategy : INodeStrategy
         foreach (var conn in node.OutputConnections)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = conn.TargetNodeID;
+            newSignal.CurrentNodeId = conn.TargetNodeID;
             instance.InjectSignal(newSignal);
         }
 
         foreach (var nextId in node.OutputNodeIDs)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = nextId;
+            newSignal.CurrentNodeId = nextId;
             instance.InjectSignal(newSignal);
         }
     }

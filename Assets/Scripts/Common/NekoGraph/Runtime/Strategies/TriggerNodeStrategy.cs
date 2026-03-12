@@ -114,15 +114,14 @@ public class TriggerNodeStrategy : INodeStrategy
             }
 
             // ★ 无脑转发信号到"进度输出"端口（周期分流器）★
+            // 把 payload 放入当前 Signal 的 Args，然后复制并传播
+            context.Args = payload;
             if (node.ProgressOutputs != null && node.ProgressOutputs.Count > 0)
             {
                 foreach (var targetId in node.ProgressOutputs)
                 {
                     var progressSignal = context.Clone();
-                    progressSignal.SourceNodeId = targetId;
-                    progressSignal.EventData = payload;
-                    // 添加进度数据到信号
-                    progressSignal.SetCustomData("CurrentAmount", node.CurrentAmount);
+                    progressSignal.CurrentNodeId = targetId;
                     instance.InjectSignal(progressSignal);
                 }
             }
@@ -131,7 +130,7 @@ public class TriggerNodeStrategy : INodeStrategy
             if (node.CurrentAmount >= node.RequiredAmount)
             {
                 // 从主输出端口发射信号
-                PropagateSignal(node, context, payload, instance);
+                PropagateSignal(node, context, instance);
             }
         });
 
@@ -173,14 +172,13 @@ public class TriggerNodeStrategy : INodeStrategy
     /// <summary>
     /// 传播信号到输出节点喵~
     /// </summary>
-    private void PropagateSignal(TriggerNodeData node, SignalContext context, object payload, RuntimeGraphInstance instance)
+    private void PropagateSignal(TriggerNodeData node, SignalContext context, RuntimeGraphInstance instance)
     {
         // 使用 OutputConnections 传播信号
         foreach (var conn in node.OutputConnections)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = conn.TargetNodeID;
-            newSignal.EventData = payload;
+            newSignal.CurrentNodeId = conn.TargetNodeID;
             instance.InjectSignal(newSignal);
         }
 
@@ -188,8 +186,7 @@ public class TriggerNodeStrategy : INodeStrategy
         foreach (var nextId in node.OutputNodeIDs)
         {
             var newSignal = context.Clone();
-            newSignal.SourceNodeId = nextId;
-            newSignal.EventData = payload;
+            newSignal.CurrentNodeId = nextId;
             instance.InjectSignal(newSignal);
         }
     }

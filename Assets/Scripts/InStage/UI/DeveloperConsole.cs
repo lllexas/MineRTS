@@ -12,7 +12,9 @@ public class DeveloperConsole : SingletonMono<DeveloperConsole>
     [SerializeField] private TMP_InputField inputField; // <--- 记得在 Inspector 里把 Line Type 改为 Multi Line Newline 喵！
     [SerializeField] private TextMeshProUGUI logText;
     [SerializeField] private ScrollRect scrollRect;
-    [SerializeField] private Button closeButton;
+    [SerializeField] private Button closeButton; 
+    [Header("Settings")]
+    [SerializeField] private bool _captureUnityLogs = false;  // 默认不截获
 
     private Dictionary<string, System.Action<string[]>> _commands;
     private StringBuilder _logBuilder = new StringBuilder();
@@ -100,13 +102,19 @@ public class DeveloperConsole : SingletonMono<DeveloperConsole>
     {
         // 注意：多行模式下 onSubmit 行为会改变，我们主要靠键盘监听提交
         inputField.onSubmit.AddListener(ProcessCommand);
-        Application.logMessageReceived += HandleUnityLog;
+        if (_captureUnityLogs)
+        {
+            Application.logMessageReceived += HandleUnityLog;
+        }
     }
 
     private void OnDisable()
     {
         inputField.onSubmit.RemoveListener(ProcessCommand);
-        Application.logMessageReceived -= HandleUnityLog;
+        if (_captureUnityLogs)
+        {
+            Application.logMessageReceived -= HandleUnityLog;
+        }
     }
 
     private void Update()
@@ -196,35 +204,97 @@ public class DeveloperConsole : SingletonMono<DeveloperConsole>
             string trimmedLine = commandLine.Trim();
             if (string.IsNullOrWhiteSpace(trimmedLine)) continue;
 
-            Log($"> {trimmedLine}", Color.cyan);
-
-            string[] parts = trimmedLine.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length == 0) continue;
-
-            string commandKey = parts[0].ToLower();
-            string[] args = parts.Skip(1).ToArray();
-
-            if (_commands.TryGetValue(commandKey, out var commandAction))
+            // 【新增】检查是否有管道符 |
+            if (trimmedLine.Contains('|'))
             {
-                try
-                {
-                    commandAction.Invoke(args);
-                }
-                catch (System.Exception e)
-                {
-                    Log($"Command '{commandKey}' failed: {e.Message}", Color.red);
-                    Debug.LogException(e); // 同时发往 Unity Console 方便排查
-                }
+                // 管道模式：spawn x_dog 0,0 1 | select | move 10,10
+                ExecutePipeline(trimmedLine);
             }
             else
             {
-                Log($"Unknown command: '{commandKey}'", Color.red);
+                // 普通模式：spawn x_dog 0,0 1
+                ExecuteSingleCommand(trimmedLine);
             }
         }
 
         // 执行完清空输入框
         inputField.text = "";
         inputField.ActivateInputField();
+    }
+
+    /// <summary>
+    /// 执行单个命令喵~
+    /// </summary>
+    private void ExecuteSingleCommand(string input)
+    {
+        Log($"> {input}", Color.cyan);
+
+        string[] parts = input.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return;
+
+        string commandKey = parts[0].ToLower();
+        string[] args = parts.Skip(1).ToArray();
+
+        if (_commands.TryGetValue(commandKey, out var commandAction))
+        {
+            try
+            {
+                commandAction.Invoke(args);
+            }
+            catch (System.Exception e)
+            {
+                Log($"Command '{commandKey}' failed: {e.Message}", Color.red);
+                Debug.LogException(e);
+            }
+        }
+        else
+        {
+            Log($"Unknown command: '{commandKey}'", Color.red);
+        }
+    }
+
+    /// <summary>
+    /// 执行管道命令喵~（支持 | 分隔符）
+    /// </summary>
+    private void ExecutePipeline(string input)
+    {
+        Log($"> {input}", Color.cyan);
+
+        // 分割管道命令
+        string[] parts = input.Split('|');
+        
+        object payload = null;  // 管道传递的数据
+        
+        foreach (var part in parts)
+        {
+            string trimmed = part.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed)) continue;
+            
+            string[] tokens = trimmed.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length == 0) continue;
+            
+            string commandName = tokens[0].ToLower();
+            string[] args = tokens.Skip(1).ToArray();
+            
+            // 执行命令，传入上游的 payload
+            var output = CommandRegistry.Execute(commandName, args, payload, this);
+            
+            // 将输出 Payload 传递给下游
+            payload = output.Payload;
+            
+            // 如果失败，停止管道
+            if (output.Result == CommandRegistry.CommandResult.Failed)
+            {
+                Log($"Pipeline failed at '{commandName}': {output.Message}", Color.red);
+                break;
+            }
+            
+            // 成功则继续
+            if (GraphRunner.Instance.EnableDebugLog)
+            {
+                Log($"Pipeline: {commandName} → Payload: {(payload != null ? payload.GetType().Name : "null")}", Color.gray);
+            }
+        }
     }
 
     private void RegisterCommands()

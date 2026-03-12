@@ -19,7 +19,8 @@ using NekoGraph;
 [NodeType(NodeSystem.Common)]
 public class CommandNode : BaseNode<CommandNodeData>
 {
-    private PopupField<string> _commandDropdown;
+    private PopupField<string> _categoryDropdown;      // 分类选择下拉框喵~
+    private PopupField<string> _commandDropdown;       // 命令选择下拉框喵~
     private List<TextField> _paramFields = new List<TextField>();
     private Label _tooltipLabel;
     private VisualElement _paramContainer;
@@ -53,8 +54,25 @@ public class CommandNode : BaseNode<CommandNodeData>
         // --- 配置区域 ---
         var foldout = new Foldout() { text = "命令配置", value = true };
 
-        // 命令类型下拉框（按分类分组显示）
-        var commandChoices = CommandRegistryInfo.GetAllCommandDisplayNames();
+        // 获取所有分类和当前命令的分类
+        var categories = CommandRegistryInfo.GetAllCategories();
+        string currentCategory = CommandRegistryInfo.GetCategoryFromCommandName(TypedData.Command.CommandName);
+        if (!categories.Contains(currentCategory))
+        {
+            currentCategory = categories[0]; // 使用第一个有效分类
+        }
+
+        // 分类选择下拉框
+        _categoryDropdown = new PopupField<string>("分类", categories, currentCategory);
+        _categoryDropdown.RegisterValueChangedCallback(evt =>
+        {
+            // 分类改变时，更新命令下拉框
+            UpdateCommandDropdown(evt.newValue);
+        });
+        foldout.Add(_categoryDropdown);
+
+        // 命令类型下拉框（根据分类动态加载）
+        var commandChoices = CommandRegistryInfo.GetCommandsInCategory(currentCategory);
         if (commandChoices.Count == 0)
         {
             commandChoices.Add("spawn"); // 默认选项
@@ -67,7 +85,7 @@ public class CommandNode : BaseNode<CommandNodeData>
             currentDisplayName = commandChoices[0]; // 使用第一个有效选项
         }
 
-        _commandDropdown = new PopupField<string>("命令类型", commandChoices, currentDisplayName);
+        _commandDropdown = new PopupField<string>("命令", commandChoices, currentDisplayName);
         _commandDropdown.RegisterValueChangedCallback(evt =>
         {
             TypedData.Command.CommandName = CommandRegistryInfo.GetCommandNameFromDisplayName(evt.newValue);
@@ -92,6 +110,30 @@ public class CommandNode : BaseNode<CommandNodeData>
         // 初始化
         RebuildParamFields();
         RefreshExpandedState();
+    }
+
+    /// <summary>
+    /// 更新命令下拉框的选项喵~
+    /// </summary>
+    private void UpdateCommandDropdown(string category)
+    {
+        var commandChoices = CommandRegistryInfo.GetCommandsInCategory(category);
+        if (commandChoices.Count == 0)
+        {
+            commandChoices.Add("spawn");
+        }
+
+        _commandDropdown.choices = commandChoices;
+        
+        // 选择第一个命令并更新数据
+        if (commandChoices.Count > 0)
+        {
+            string firstCommandName = CommandRegistryInfo.GetCommandNameFromDisplayName(commandChoices[0]);
+            TypedData.Command.CommandName = firstCommandName;
+            _commandDropdown.value = commandChoices[0];
+            RebuildParamFields();
+            titleContainer.style.backgroundColor = GetNodeColor();
+        }
     }
 
     /// <summary>

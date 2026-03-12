@@ -38,12 +38,11 @@ public static partial class CommandRegistry
     [CommandInfo("spawn", "🏗️ 召唤单位", "Entity", new[] { "BlueprintID", "Position (x,y)", "Team" },
         Tooltip = "在指定位置召唤单个单位喵~\n示例：spawn x_dog 0,0 1",
         Color = "0.2,0.6,0.2")]
-    public static CommandResult Spawn(DeveloperConsole console, string[] args)
+    public static CommandOutput Spawn(DeveloperConsole console, string[] args, object payload)
     {
         if (args.Length < 3)
         {
-            Log(console, "Usage: spawn <key> <x,y> <team> [aiType] [dir_x,y]", Color.red);
-            return CommandResult.Failed;
+            return CommandOutput.Fail("Usage: spawn <key> <x,y> <team> [aiType] [dir_x,y]");
         }
 
         string key = args[0].ToLower();
@@ -53,14 +52,12 @@ public static partial class CommandRegistry
         EntityBlueprint bp = BlueprintRegistry.Get(key);
         if (string.IsNullOrEmpty(bp.Name))
         {
-            Log(console, $"Unknown blueprint: {key}", Color.red);
-            return CommandResult.Failed;
+            return CommandOutput.Fail($"Unknown blueprint: {key}");
         }
 
         if (!GridSystem.Instance.IsAreaClear(pos, bp.LogicSize))
         {
-            Log(console, $"Area {pos} is blocked!", Color.yellow);
-            return CommandResult.Failed;
+            return CommandOutput.Fail($"Area {pos} is blocked!");
         }
 
         EntityHandle handle = EntitySystem.Instance.CreateEntityFromBlueprint(key, pos, team);
@@ -71,19 +68,17 @@ public static partial class CommandRegistry
             EntitySystem.Instance.wholeComponent.coreComponent[idx].Rotation = ParseGridPos(args[4]);
         }
 
-        Log(console, $"Successfully spawned {bp.Name} (Team {team})", Color.green);
-        return CommandResult.Success;
+        return CommandOutput.Success($"Successfully spawned {bp.Name} (Team {team})", handle);
     }
 
     [CommandInfo("army", "🏗️ 方阵召唤", "Entity", new[] { "BlueprintID", "Center (x,y)", "Width", "Height", "Team" },
         Tooltip = "以方阵形式召唤多个单位喵~\n示例：army x_dog 0,0 3,3 1",
         Color = "0.2,0.5,0.2")]
-    public static CommandResult Army(DeveloperConsole console, string[] args)
+    public static CommandOutput Army(DeveloperConsole console, string[] args, object payload)
     {
         if (args.Length < 4)
         {
-            Log(console, "Usage: army <key> <x,y> <w,h> <team>", Color.red);
-            return CommandResult.Failed;
+            return CommandOutput.Fail("Usage: army <key> <x,y> <w,h> <team>");
         }
 
         string key = args[0];
@@ -95,6 +90,7 @@ public static partial class CommandRegistry
         int startX = center.x - groupSize.x / 2;
         int startY = center.y - groupSize.y / 2;
         int count = 0;
+        List<EntityHandle> handles = new List<EntityHandle>();
 
         for (int x = 0; x < groupSize.x; x++)
         {
@@ -103,22 +99,22 @@ public static partial class CommandRegistry
                 Vector2Int current = new Vector2Int(startX + x, startY + y);
                 if (GridSystem.Instance.IsAreaClear(current, bp.LogicSize))
                 {
-                    EntitySystem.Instance.CreateEntityFromBlueprint(key, current, team);
+                    var handle = EntitySystem.Instance.CreateEntityFromBlueprint(key, current, team);
+                    handles.Add(handle);
                     count++;
                 }
             }
         }
 
-        Log(console, $"Army: {count} {bp.Name}s deployed for Team {team}", Color.green);
-        return CommandResult.Success;
+        return CommandOutput.Success($"Army: {count} {bp.Name}s deployed for Team {team}", handles);
     }
 
     [CommandInfo("ai_wave", "🏗️ AI 波次绑定", "Entity", new[] { "Team", "BrainID", "TargetPos (x,y)" },
         Tooltip = "将单位绑定到 AI 波次逻辑喵~\n示例：ai_wave 1 Red_Dot_Wave 0,0",
         Color = "0.2,0.4,0.2")]
-    public static CommandResult AiWave(DeveloperConsole console, string[] args)
+    public static CommandOutput AiWave(DeveloperConsole console, string[] args, object payload)
     {
-        if (args.Length < 3) return CommandResult.Failed;
+        if (args.Length < 3) return CommandOutput.Fail("Usage: ai_wave <team> <brainId> <x,y>");
 
         int team = int.Parse(args[0]);
         string brainId = args[1];
@@ -140,16 +136,16 @@ public static partial class CommandRegistry
         if (recruits.Count > 0)
         {
             AIBrainServer.Instance.ApplyWaveAI(team, brainId, targetPos, recruits);
-            Log(console, $"[Manual AI] {brainId} grabbed {recruits.Count} wild units.", Color.magenta);
+            return CommandOutput.Success($"[Manual AI] {brainId} grabbed {recruits.Count} wild units.", recruits);
         }
 
-        return CommandResult.Success;
+        return CommandOutput.Success("No wild units found");
     }
 
     [CommandInfo("hero", "🏗️ 召唤英雄", "Entity", new[] { "HeroID", "Position (x,y)", "Team" },
         Tooltip = "召唤英雄单位喵~\n示例：hero commander 0,0 1",
         Color = "0.3,0.6,0.3")]
-    public static CommandResult Hero(DeveloperConsole console, string[] args)
+    public static CommandOutput Hero(DeveloperConsole console, string[] args, object payload)
     {
         int slot = (args.Length >= 1) ? int.Parse(args[0]) : 1;
         var whole = EntitySystem.Instance.wholeComponent;
@@ -161,10 +157,10 @@ public static partial class CommandRegistry
             whole.coreComponent[lastIndex].Type |= UnitType.Hero;
             whole.coreComponent[lastIndex].Team = 1;
 
-            Log(console, $"Unit {lastIndex} is now your Hero (Slot {slot})", Color.cyan);
+            return CommandOutput.Success($"Unit {lastIndex} is now your Hero (Slot {slot})", whole.coreComponent[lastIndex].SelfHandle);
         }
 
-        return CommandResult.Success;
+        return CommandOutput.Fail("No entity found");
     }
 
     // =========================================================
@@ -174,7 +170,7 @@ public static partial class CommandRegistry
     [CommandInfo("clear", "🔧 清空单位", "Debug", new[] { "Team (optional)" },
         Tooltip = "清空所有单位或指定阵营单位喵~\n示例：clear 1",
         Color = "0.6,0.3,0.3")]
-    public static CommandResult Clear(DeveloperConsole console, string[] args)
+    public static CommandOutput Clear(DeveloperConsole console, string[] args, object payload)
     {
         if (UserControlSystem.Instance != null)
         {
@@ -229,172 +225,156 @@ public static partial class CommandRegistry
         float cellSize = (GridSystem.Instance != null) ? GridSystem.Instance.CellSize : 1.0f;
 
         EntitySystem.Instance.Initialize(EntitySystem.Instance.maxEntityCount, w, h, minX, minY, cellSize);
-        Log(console, "System reset: All entities and gridMap cleared.", Color.yellow);
 
-        return CommandResult.Success;
+        return CommandOutput.Success("System reset: All entities and gridMap cleared.");
     }
 
     [CommandInfo("map_load", "🗺️ 加载地图", "Scene", new[] { "MapID" },
         Tooltip = "加载指定地图喵~\n示例：map_load Level_01",
         Color = "0.2,0.4,0.6")]
-    public static CommandResult MapLoad(DeveloperConsole console, string[] args)
+    public static CommandOutput MapLoad(DeveloperConsole console, string[] args, object payload)
     {
         if (TilemapSyncManager.Instance != null)
         {
             TilemapSyncManager.Instance.SyncFromTilemap();
-            Log(console, "Map Data loaded from Tilemap to ECS groundMap.", Color.green);
+            return CommandOutput.Success("Map Data loaded from Tilemap to ECS groundMap.");
         }
         else
         {
-            Log(console, "Error: TilemapSyncManager instance not found!", Color.red);
+            return CommandOutput.Fail("Error: TilemapSyncManager instance not found!");
         }
-        return CommandResult.Success;
     }
 
     [CommandInfo("map_apply", "🗺️ 应用地图", "Scene", new[] { "MapID" },
         Tooltip = "应用地图配置喵~\n示例：map_apply Level_01",
         Color = "0.2,0.4,0.5")]
-    public static CommandResult MapApply(DeveloperConsole console, string[] args)
+    public static CommandOutput MapApply(DeveloperConsole console, string[] args, object payload)
     {
         if (TilemapSyncManager.Instance != null)
         {
             TilemapSyncManager.Instance.SyncToTilemap();
-            Log(console, "ECS groundMap applied to Tilemap visual renderer.", Color.cyan);
+            return CommandOutput.Success("ECS groundMap applied to Tilemap visual renderer.");
         }
         else
         {
-            Log(console, "Error: TilemapSyncManager instance not found!", Color.red);
+            return CommandOutput.Fail("Error: TilemapSyncManager instance not found!");
         }
-        return CommandResult.Success;
     }
 
     [CommandInfo("save_new", "🗺️ 新建存档", "Scene", new[] { "SaveName" },
         Tooltip = "创建新存档喵~\n示例：save_new my_save",
         Color = "0.2,0.5,0.7")]
-    public static CommandResult SaveNew(DeveloperConsole console, string[] args)
+    public static CommandOutput SaveNew(DeveloperConsole console, string[] args, object payload)
     {
         string name = (args.Length > 0) ? args[0] : "slot_1";
         SaveManager.Instance.CreateNewSave(name);
-        Log(console, $"Created new save profile: {name}", Color.green);
-        return CommandResult.Success;
+        return CommandOutput.Success($"Created new save profile: {name}");
     }
 
     [CommandInfo("save_load", "🗺️ 加载存档", "Scene", new[] { "SaveName" },
         Tooltip = "加载指定存档喵~\n示例：save_load my_save",
         Color = "0.2,0.5,0.6")]
-    public static CommandResult SaveLoad(DeveloperConsole console, string[] args)
+    public static CommandOutput SaveLoad(DeveloperConsole console, string[] args, object payload)
     {
         string name = (args.Length > 0) ? args[0] : "slot_1";
         SaveManager.Instance.LoadSave(name);
-        Log(console, $"Loaded save profile: {name}. Ready to enter stage.", Color.green);
-        return CommandResult.Success;
+        return CommandOutput.Success($"Loaded save profile: {name}. Ready to enter stage.");
     }
 
     [CommandInfo("save_ram", "🗺️ 内存存档", "Scene", null,
         Tooltip = "将当前状态保存到内存喵~",
         Color = "0.3,0.6,0.7")]
-    public static CommandResult SaveRam(DeveloperConsole console, string[] args)
+    public static CommandOutput SaveRam(DeveloperConsole console, string[] args, object payload)
     {
         if (MainModel.Instance.IsInStage)
         {
             GameFlowController.Instance.SaveCurrentStageFromSystem();
-            Log(console, "Stage data saved to RAM (UserModel). Not written to disk yet.", Color.yellow);
+            return CommandOutput.Success("Stage data saved to RAM (UserModel). Not written to disk yet.");
         }
         else
         {
-            Log(console, "Not in stage, nothing to save to RAM.", Color.red);
+            return CommandOutput.Fail("Not in stage, nothing to save to RAM.");
         }
-        return CommandResult.Success;
     }
 
     [CommandInfo("save_now", "🗺️ 立即存档", "Scene", null,
         Tooltip = "立即保存到磁盘喵~",
         Color = "0.3,0.6,0.6")]
-    public static CommandResult SaveNow(DeveloperConsole console, string[] args)
+    public static CommandOutput SaveNow(DeveloperConsole console, string[] args, object payload)
     {
         if (MainModel.Instance.IsInStage)
         {
             GameFlowController.Instance.SaveCurrentStageFromSystem();
         }
         SaveManager.Instance.SaveGameToDisk();
-        Log(console, "Game Saved to Disk.", Color.cyan);
-        return CommandResult.Success;
+        return CommandOutput.Success("Game Saved to Disk.");
     }
 
     [CommandInfo("enter", "🗺️ 进入关卡", "Scene", new[] { "StageID" },
         Tooltip = "进入指定关卡喵~\n示例：enter Level_01",
         Color = "0.3,0.5,0.7")]
-    public static CommandResult Enter(DeveloperConsole console, string[] args)
+    public static CommandOutput Enter(DeveloperConsole console, string[] args, object payload)
     {
         if (args.Length < 1)
         {
-            Log(console, "Usage: enter <stage_id> (e.g., Level_01)", Color.red);
-            return CommandResult.Failed;
+            return CommandOutput.Fail("Usage: enter <stage_id> (e.g., Level_01)");
         }
 
         string stageID = args[0];
         EntitySystem.Instance.LoadStage(stageID);
-        Log(console, $"Entering stage: {stageID}", Color.yellow);
-        return CommandResult.Success;
+        return CommandOutput.Success($"Entering stage: {stageID}");
     }
 
     [CommandInfo("leave", "🗺️ 离开关卡", "Scene", null,
         Tooltip = "离开当前关卡喵~",
         Color = "0.3,0.5,0.6")]
-    public static CommandResult Leave(DeveloperConsole console, string[] args)
+    public static CommandOutput Leave(DeveloperConsole console, string[] args, object payload)
     {
         GameFlowController.Instance.ReturnToMap(true);
-        Log(console, "Exited stage and returned to Map state.", Color.green);
-        return CommandResult.Success;
+        return CommandOutput.Success("Exited stage and returned to Map state.");
     }
 
     [CommandInfo("leave_force", "🗺️ 强制离开", "Scene", null,
         Tooltip = "强制离开当前关卡（不保存）喵~",
         Color = "0.4,0.5,0.6")]
-    public static CommandResult LeaveForce(DeveloperConsole console, string[] args)
+    public static CommandOutput LeaveForce(DeveloperConsole console, string[] args, object payload)
     {
         GameFlowController.Instance.ReturnToMap(false);
-        Log(console, "Exited stage WITHOUT saving.", Color.red);
-        return CommandResult.Success;
+        return CommandOutput.Success("Exited stage WITHOUT saving.");
     }
 
     [CommandInfo("reset_stage", "🗺️ 重置关卡", "Scene", new[] { "StageID" },
         Tooltip = "重置关卡到初始状态喵~",
         Color = "0.5,0.3,0.3")]
-    public static CommandResult ResetStage(DeveloperConsole console, string[] args)
+    public static CommandOutput ResetStage(DeveloperConsole console, string[] args, object payload)
     {
         string currentStage = MainModel.Instance.CurrentActiveStageID;
         if (string.IsNullOrEmpty(currentStage))
         {
-            Log(console, "Not in any stage!", Color.red);
-            return CommandResult.Failed;
+            return CommandOutput.Fail("Not in any stage!");
         }
 
         GameFlowController.Instance.ResetStage(currentStage);
-        Log(console, $"Stage {currentStage} has been reset to default state.", Color.red);
-        return CommandResult.Success;
+        return CommandOutput.Success($"Stage {currentStage} has been reset to default state.");
     }
 
     [CommandInfo("net_rebuild", "🔧 重建网络", "Debug", null,
         Tooltip = "重建物流网络喵~",
         Color = "0.4,0.2,0.2")]
-    public static CommandResult NetRebuild(DeveloperConsole console, string[] args)
+    public static CommandOutput NetRebuild(DeveloperConsole console, string[] args, object payload)
     {
         var whole = EntitySystem.Instance.wholeComponent;
         TransportSystem.Instance.RebuildNetwork(whole);
-        Log(console, "Transport Network Rebuilt manually.", Color.cyan);
-        return CommandResult.Success;
+        return CommandOutput.Success("Transport Network Rebuilt manually.");
     }
 
     [CommandInfo("net_info", "🔧 网络信息", "Debug", null,
         Tooltip = "显示物流网络信息喵~",
         Color = "0.4,0.2,0.3")]
-    public static CommandResult NetInfo(DeveloperConsole console, string[] args)
+    public static CommandOutput NetInfo(DeveloperConsole console, string[] args, object payload)
     {
         string stats = TransportSystem.Instance.GetNetworkDebugInfo();
-        Log(console, "--- Transport Network Status ---", Color.magenta);
-        Log(console, stats, Color.white);
-        return CommandResult.Success;
+        return CommandOutput.Success($"--- Transport Network Status ---\n{stats}");
     }
 
     // =========================================================
@@ -467,37 +447,36 @@ public static partial class CommandRegistry
     [CommandInfo("help", "⚡ 帮助", "System", new[] { "Command (optional)" },
         Tooltip = "显示帮助信息或指定命令的用法喵~\n示例：help spawn",
         Color = "0.5,0.5,0.5")]
-    public static CommandResult Help(DeveloperConsole console, string[] args)
+    public static CommandOutput Help(DeveloperConsole console, string[] args, object payload)
     {
-        Log(console, "RTS Commands:", Color.magenta);
+        string helpText = "RTS Commands:\n";
         foreach (var command in console.GetCommandKeys())
-            Log(console, $"- {command}", Color.white);
-        return CommandResult.Success;
+            helpText += $"- {command}\n";
+        return CommandOutput.Success(helpText);
     }
 
     [CommandInfo("cheat_gold", "🔧 金币作弊", "Debug", new[] { "Amount" },
         Tooltip = "获得指定数量金币喵~\n示例：cheat_gold 1000",
         Color = "0.6,0.2,0.2")]
-    public static CommandResult CheatGold(DeveloperConsole console, string[] args)
+    public static CommandOutput CheatGold(DeveloperConsole console, string[] args, object payload)
     {
-        if (args.Length < 1) return CommandResult.Failed;
+        if (args.Length < 1) return CommandOutput.Fail("Usage: cheat_gold <amount>");
 
         int amount = int.Parse(args[0]);
         IndustrialSystem.Instance.AddGold(amount);
-        Log(console, $"Gold added: {amount}. Mission should react!", Color.green);
-        return CommandResult.Success;
+        return CommandOutput.Success($"Gold added: {amount}. Mission should react!");
     }
 
     [CommandInfo("cheat_power", "⚡ 无限电力", "Debug", new[] { "Enable (0/1)" },
         Tooltip = "开启/关闭无限电力喵~\n示例：cheat_power 1",
         Color = "0.6,0.2,0.3")]
-    public static CommandResult CheatPower(DeveloperConsole console, string[] args)
+    public static CommandOutput CheatPower(DeveloperConsole console, string[] args, object payload)
     {
         if (args.Length < 1)
         {
             bool current = IndustrialSystem.Instance.GlobalPowerOverride;
-            Log(console, $"Global Power Override is: {(current ? "<color=green>ON</color>" : "<color=red>OFF</color>")}", Color.white);
-            return CommandResult.Success;
+            string status = current ? "ON" : "OFF";
+            return CommandOutput.Success($"Global Power Override is: {status}");
         }
 
         bool enable = args[0] == "1" || args[0].ToLower() == "true";
@@ -505,33 +484,31 @@ public static partial class CommandRegistry
 
         if (enable)
         {
-            Log(console, "⚡ UNLIMITED POWER! All buildings are now active without electricity.", Color.green);
+            return CommandOutput.Success("⚡ UNLIMITED POWER! All buildings are now active without electricity.");
         }
         else
         {
-            Log(console, "⚡ Power restrictions restored. Build more generators!", Color.yellow);
+            return CommandOutput.Success("⚡ Power restrictions restored. Build more generators!");
         }
-        return CommandResult.Success;
     }
 
     [CommandInfo("global_power", "⚡ 全局电力", "System", new[] { "Enable (0/1)" },
         Tooltip = "全局电力覆盖开关喵~\n示例：global_power 1",
         Color = "0.4,0.4,0.4")]
-    public static CommandResult GlobalPower(DeveloperConsole console, string[] args)
+    public static CommandOutput GlobalPower(DeveloperConsole console, string[] args, object payload)
     {
         if (args.Length < 1)
         {
-            Log(console, "Usage: global_power <0|1>", Color.red);
-            return CommandResult.Failed;
+            return CommandOutput.Fail("Usage: global_power <0|1>");
         }
 
         bool enable = args[0] == "1" || args[0].ToLower() == "true";
         if (IndustrialSystem.Instance != null)
         {
             IndustrialSystem.Instance.GlobalPowerOverride = enable;
-            Log(console, $"[CommandExecutor] 全局电力 {(enable ? "开启" : "关闭")} 喵~", Color.white);
+            return CommandOutput.Success($"[CommandExecutor] 全局电力 {(enable ? "开启" : "关闭")} 喵~");
         }
-        return CommandResult.Success;
+        return CommandOutput.Fail("IndustrialSystem.Instance is null");
     }
 
     // =========================================================
@@ -541,37 +518,34 @@ public static partial class CommandRegistry
     [CommandInfo("timer_pause", "⏰ 暂停时间", "Time", null,
         Tooltip = "暂停游戏时间喵~",
         Color = "0.6,0.6,0.2")]
-    public static CommandResult TimerPause(DeveloperConsole console, string[] args)
+    public static CommandOutput TimerPause(DeveloperConsole console, string[] args, object payload)
     {
         TimeSystem.Instance.SetPaused(true);
-        Log(console, "Time System: Paused.", Color.yellow);
-        return CommandResult.Success;
+        return CommandOutput.Success("Time System: Paused.");
     }
 
     [CommandInfo("timer_resume", "⏰ 恢复时间", "Time", null,
         Tooltip = "恢复游戏时间喵~",
         Color = "0.5,0.5,0.2")]
-    public static CommandResult TimerResume(DeveloperConsole console, string[] args)
+    public static CommandOutput TimerResume(DeveloperConsole console, string[] args, object payload)
     {
         TimeSystem.Instance.SetPaused(false);
-        Log(console, "Time System: Resumed.", Color.green);
-        return CommandResult.Success;
+        return CommandOutput.Success("Time System: Resumed.");
     }
 
     [CommandInfo("timer_reset", "⏰ 重置时间", "Time", null,
         Tooltip = "重置计时器为 0 喵~",
         Color = "0.6,0.5,0.2")]
-    public static CommandResult TimerReset(DeveloperConsole console, string[] args)
+    public static CommandOutput TimerReset(DeveloperConsole console, string[] args, object payload)
     {
         TimeSystem.Instance.ResetTimer();
-        Log(console, "Time System: Timer Reset to 0.", Color.cyan);
-        return CommandResult.Success;
+        return CommandOutput.Success("Time System: Timer Reset to 0.");
     }
 
     [CommandInfo("timer_skip", "⏰ 时间快进", "Time", new[] { "Seconds" },
         Tooltip = "跳过指定秒数喵~\n示例：timer_skip 60",
         Color = "0.5,0.6,0.2")]
-    public static CommandResult TimerSkip(DeveloperConsole console, string[] args)
+    public static CommandOutput TimerSkip(DeveloperConsole console, string[] args, object payload)
     {
         if (args.Length > 0 && int.TryParse(args[0], out int seconds))
         {
@@ -581,20 +555,18 @@ public static partial class CommandRegistry
             PostSystem.Instance.Send("生存时间增加", missionArgs);
             MissionArgs.Release(missionArgs);
 
-            Log(console, $"Time System: Skipped {seconds}s for mission goals.", Color.magenta);
+            return CommandOutput.Success($"Time System: Skipped {seconds}s for mission goals.");
         }
-        return CommandResult.Success;
+        return CommandOutput.Fail("Invalid seconds value");
     }
 
     [CommandInfo("nav_info", "🔧 导航信息", "Debug", null,
         Tooltip = "显示 NavMesh 调试信息喵~",
         Color = "0.5,0.2,0.2")]
-    public static CommandResult NavInfo(DeveloperConsole console, string[] args)
+    public static CommandOutput NavInfo(DeveloperConsole console, string[] args, object payload)
     {
         string stats = GridSystem.Instance.GetNavMeshDebugInfo();
-        Log(console, "--- NavMesh & Portal Topology Status ---", Color.cyan);
-        Log(console, stats, Color.white);
-        return CommandResult.Success;
+        return CommandOutput.Success($"--- NavMesh & Portal Topology Status ---\n{stats}");
     }
 
     // =========================================================
@@ -604,52 +576,46 @@ public static partial class CommandRegistry
     [CommandInfo("PlayCG", "🎬 播放 CG", "Story", new[] { "CGName" },
         Tooltip = "播放过场动画/CG 喵~\n示例：PlayCG ending_01",
         Color = "0.6,0.3,0.6")]
-    public static CommandResult PlayCG(DeveloperConsole console, string[] args)
+    public static CommandOutput PlayCG(DeveloperConsole console, string[] args, object payload)
     {
         if (args.Length < 1)
         {
-            Log(console, "PlayCG 命令需要 1 个参数：CGName", Color.yellow);
-            return CommandResult.Failed;
+            return CommandOutput.Fail("PlayCG 命令需要 1 个参数：CGName");
         }
 
         string cgName = args[0];
-        Log(console, $"[CommandExecutor] 播放 CG: {cgName}", Color.white);
-        return CommandResult.Success;
+        return CommandOutput.Success($"[CommandExecutor] 播放 CG: {cgName}");
     }
 
     [CommandInfo("ShowDialogue", "🎬 显示对话", "Story", new[] { "DialogueID", "Speaker", "Text" },
         Tooltip = "显示剧情对话喵~\n示例：ShowDialogue intro_01 指挥官 这里是……哪里？",
         Color = "0.5,0.3,0.5")]
-    public static CommandResult ShowDialogue(DeveloperConsole console, string[] args)
+    public static CommandOutput ShowDialogue(DeveloperConsole console, string[] args, object payload)
     {
         if (args.Length < 3)
         {
-            Log(console, "ShowDialogue 命令需要 3 个参数：DialogueID, Speaker, Text", Color.yellow);
-            return CommandResult.Failed;
+            return CommandOutput.Fail("ShowDialogue 命令需要 3 个参数：DialogueID, Speaker, Text");
         }
 
         string dialogueId = args[0];
         string speaker = args[1];
         string text = args[2];
 
-        Log(console, $"[CommandExecutor] 显示对话 [{speaker}]: {text}", Color.white);
-        return CommandResult.Success;
+        return CommandOutput.Success($"[CommandExecutor] 显示对话 [{speaker}]: {text}");
     }
 
     [CommandInfo("UnlockStage", "🎬 解锁章节", "Story", new[] { "StageID" },
         Tooltip = "解锁新的剧情章节喵~\n示例：UnlockStage chapter_02",
         Color = "0.6,0.4,0.6")]
-    public static CommandResult UnlockStage(DeveloperConsole console, string[] args)
+    public static CommandOutput UnlockStage(DeveloperConsole console, string[] args, object payload)
     {
         if (args.Length < 1)
         {
-            Log(console, "UnlockStage 命令需要 1 个参数：StageID", Color.yellow);
-            return CommandResult.Failed;
+            return CommandOutput.Fail("UnlockStage 命令需要 1 个参数：StageID");
         }
 
         string stageId = args[0];
-        Log(console, $"[CommandExecutor] 解锁章节：{stageId}", Color.white);
-        return CommandResult.Success;
+        return CommandOutput.Success($"[CommandExecutor] 解锁章节：{stageId}");
     }
 
     // =========================================================
@@ -659,74 +625,117 @@ public static partial class CommandRegistry
     [CommandInfo("cam_home", "🔧 相机归位", "Debug", null,
         Tooltip = "相机回到地图中心喵~",
         Color = "0.5,0.2,0.3")]
-    public static CommandResult CamHome(DeveloperConsole console, string[] args)
+    public static CommandOutput CamHome(DeveloperConsole console, string[] args, object payload)
     {
         CameraController.Instance.GoToOrigin();
-        Log(console, "Camera returned to map center.", Color.cyan);
-        return CommandResult.Success;
+        return CommandOutput.Success("Camera returned to map center.");
     }
 
     [CommandInfo("cam_goto", "🔧 相机移动", "Debug", new[] { "Position (x,y)" },
         Tooltip = "相机移动到指定位置喵~\n示例：cam_goto 50,50",
         Color = "0.5,0.2,0.4")]
-    public static CommandResult CamGoto(DeveloperConsole console, string[] args)
+    public static CommandOutput CamGoto(DeveloperConsole console, string[] args, object payload)
     {
         if (args.Length < 1)
         {
-            Log(console, "Usage: cam_goto <x,y>", Color.red);
-            return CommandResult.Failed;
+            return CommandOutput.Fail("Usage: cam_goto <x,y>");
         }
 
         Vector2Int gridPos = ParseGridPos(args[0]);
         Vector2 worldPos = GridSystem.Instance.GridToWorld(gridPos, Vector2Int.one);
         CameraController.Instance.FocusOn(worldPos);
-        Log(console, $"Camera focused on Grid {gridPos}", Color.green);
-        return CommandResult.Success;
+        return CommandOutput.Success($"Camera focused on Grid {gridPos}");
     }
 
     [CommandInfo("cam_sync", "🔧 相机同步", "Debug", null,
         Tooltip = "同步相机边界喵~",
         Color = "0.5,0.3,0.3")]
-    public static CommandResult CamSync(DeveloperConsole console, string[] args)
+    public static CommandOutput CamSync(DeveloperConsole console, string[] args, object payload)
     {
         CameraController.Instance.SyncBounds();
-        Log(console, "Camera bounds re-synchronized with WholeComponent.", Color.yellow);
-        return CommandResult.Success;
+        return CommandOutput.Success("Camera bounds re-synchronized with WholeComponent.");
     }
 
     [CommandInfo("cam_reset", "🔧 相机重置", "Debug", null,
         Tooltip = "重置相机设置喵~",
         Color = "0.5,0.3,0.4")]
-    public static CommandResult CamReset(DeveloperConsole console, string[] args)
+    public static CommandOutput CamReset(DeveloperConsole console, string[] args, object payload)
     {
         CameraController.Instance.ResetZoom();
-        Log(console, "Camera zoom reset to default.", Color.cyan);
-        return CommandResult.Success;
+        return CommandOutput.Success("Camera zoom reset to default.");
     }
 
     [CommandInfo("cam_speed", "🔧 相机速度", "Debug", new[] { "Speed" },
         Tooltip = "设置相机移动速度喵~\n示例：cam_speed 5",
         Color = "0.5,0.3,0.5")]
-    public static CommandResult CamSpeed(DeveloperConsole console, string[] args)
+    public static CommandOutput CamSpeed(DeveloperConsole console, string[] args, object payload)
     {
-        if (args.Length < 1) return CommandResult.Success;
+        if (args.Length < 1) return CommandOutput.Success("Usage: cam_speed <speed>");
 
         float speed = float.Parse(args[0]);
         CameraController.Instance.moveSpeed = speed;
-        Log(console, $"Camera move speed set to {speed}", Color.white);
-        return CommandResult.Success;
+        return CommandOutput.Success($"Camera move speed set to {speed}");
     }
 
     [CommandInfo("cam_scroll", "🔧 相机滚动", "Debug", new[] { "Enable (0/1)" },
         Tooltip = "开启/关闭相机滚动喵~\n示例：cam_scroll 1",
         Color = "0.5,0.3,0.6")]
-    public static CommandResult CamScroll(DeveloperConsole console, string[] args)
+    public static CommandOutput CamScroll(DeveloperConsole console, string[] args, object payload)
     {
-        if (args.Length < 1) return CommandResult.Success;
+        if (args.Length < 1) return CommandOutput.Success("Usage: cam_scroll <0|1>");
 
         bool enable = args[0] == "1";
         CameraController.Instance.useEdgeScrolling = enable;
-        Log(console, $"Edge scrolling: {(enable ? "Enabled" : "Disabled")}", Color.white);
-        return CommandResult.Success;
+        return CommandOutput.Success($"Edge scrolling: {(enable ? "Enabled" : "Disabled")}");
+    }
+
+    // =========================================================
+    // 🖼️ UI 界面相关命令
+    // =========================================================
+
+    [CommandInfo("ui_root", "🖼️ 进入根界面", "UI", null,
+        Tooltip = "发送\"进入根界面\"事件，测试大地图 Canvas 淡入喵~",
+        Color = "0.3,0.5,0.7")]
+    public static CommandOutput UIRoot(DeveloperConsole console, string[] args, object payload)
+    {
+        PostSystem.Instance.Send("进入根界面", null);
+        return CommandOutput.Success("已发送 [进入根界面] 事件喵~");
+    }
+
+    [CommandInfo("ui_hide_all", "🖼️ 隐藏所有面板", "UI", null,
+        Tooltip = "发送\"期望隐藏所有面板\"事件，测试所有面板淡出喵~",
+        Color = "0.5,0.3,0.3")]
+    public static CommandOutput UIHideAll(DeveloperConsole console, string[] args, object payload)
+    {
+        PostSystem.Instance.Send("期望隐藏所有面板", null);
+        return CommandOutput.Success("已发送 [期望隐藏所有面板] 事件喵~");
+    }
+
+    [CommandInfo("ui_show", "🖼️ 显示面板", "UI", new[] { "UI_ID" },
+        Tooltip = "发送\"期望显示面板\"事件，测试指定面板淡入喵~\n示例：ui_show NodeInfoPanel",
+        Color = "0.3,0.6,0.3")]
+    public static CommandOutput UIShow(DeveloperConsole console, string[] args, object payload)
+    {
+        if (args.Length < 1)
+        {
+            return CommandOutput.Fail("Usage: ui_show <UI_ID> (e.g., NodeInfoPanel)");
+        }
+        string uiID = args[0];
+        PostSystem.Instance.Send("期望显示面板", uiID);
+        return CommandOutput.Success($"已发送 [期望显示面板] 事件，ID: {uiID} 喵~");
+    }
+
+    [CommandInfo("ui_hide", "🖼️ 隐藏面板", "UI", new[] { "UI_ID" },
+        Tooltip = "发送\"期望隐藏面板\"事件，测试指定面板淡出喵~\n示例：ui_hide NodeInfoPanel",
+        Color = "0.6,0.3,0.3")]
+    public static CommandOutput UIHide(DeveloperConsole console, string[] args, object payload)
+    {
+        if (args.Length < 1)
+        {
+            return CommandOutput.Fail("Usage: ui_hide <UI_ID> (e.g., NodeInfoPanel)");
+        }
+        string uiID = args[0];
+        PostSystem.Instance.Send("期望隐藏面板", uiID);
+        return CommandOutput.Success($"已发送 [期望隐藏面板] 事件，ID: {uiID} 喵~");
     }
 }
