@@ -6,8 +6,9 @@ using System.Collections.Generic;
 namespace MineRTS.BigMap.UI
 {
     /// <summary>
-    /// 奖励面板
-    /// 显示任务完成后的奖励内容
+    /// 奖励面板 - 已休眠喵~
+    /// 注：MissionReward 系统已重构，此面板暂时停用
+    /// TODO: 等待新的奖励系统实现后再启用
     /// </summary>
     public class RewardPanel : AnimatedPanelBase
     {
@@ -21,8 +22,8 @@ namespace MineRTS.BigMap.UI
         [Header("按钮")]
         [SerializeField] private Button _confirmButton;
 
-        // 当前奖励数据
-        private MissionReward _currentReward;
+        // 当前奖励数据 - 已注释，等待新的奖励系统
+        // private MissionReward _currentReward;
 
         private void Awake()
         {
@@ -32,60 +33,41 @@ namespace MineRTS.BigMap.UI
             if (_confirmButton != null)
                 _confirmButton.onClick.AddListener(OnConfirmClicked);
 
-            Debug.Log("<color=cyan>[RewardPanel]</color> 初始化完成");
+            // 休眠日志
+            Debug.Log("<color=cyan>[RewardPanel]</color> 面板已加载（休眠状态，等待新奖励系统）");
         }
 
         /// <summary>
-        /// 设置奖励数据
+        /// 设置奖励数据 - 已停用喵~
         /// </summary>
-        public void Setup(MissionReward rewardData)
+        public void Setup(object rewardData)
         {
-            _currentReward = rewardData;
-
+            // TODO: 等待新的奖励系统实现
+            Debug.LogWarning("<color=orange>[RewardPanel]</color> Setup() 已停用，等待新奖励系统实现");
+            
             // 设置标题
             if (_titleText != null)
-                _titleText.text = "任务完成！";
+                _titleText.text = "奖励系统";
 
-            // 构建奖励文本
+            // 设置提示文本
             if (_rewardText != null)
             {
-                string rewardText = BuildRewardText(rewardData);
-                _rewardText.text = rewardText;
+                _rewardText.text = "<color=gray>奖励系统重构中...</color>";
             }
-
-            // 创建奖励图标（可选）
-            CreateRewardIcons(rewardData);
         }
 
         /// <summary>
-        /// 构建奖励文本
+        /// 构建奖励文本 - 已停用喵~
         /// </summary>
-        private string BuildRewardText(MissionReward reward)
+        private string BuildRewardText(object reward)
         {
-            List<string> rewardLines = new List<string>();
-
-            if (reward.Money > 0)
-            {
-                rewardLines.Add($"<color=gold>💰 金币 +{reward.Money}</color>");
-            }
-
-            if (reward.TechPoints > 0)
-            {
-                rewardLines.Add($"<color=cyan>🔬 科技点 +{reward.TechPoints}</color>");
-            }
-
-            if (reward.Blueprints != null && reward.Blueprints.Count > 0)
-            {
-                rewardLines.Add($"<color=green>📐 解锁图纸 x{reward.Blueprints.Count}</color>");
-            }
-
-            return string.Join("\n", rewardLines.ToArray());
+            return "<color=gray>奖励系统重构中...</color>";
         }
 
         /// <summary>
-        /// 创建奖励图标
+        /// 创建奖励图标 - 已停用喵~
         /// </summary>
-        private void CreateRewardIcons(MissionReward reward)
+        private void CreateRewardIcons(object reward)
         {
             if (_rewardIconsContainer == null) return;
 
@@ -94,9 +76,6 @@ namespace MineRTS.BigMap.UI
             {
                 Destroy(child.gameObject);
             }
-
-            // 这里可以添加图标生成逻辑
-            // 目前先用文本显示
         }
 
         // =========================================================
@@ -108,7 +87,7 @@ namespace MineRTS.BigMap.UI
         /// </summary>
         private void OnConfirmClicked()
         {
-            Debug.Log("<color=cyan>[RewardPanel]</color> 奖励已确认");
+            Debug.Log("<color=cyan>[RewardPanel]</color> 奖励面板已关闭（休眠状态）");
             Close();
         }
     }

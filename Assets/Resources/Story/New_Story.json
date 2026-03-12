@@ -67,10 +67,8 @@
                 "y": 236.0
             },
             "Trigger": {
-                "UseEnumTrigger": true,
-                "TriggerType": 3,
-                "CustomEventName": "",
-                "TriggerParam": "0"
+                "EventName": "Custom",
+                "Parameters": ["0"]
             },
             "NextNodeIDs": [
                 "c08d7ca3-1d46-4028-811e-347ab77f26ad"
@@ -83,10 +81,8 @@
                 "y": 453.5999755859375
             },
             "Trigger": {
-                "UseEnumTrigger": true,
-                "TriggerType": 3,
-                "CustomEventName": "",
-                "TriggerParam": "0"
+                "EventName": "Custom",
+                "Parameters": ["0"]
             },
             "NextNodeIDs": [
                 "c08d7ca3-1d46-4028-811e-347ab77f26ad"
@@ -99,10 +95,8 @@
                 "y": 237.59999084472657
             },
             "Trigger": {
-                "UseEnumTrigger": true,
-                "TriggerType": 3,
-                "CustomEventName": "",
-                "TriggerParam": "0"
+                "EventName": "Custom",
+                "Parameters": ["0"]
             },
             "NextNodeIDs": [
                 "d288617c-c4eb-49f7-b991-b7091a4b87af"
@@ -117,8 +111,8 @@
                 "y": 300.0
             },
             "Command": {
-                "CommandType": "",
-                "CommandParam": ""
+                "CommandName": "timer_pause",
+                "Parameters": []
             },
             "NextCommandNodeIDs": [
                 "fe1d6b9c-83f2-4190-8caa-ae9b81cce75c"
@@ -131,8 +125,8 @@
                 "y": 489.5999755859375
             },
             "Command": {
-                "CommandType": "",
-                "CommandParam": ""
+                "CommandName": "timer_resume",
+                "Parameters": []
             },
             "NextCommandNodeIDs": []
         },
@@ -143,8 +137,8 @@
                 "y": 307.1999816894531
             },
             "Command": {
-                "CommandType": "",
-                "CommandParam": ""
+                "CommandName": "timer_skip",
+                "Parameters": ["60"]
             },
             "NextCommandNodeIDs": []
         }

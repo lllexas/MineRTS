@@ -1,0 +1,329 @@
+{
+  "MissionNodes_A": [],
+  "Triggers": [],
+  "MapNodes": [],
+  "Commands": [],
+  "PackID": "df52fe07-3138-45bf-b2a2-984f9a89f579",
+  "Nodes": [
+    {
+      "$type": "RootNodeData, Assembly-CSharp",
+      "_": [
+        "736a9851-5f6c-4754-9ebb-560e314ccb62"
+      ],
+      "NodeID": "83acd6e2-6c44-4c91-bf60-911de6582af7",
+      "EditorPosition": {
+        "x": 53.6,
+        "y": 142.400009
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "736a9851-5f6c-4754-9ebb-560e314ccb62",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "SpineNodeData, Assembly-CSharp",
+      "ProcessID": "Test-赚钱",
+      "ParentSpineID": [
+        "83acd6e2-6c44-4c91-bf60-911de6582af7"
+      ],
+      "NextSpineNodeIDs": [
+        "e212707e-8b15-47c5-833d-885c6f7aa78b"
+      ],
+      "NodeID": "736a9851-5f6c-4754-9ebb-560e314ccb62",
+      "EditorPosition": {
+        "x": 285.6,
+        "y": 141.6
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "e212707e-8b15-47c5-833d-885c6f7aa78b",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "SpineNodeData, Assembly-CSharp",
+      "ProcessID": "Test-结束",
+      "ParentSpineID": [
+        "736a9851-5f6c-4754-9ebb-560e314ccb62"
+      ],
+      "NextSpineNodeIDs": [],
+      "NodeID": "e212707e-8b15-47c5-833d-885c6f7aa78b",
+      "EditorPosition": {
+        "x": 570.4,
+        "y": 140.8
+      },
+      "OutputConnections": []
+    },
+    {
+      "$type": "LeafNode_A_Data, Assembly-CSharp",
+      "ProcessID": "Test-赚钱",
+      "OutputNodeIds": [
+        "98e555d0-72c6-46f6-9292-c5e84163eb47"
+      ],
+      "NodeID": "a8d2fdcb-c20c-410a-ae55-d264f7626703",
+      "EditorPosition": {
+        "x": -496.0,
+        "y": 348.8
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "98e555d0-72c6-46f6-9292-c5e84163eb47",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "LeafNode_B_Data, Assembly-CSharp",
+      "ProcessID": "Test-赚钱",
+      "OutputNodeIds": [],
+      "NodeID": "7ba542d9-9718-4a16-bfe2-091acd804e88",
+      "EditorPosition": {
+        "x": 1078.4,
+        "y": 548.0
+      },
+      "OutputConnections": []
+    },
+    {
+      "$type": "MissionNode_A_Data, Assembly-CSharp",
+      "MissionID": "Test-赚钱",
+      "Title": "试试赚100块",
+      "Description": "赚钱没什么好说的赚钱没什么好说的赚钱没什么好说的",
+      "Priority": 0,
+      "IsActive": false,
+      "IsCompleted": false,
+      "IsFailed": false,
+      "OutPutNodeIDs": [
+        "44d9259b-d0c8-4bbb-b1d0-6b75bc22033c",
+        "33b148e6-1306-430f-ac26-063e54a7a210"
+      ],
+      "NodeID": "98e555d0-72c6-46f6-9292-c5e84163eb47",
+      "EditorPosition": {
+        "x": -212.8,
+        "y": 348.8
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "44d9259b-d0c8-4bbb-b1d0-6b75bc22033c",
+          "ToPortIndex": 0
+        },
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "33b148e6-1306-430f-ac26-063e54a7a210",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "TriggerNodeData, Assembly-CSharp",
+      "Trigger": {
+        "EventName": "Custom",
+        "Parameters": [
+          "金币更变",
+          "",
+          ""
+        ],
+        "HasTriggered": false,
+        "IsRegistered": false
+      },
+      "InputNodeIDs": [],
+      "OutputNodeIDs": [
+        "79f4dfe9-d289-4147-9652-d3b47803828a"
+      ],
+      "ProgressOutputs": [
+        "69e3b197-5946-45bd-b7d5-9d194ad41148"
+      ],
+      "CurrentAmount": 0.0,
+      "RequiredAmount": 100.0,
+      "NodeID": "44d9259b-d0c8-4bbb-b1d0-6b75bc22033c",
+      "EditorPosition": {
+        "x": 119.2,
+        "y": 348.8
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "79f4dfe9-d289-4147-9652-d3b47803828a",
+          "ToPortIndex": 0
+        },
+        {
+          "FromPortIndex": 1,
+          "TargetNodeID": "69e3b197-5946-45bd-b7d5-9d194ad41148",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "CommandNodeData, Assembly-CSharp",
+      "Command": {
+        "CommandName": "",
+        "Parameter": "",
+        "Parameters": []
+      },
+      "InputNodeIDs": [],
+      "OutputNodeIDs": [
+        "e81a97b8-8151-4174-937f-9af9ab5fc620"
+      ],
+      "NodeID": "79f4dfe9-d289-4147-9652-d3b47803828a",
+      "EditorPosition": {
+        "x": 450.4,
+        "y": 348.8
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "e81a97b8-8151-4174-937f-9af9ab5fc620",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "MissionNode_S_Data, Assembly-CSharp",
+      "MissionID": "Test-赚钱",
+      "OutPutNodeIDs": [
+        "7ba542d9-9718-4a16-bfe2-091acd804e88"
+      ],
+      "NodeID": "e81a97b8-8151-4174-937f-9af9ab5fc620",
+      "EditorPosition": {
+        "x": 780.0,
+        "y": 350.4
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "7ba542d9-9718-4a16-bfe2-091acd804e88",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "TriggerNodeData, Assembly-CSharp",
+      "Trigger": {
+        "EventName": "Custom",
+        "Parameters": [
+          "存活时间增加",
+          "",
+          ""
+        ],
+        "HasTriggered": false,
+        "IsRegistered": false
+      },
+      "InputNodeIDs": [],
+      "OutputNodeIDs": [
+        "fb46e71d-1042-4a25-b774-20120ead5560"
+      ],
+      "ProgressOutputs": [],
+      "CurrentAmount": 0.0,
+      "RequiredAmount": 240.0,
+      "NodeID": "33b148e6-1306-430f-ac26-063e54a7a210",
+      "EditorPosition": {
+        "x": 119.2,
+        "y": 652.8
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "fb46e71d-1042-4a25-b774-20120ead5560",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "CommandNodeData, Assembly-CSharp",
+      "Command": {
+        "CommandName": "leave",
+        "Parameter": "",
+        "Parameters": []
+      },
+      "InputNodeIDs": [],
+      "OutputNodeIDs": [
+        "7ba542d9-9718-4a16-bfe2-091acd804e88"
+      ],
+      "NodeID": "34e1717d-1aad-4e38-8c86-b8983fadac04",
+      "EditorPosition": {
+        "x": 683.2,
+        "y": 652.8
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "7ba542d9-9718-4a16-bfe2-091acd804e88",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "MissionNode_F_Data, Assembly-CSharp",
+      "MissionID": "Test-赚钱",
+      "OutPutNodeIDs": [
+        "34e1717d-1aad-4e38-8c86-b8983fadac04"
+      ],
+      "NodeID": "fb46e71d-1042-4a25-b774-20120ead5560",
+      "EditorPosition": {
+        "x": 446.4,
+        "y": 653.6
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "34e1717d-1aad-4e38-8c86-b8983fadac04",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "MissionNode_R_Data, Assembly-CSharp",
+      "MissionID": "Test-赚钱",
+      "ResetProgress": false,
+      "Reactivate": false,
+      "OutPutNodeIDs": [],
+      "NodeID": "69e3b197-5946-45bd-b7d5-9d194ad41148",
+      "EditorPosition": {
+        "x": 456.0,
+        "y": 488.0
+      },
+      "OutputConnections": []
+    },
+    {
+      "$type": "LeafNode_A_Data, Assembly-CSharp",
+      "ProcessID": "Test-结束",
+      "OutputNodeIds": [
+        "1817034f-4005-4efb-8b6b-38cc4faf1cc7"
+      ],
+      "NodeID": "d29453e4-2da4-4a92-bcd0-dfc8d5582626",
+      "EditorPosition": {
+        "x": -497.6,
+        "y": -121.600006
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "1817034f-4005-4efb-8b6b-38cc4faf1cc7",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "MissionNode_A_Data, Assembly-CSharp",
+      "MissionID": "Test-其实可以名字不一样",
+      "Title": "测试成功！大概",
+      "Priority": 0,
+      "IsActive": false,
+      "IsCompleted": false,
+      "IsFailed": false,
+      "OutPutNodeIDs": [],
+      "NodeID": "1817034f-4005-4efb-8b6b-38cc4faf1cc7",
+      "EditorPosition": {
+        "x": -216.8,
+        "y": -121.600006
+      },
+      "OutputConnections": []
+    }
+  ]
+}

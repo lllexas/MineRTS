@@ -229,9 +229,7 @@ public class DeveloperConsole : SingletonMono<DeveloperConsole>
 
     private void RegisterCommands()
     {
-        CommandRegistry.RegisterSystemCommands(this);
-        CommandRegistry.RegisterEntityCommands(this);
-        CommandRegistry.RegisterTimeCommands(this);
-        CommandRegistry.RegisterCameraCommands(this);
+        // 【重构后】所有命令统一从 CommandRegistry 自动注册喵~
+        CommandRegistry.RegisterAll(this);
     }
 }

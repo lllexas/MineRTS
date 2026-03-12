@@ -1,165 +1,165 @@
 #if UNITY_EDITOR
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
-using UnityEditor.Experimental.GraphView;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using NekoGraph;
 
 /// <summary>
 /// 触发器节点 - 监听游戏事件（串并联逻辑）喵~
 /// Mission 和 Story 系统共用
+/// 【端口标签驱动·自动组装重构版】
+/// 端口根据 Data 类的 [InPort]/[OutPort] 标签自动生成，无需手动创建喵~
 /// </summary>
-public class TriggerNode : BaseNode
+[NodeMenuItem("🔧 通用/触发器节点", typeof(TriggerNodeData))]
+[NodeType(NodeSystem.Common)]
+public class TriggerNode : BaseNode<TriggerNodeData>
 {
-    public TriggerNodeData Data;
-    public Port InputPort;
-    public Port OutputPort;
-    private EnumField _triggerTypeField;
-    private TextField _paramField;
-    private Toggle _useEnumToggle;
+    private PopupField<string> _typeDropdown;
+    private List<TextField> _paramFields = new List<TextField>();
+    private Label _tooltipLabel;
+    private VisualElement _paramContainer;
+    private FloatField _requiredAmountField;
 
-    public TriggerNode(TriggerNodeData data)
+    /// <summary>
+    /// 无参构造函数 - 用于从菜单创建节点喵~
+    /// </summary>
+    public TriggerNode() : base()
     {
-        Data = data; GUID = data.NodeID; title = "🎬 触发器";
-        style.width = 250; titleContainer.style.backgroundColor = new Color(0.4f, 0.1f, 0.4f);
+        InitializeUI();
+    }
 
-        InputPort = InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Multi, typeof(bool));
-        InputPort.portName = "条件"; inputContainer.Add(InputPort);
+    /// <summary>
+    /// 带参数构造函数 - 用于从数据加载节点喵~
+    /// </summary>
+    public TriggerNode(TriggerNodeData data) : base(data)
+    {
+        InitializeUI();
+    }
 
-        OutputPort = InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(bool));
-        OutputPort.portName = "触发行为"; outputContainer.Add(OutputPort);
+    /// <summary>
+    /// 初始化 UI 元素喵~
+    /// 端口会自动根据 Data 类的标签"长"出来，这里只画特殊控件喵！
+    /// </summary>
+    private void InitializeUI()
+    {
+        title = "🎬 触发器";
+        style.width = 300;
+        titleContainer.style.backgroundColor = GetNodeColor();
 
-        // --- 使用 TriggerData 统一结构喵~ ---
+        // --- 配置区域 ---
         var foldout = new Foldout() { text = "触发器配置", value = true };
 
-        // 使用枚举触发器开关
-        _useEnumToggle = new Toggle("使用预设触发器");
-        _useEnumToggle.value = Data.Trigger.UseEnumTrigger;
-        _useEnumToggle.RegisterValueChangedCallback(evt =>
-        {
-            Data.Trigger.UseEnumTrigger = evt.newValue;
-            UpdateUIVisibility();
-        });
-        foldout.Add(_useEnumToggle);
+        // 触发器类型下拉框
+        var typeChoices = TriggerRegistry.GetAllTypes()
+            .Select(t => t.DisplayName)
+            .ToList();
 
-        // 枚举触发器类型
-        _triggerTypeField = new EnumField("触发类型", Data.Trigger.TriggerType);
-        _triggerTypeField.RegisterValueChangedCallback(evt =>
+        // 确保至少有一个选项
+        if (typeChoices.Count == 0)
         {
-            Data.Trigger.TriggerType = (TriggerType)evt.newValue;
-            UpdateParamFieldHint();
-        });
-        foldout.Add(_triggerTypeField);
+            typeChoices.Add("Time"); // 默认选项
+        }
 
-        // 触发参数
-        _paramField = new TextField("参数");
-        _paramField.value = Data.Trigger.TriggerParam;
-        _paramField.RegisterValueChangedCallback(evt => Data.Trigger.TriggerParam = evt.newValue);
-        foldout.Add(_paramField);
+        // 获取当前事件名的显示名，如果不在列表中则使用第一个选项
+        string currentDisplayName = TriggerRegistry.GetDisplayNameFromEventName(TypedData.Trigger.EventName);
+        if (!typeChoices.Contains(currentDisplayName))
+        {
+            currentDisplayName = typeChoices[0]; // 使用第一个有效选项
+        }
+
+        _typeDropdown = new PopupField<string>("触发类型", typeChoices, currentDisplayName);
+        _typeDropdown.RegisterValueChangedCallback(evt =>
+        {
+            TypedData.Trigger.EventName = TriggerRegistry.GetEventNameFromDisplayName(evt.newValue);
+            RebuildParamFields();
+            titleContainer.style.backgroundColor = GetNodeColor();
+        });
+        foldout.Add(_typeDropdown);
+
+        // 目标阈值输入（RequiredAmount）
+        _requiredAmountField = new FloatField("目标阈值")
+        {
+            value = (float)TypedData.RequiredAmount,
+            tooltip = "达到此值时从主输出端口触发信号喵~"
+        };
+        _requiredAmountField.RegisterValueChangedCallback(evt =>
+        {
+            TypedData.RequiredAmount = evt.newValue;
+        });
+        foldout.Add(_requiredAmountField);
+
+        // 参数输入容器
+        _paramContainer = new VisualElement();
+        foldout.Add(_paramContainer);
+
+        // 提示信息
+        _tooltipLabel = new Label();
+        _tooltipLabel.style.fontSize = 9;
+        _tooltipLabel.style.marginTop = 5;
+        _tooltipLabel.style.color = new Color(1f, 1f, 0.3f);
+        foldout.Add(_tooltipLabel);
 
         extensionContainer.Add(foldout);
 
-        // 初始化 UI 状态和提示
-        UpdateUIVisibility();
-        UpdateParamFieldHint();
-
+        // 初始化
+        RebuildParamFields();
         RefreshExpandedState();
     }
 
-    private void UpdateUIVisibility()
+    /// <summary>
+    /// 根据当前事件类型重建参数输入框喵~
+    /// </summary>
+    private void RebuildParamFields()
     {
-        bool useEnum = Data.Trigger.UseEnumTrigger;
-        _triggerTypeField.style.display = useEnum ? DisplayStyle.Flex : DisplayStyle.None;
-        _paramField.style.display = useEnum ? DisplayStyle.Flex : DisplayStyle.None;
-    }
+        _paramFields.Clear();
+        _paramContainer.Clear();
 
-    private void UpdateParamFieldHint()
-    {
-        string hint = GetTriggerParamHint(Data.Trigger.TriggerType);
-        string example = GetTriggerParamExample(Data.Trigger.TriggerType);
+        if (TriggerRegistry.TryGetTypeInfo(TypedData.Trigger.EventName, out var info))
+        {
+            // 更新提示信息
+            _tooltipLabel.text = $"ℹ️ {info.Tooltip}";
 
-        // 在 tooltip 中同时显示提示和示例
-        if (!string.IsNullOrEmpty(example))
-        {
-            _paramField.tooltip = $"{hint}\n\n示例：{example}";
-        }
-        else
-        {
-            _paramField.tooltip = hint;
-        }
+            // 为每个参数创建输入框
+            for (int i = 0; i < info.ParameterNames.Length; i++)
+            {
+                var field = new TextField(info.ParameterNames[i]);
+                field.value = TypedData.Trigger.GetParam(i, "");
 
-        // 尝试更新 TextField 的标签（如果支持）
-        try
-        {
-            string labelText = GetTriggerParamLabel(Data.Trigger.TriggerType);
-            // 直接尝试设置 label 属性（如果存在）
-            // Unity UI Elements 的 TextField 有 label 属性
-            _paramField.label = labelText;
-        }
-        catch
-        {
-            // 如果 label 属性不存在或不可写，忽略错误
+                int index = i;  // 闭包变量
+                field.RegisterValueChangedCallback(evt =>
+                {
+                    TypedData.Trigger.SetParam(index, evt.newValue);
+                });
+
+                _paramFields.Add(field);
+                _paramContainer.Add(field);
+            }
         }
     }
 
-    private string GetTriggerParamHint(TriggerType triggerType)
+    /// <summary>
+    /// 获取节点颜色喵~
+    /// </summary>
+    private Color GetNodeColor()
     {
-        switch (triggerType)
-        {
-            case TriggerType.Time:
-                return "触发时间（秒），浮点数。游戏运行达到此时间后触发事件。";
-            case TriggerType.MissionCompleted:
-                return "任务 ID。当指定任务完成时触发事件。";
-            case TriggerType.AreaReached:
-                return "区域标识符或坐标。当单位到达指定区域时触发。";
-            case TriggerType.Custom:
-                return "自定义事件名（中文）";
-            default:
-                return "触发条件参数";
-        }
-    }
-
-    private string GetTriggerParamExample(TriggerType triggerType)
-    {
-        switch (triggerType)
-        {
-            case TriggerType.Time:
-                return "例如：60.0, 120.5, 300";
-            case TriggerType.MissionCompleted:
-                return "例如：mission_tutorial_1, wave_1_clear";
-            case TriggerType.AreaReached:
-                return "例如：enemy_base, 128,64";
-            default:
-                return "";
-        }
-    }
-
-    private string GetTriggerParamLabel(TriggerType triggerType)
-    {
-        switch (triggerType)
-        {
-            case TriggerType.Time:
-                return "时间（秒）";
-            case TriggerType.MissionCompleted:
-                return "任务 ID";
-            case TriggerType.AreaReached:
-                return "区域参数";
-            case TriggerType.Custom:
-                return "事件名";
-            default:
-                return "参数";
-        }
+        if (TriggerRegistry.TryGetTypeInfo(TypedData.Trigger.EventName, out var info))
+            return info.EditorColor;
+        return new Color(0.4f, 0.1f, 0.4f); // 默认紫色
     }
 
     public override void UpdateData()
     {
-        // 更新 TriggerData 数据
-        if (Data != null)
+        // 数据已经在回调中实时更新
+        // 这里可以保存最终状态
+        for (int i = 0; i < _paramFields.Count; i++)
         {
-            Data.Trigger.UseEnumTrigger = _useEnumToggle.value;
-            Data.Trigger.TriggerType = (TriggerType)_triggerTypeField.value;
-            Data.Trigger.TriggerParam = _paramField.value;
+            TypedData.Trigger.SetParam(i, _paramFields[i].value);
         }
+        TypedData.RequiredAmount = _requiredAmountField.value;
     }
 }
 #endif

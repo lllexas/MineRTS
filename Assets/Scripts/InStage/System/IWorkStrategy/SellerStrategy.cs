@@ -26,7 +26,7 @@
                 var args = MissionArgs.Get();
 
                 // 🔥【重点】不要在循环里调 ToString()！
-                // 我们直接传 int 类型的 IntKey，让 MissionManager 去查表
+                // 直接传 int 类型的 IntKey
                 args.IntKey = itemType;
                 args.Amount = amountSold;
 

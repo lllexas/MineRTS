@@ -11,23 +11,29 @@ namespace MineRTS.BigMap.UI
     {
         [Header("Canvas 引用")]
         [Tooltip("世界空间 UI Canvas 控制器")]
-        [SerializeField] private WorldSpaceCanvasController _canvasController;
+        [SerializeField] private WorldSpaceUIAnimateUnit _canvasController;
 
         [Header("UI 面板")]
-        [Tooltip("节点信息面板")]
-        [SerializeField] private NodeInfoPanel _nodeInfoPanel;
+        [Tooltip("节点信息面板 Prefab")]
+        [SerializeField] private NodeInfoPanel _nodeInfoPanelPrefab;
 
-        [Tooltip("剧情面板")]
-        [SerializeField] private StoryPanel _storyPanel;
+        [Tooltip("剧情面板 Prefab")]
+        [SerializeField] private StoryPanel _storyPanelPrefab;
 
-        [Tooltip("奖励面板")]
-        [SerializeField] private RewardPanel _rewardPanel;
+        // [Tooltip("奖励面板 Prefab")]  // 已休眠，等待新奖励系统喵~
+        // [SerializeField] private RewardPanel _rewardPanelPrefab;
 
-        [Tooltip("提示面板")]
-        [SerializeField] private TipPanel _tipPanel;
+        [Tooltip("提示面板 Prefab")]
+        [SerializeField] private TipPanel _tipPanelPrefab;
 
         // 当前激活的面板
         private IMenuPanel _activePanel;
+
+        // 实例化的面板缓存
+        private NodeInfoPanel _cachedNodeInfoPanel;
+        private StoryPanel _cachedStoryPanel;
+        // private RewardPanel _cachedRewardPanel;  // 已休眠，等待新奖励系统喵~
+        private TipPanel _cachedTipPanel;
 
         protected override void Awake()
         {
@@ -36,21 +42,8 @@ namespace MineRTS.BigMap.UI
             // 自动获取 Canvas 控制器
             if (_canvasController == null)
             {
-                _canvasController = GetComponent<WorldSpaceCanvasController>();
+                _canvasController = GetComponent<WorldSpaceUIAnimateUnit>();
             }
-
-            // 自动获取面板组件
-            if (_nodeInfoPanel == null)
-                _nodeInfoPanel = GetComponentInChildren<NodeInfoPanel>(true);
-
-            if (_storyPanel == null)
-                _storyPanel = GetComponentInChildren<StoryPanel>(true);
-
-            if (_rewardPanel == null)
-                _rewardPanel = GetComponentInChildren<RewardPanel>(true);
-
-            if (_tipPanel == null)
-                _tipPanel = GetComponentInChildren<TipPanel>(true);
 
             Debug.Log("<color=cyan>[WorldSpaceUIManager]</color> 初始化完成");
         }
@@ -79,10 +72,11 @@ namespace MineRTS.BigMap.UI
         /// </summary>
         public void HideAllPanels()
         {
-            _nodeInfoPanel?.Close();
-            _storyPanel?.Close();
-            _rewardPanel?.Close();
-            _tipPanel?.gameObject.SetActive(false);
+            _cachedNodeInfoPanel?.Close();
+            _cachedStoryPanel?.Close();
+            // _cachedRewardPanel?.Close();  // 已休眠，等待新奖励系统喵~
+            if (_cachedTipPanel != null)
+                _cachedTipPanel.gameObject.SetActive(false);
             _activePanel = null;
         }
 
@@ -93,15 +87,23 @@ namespace MineRTS.BigMap.UI
         {
             HideAllPanels();
 
-            if (_nodeInfoPanel != null)
+            // 实例化或复用面板
+            if (_cachedNodeInfoPanel == null && _nodeInfoPanelPrefab != null)
             {
-                _nodeInfoPanel.Setup(nodeData);
-                _nodeInfoPanel.Open();
-                _activePanel = _nodeInfoPanel;
+                var go = Instantiate(_nodeInfoPanelPrefab.gameObject, transform);
+                _cachedNodeInfoPanel = go.GetComponent<NodeInfoPanel>();
+            }
+
+            if (_cachedNodeInfoPanel != null)
+            {
+                _cachedNodeInfoPanel.Setup(nodeData);
+                _cachedNodeInfoPanel.Open();
+                _activePanel = _cachedNodeInfoPanel;
+                Debug.Log("<color=cyan>[WorldSpaceUIManager]</color> 节点信息面板已显示");
             }
             else
             {
-                Debug.LogWarning("<color=orange>[WorldSpaceUIManager]</color> NodeInfoPanel 未找到");
+                Debug.LogWarning("<color=orange>[WorldSpaceUIManager]</color> NodeInfoPanel Prefab 未设置");
             }
         }
 
@@ -112,45 +114,68 @@ namespace MineRTS.BigMap.UI
         {
             HideAllPanels();
 
-            if (_storyPanel != null)
+            // 实例化或复用面板
+            if (_cachedStoryPanel == null && _storyPanelPrefab != null)
             {
-                _storyPanel.LoadStory(storyID);
-                _storyPanel.Open();
-                _activePanel = _storyPanel;
+                var go = Instantiate(_storyPanelPrefab.gameObject, transform);
+                _cachedStoryPanel = go.GetComponent<StoryPanel>();
+            }
+
+            if (_cachedStoryPanel != null)
+            {
+                _cachedStoryPanel.LoadStory(storyID);
+                _cachedStoryPanel.Open();
+                _activePanel = _cachedStoryPanel;
+                Debug.Log("<color=cyan>[WorldSpaceUIManager]</color> 剧情面板已显示");
             }
             else
             {
-                Debug.LogWarning("<color=orange>[WorldSpaceUIManager]</color> StoryPanel 未找到");
+                Debug.LogWarning("<color=orange>[WorldSpaceUIManager]</color> StoryPanel Prefab 未设置");
             }
         }
 
-        /// <summary>
+        /*/// <summary>
         /// 显示奖励面板
         /// </summary>
         public void ShowReward(MissionReward rewardData)
         {
             HideAllPanels();
 
-            if (_rewardPanel != null)
+            // 实例化或复用面板
+            if (_cachedRewardPanel == null && _rewardPanelPrefab != null)
             {
-                _rewardPanel.Setup(rewardData);
-                _rewardPanel.Open();
-                _activePanel = _rewardPanel;
+                var go = Instantiate(_rewardPanelPrefab.gameObject, transform);
+                _cachedRewardPanel = go.GetComponent<RewardPanel>();
+            }
+
+            if (_cachedRewardPanel != null)
+            {
+                _cachedRewardPanel.Setup(rewardData);
+                _cachedRewardPanel.Open();
+                _activePanel = _cachedRewardPanel;
+                Debug.Log("<color=cyan>[WorldSpaceUIManager]</color> 奖励面板已显示");
             }
             else
             {
-                Debug.LogWarning("<color=orange>[WorldSpaceUIManager]</color> RewardPanel 未找到");
+                Debug.LogWarning("<color=orange>[WorldSpaceUIManager]</color> RewardPanel Prefab 未设置");
             }
-        }
+        }*/
 
         /// <summary>
         /// 显示提示
         /// </summary>
         public void ShowTip(string message, float duration = 3f)
         {
-            if (_tipPanel != null)
+            // 实例化或复用提示面板
+            if (_cachedTipPanel == null && _tipPanelPrefab != null)
             {
-                _tipPanel.Show(message, duration);
+                var go = Instantiate(_tipPanelPrefab.gameObject, transform);
+                _cachedTipPanel = go.GetComponent<TipPanel>();
+            }
+
+            if (_cachedTipPanel != null)
+            {
+                _cachedTipPanel.Show(message, duration);
             }
         }
 
@@ -183,14 +208,14 @@ namespace MineRTS.BigMap.UI
         [Subscribe("UI_MISSION_COMPLETE")]
         private void OnMissionComplete(object data)
         {
-            if (data is MissionData mission)
+            if (data is MissionNode_A_Data mission)
             {
                 Debug.Log($"<color=cyan>[WorldSpaceUIManager]</color> 任务完成：{mission.Title}");
 
-                if (mission.Reward != null)
+                /*if (mission.Reward != null)
                 {
                     ShowReward(mission.Reward);
-                }
+                }*/
             }
         }
 
@@ -207,19 +232,19 @@ namespace MineRTS.BigMap.UI
         }
 
         /// <summary>
-        /// 获取节点信息面板
+        /// 获取节点信息面板（实例化的）
         /// </summary>
         public NodeInfoPanel GetNodeInfoPanel()
         {
-            return _nodeInfoPanel;
+            return _cachedNodeInfoPanel;
         }
 
         /// <summary>
-        /// 获取剧情面板
+        /// 获取剧情面板（实例化的）
         /// </summary>
         public StoryPanel GetStoryPanel()
         {
-            return _storyPanel;
+            return _cachedStoryPanel;
         }
     }
 }

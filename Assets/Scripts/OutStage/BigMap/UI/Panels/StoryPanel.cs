@@ -2,15 +2,25 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace MineRTS.BigMap.UI
 {
     /// <summary>
     /// 剧情面板
     /// 显示关卡进入剧情或过场剧情
+    /// 【Newtonsoft.Json + TypeNameHandling.Auto 驱动】
     /// </summary>
     public class StoryPanel : AnimatedPanelBase
     {
+        /// <summary>
+        /// Newtonsoft.Json 序列化设置 - 自动读取类型信息喵~
+        /// </summary>
+        private static readonly JsonSerializerSettings GraphJsonSettings = new JsonSerializerSettings
+        {
+            TypeNameHandling = TypeNameHandling.Auto,
+            NullValueHandling = NullValueHandling.Ignore
+        };
         [Header("剧情文本区域")]
         [SerializeField] private TextMeshProUGUI _storyTitleText;
         [SerializeField] private TextMeshProUGUI _storyContentText;
@@ -47,6 +57,7 @@ namespace MineRTS.BigMap.UI
 
         /// <summary>
         /// 加载剧情
+        /// 【Newtonsoft.Json + TypeNameHandling.Auto 驱动】
         /// </summary>
         public void LoadStory(string storyID)
         {
@@ -58,7 +69,7 @@ namespace MineRTS.BigMap.UI
                 return;
             }
 
-            _currentStory = JsonUtility.FromJson<StoryPackData>(jsonAsset.text);
+            _currentStory = JsonConvert.DeserializeObject<StoryPackData>(jsonAsset.text, GraphJsonSettings);
             if (_currentStory == null || _currentStory.Sequences == null || _currentStory.Sequences.Count == 0)
             {
                 Debug.LogError($"<color=red>[StoryPanel]</color> 剧情数据格式错误：{storyID}");

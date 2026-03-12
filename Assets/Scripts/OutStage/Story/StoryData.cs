@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
+using NekoGraph;
 
 // =========================================================
 // 基础数据结构（运行时 + 编辑器通用）
@@ -62,9 +64,9 @@ public class DialogueLineCSV
 // =========================================================
 // 引用公共触发器数据结构（Common/Trigger/）
 // =========================================================
-// TriggerType 和 TriggerData 已移动到：
-// Assets/Scripts/Common/Trigger/TriggerType.cs
+// TriggerData 定义在：
 // Assets/Scripts/Common/Trigger/TriggerData.cs
+// 触发器类型注册表在 TriggerRegistry.cs 中统一管理喵~
 
 // =========================================================
 // 命令数据喵~
@@ -72,136 +74,81 @@ public class DialogueLineCSV
 
 /// <summary>
 /// 命令数据喵~
+/// 统一结构：命令名 + 参数列表
 /// </summary>
 [Serializable]
 public class CommandData
 {
-    public string CommandType;       // 命令类型
-    public string CommandParam;      // 命令参数
+    [Tooltip("命令名（对应 CommandRegistryInfo 中的注册名）")]
+    public string CommandName = "";  // 如 "spawn", "PlayCG"
+
+    [Tooltip("命令主参数（快捷访问第一个参数）")]
+    public string Parameter = "";  // 快捷访问 Parameters[0]
+
+    [Tooltip("命令参数列表，数量和含义由 CommandName 决定")]
+    public List<string> Parameters = new List<string>();  // 灵活支持多个参数
+
+    /// <summary>
+    /// 获取参数值（安全访问）喵~
+    /// </summary>
+    public string GetParam(int index, string defaultValue = "")
+    {
+        if (Parameters == null || index < 0 || index >= Parameters.Count)
+            return defaultValue;
+        return Parameters[index] ?? defaultValue;
+    }
+
+    /// <summary>
+    /// 设置参数值（自动扩展列表）喵~
+    /// </summary>
+    public void SetParam(int index, string value)
+    {
+        if (Parameters == null)
+            Parameters = new List<string>();
+
+        while (Parameters.Count <= index)
+            Parameters.Add("");
+
+        Parameters[index] = value;
+    }
+
+    /// <summary>
+    /// 同步 Parameter 和 Parameters[0] 喵~
+    /// </summary>
+    public void SyncParameters()
+    {
+        if (Parameters == null) Parameters = new List<string>();
+        if (Parameters.Count == 0) Parameters.Add("");
+        Parameters[0] = Parameter;
+    }
 }
 
 // =========================================================
-// GraphView 编辑器专用数据 - 5 种核心节点
+// Story 系统专用节点数据
+// 使用 Common 中的通用流程节点喵~
 // =========================================================
-
-/// <summary>
-/// 节点基类喵~
-/// </summary>
-[Serializable]
-public abstract class StoryNodeDataBase
-{
-    public string NodeID;
-    public UnityEngine.Vector2 EditorPosition;
-}
-
-/// <summary>
-/// 剧情根节点 - 整个剧情树的起始锚点（全图唯一）喵~
-/// </summary>
-[Serializable]
-public class StoryRootNodeData : StoryNodeDataBase
-{
-    // 根节点没有数据，只是锚点
-}
-
-/// <summary>
-/// 树 ID 节点 (Spine) - 定义剧情的逻辑骨架（章节/阶段）喵~
-/// </summary>
-[Serializable]
-public class SpineIDNodeData : StoryNodeDataBase
-{
-    [Tooltip("故事进程 ID（与 LeafIDNode 共享）")]
-    public string StoryProcessID;
-    
-    [Tooltip("下一个 SpineID 节点的 ID 列表（用于恢复一对多连线）喵~")]
-    public List<string> NextSpineNodeIDs = new List<string>();
-    
-    [Tooltip("是否连接到根节点（用于恢复连线）")]
-    public bool IsConnectedToRoot;
-}
-
-/// <summary>
-/// 叶 ID 节点 (Leaf) - 处理具体的对话演出喵~
-/// </summary>
-[Serializable]
-public class LeafIDNodeData : StoryNodeDataBase
-{
-    [Tooltip("故事进程 ID（与 SpineIDNode 共享）")]
-    public string StoryProcessID;
-    
-    [Tooltip("关联的剧情序列 ID（CSV 中的 SequenceID）")]
-    public string SequenceID;
-    
-    [Tooltip("连接的 Command 节点 ID 列表（用于恢复一对多连线）喵~")]
-    public List<string> ConnectedCommandNodeIDs = new List<string>();
-}
-
-/// <summary>
-/// 触发器节点数据 - 监听游戏事件（串并联逻辑）喵~
-/// Mission 和 Story 系统共用
-/// </summary>
-[Serializable]
-public class TriggerNodeData
-{
-    // 基础字段（所有节点共有）
-    [Tooltip("节点唯一 ID")]
-    public string NodeID;
-    
-    [Tooltip("编辑器中的位置")]
-    public UnityEngine.Vector2 EditorPosition;
-    
-    // 触发器数据
-    [Tooltip("触发器数据")]
-    public TriggerData Trigger = new TriggerData();
-    
-    // 运行时状态（不序列化，运行时使用）
-    [NonSerialized]
-    public bool HasTriggered;  // 是否已触发
-    
-    // 下一个节点 ID 列表（用于恢复一对多连线）喵~
-    [Tooltip("下一个节点 ID 列表（用于恢复一对多连线）喵~")]
-    public List<string> NextNodeIDs = new List<string>();
-    
-    // Mission 系统专用字段
-    [Tooltip("连向的召唤节点 ID（Mission 系统专用）")]
-    public string NextSpawnID;
-}
-
-/// <summary>
-/// 命令节点 - 执行 RTS 动作（串并联逻辑）喵~
-/// </summary>
-[Serializable]
-public class CommandNodeData : StoryNodeDataBase
-{
-    public CommandData Command = new CommandData();
-    
-    [Tooltip("下一个 Command 节点 ID 列表（用于恢复一对多连线）喵~")]
-    public List<string> NextCommandNodeIDs = new List<string>();
-}
 
 /// <summary>
 /// 剧情数据包：包含一个完整剧情章节的所有内容喵~
 /// </summary>
 [Serializable]
-public class StoryPackData
+public class StoryPackData : BasePackData
 {
-    [Tooltip("剧情包 ID")]
+    [Tooltip("剧情包 ID（已废弃，使用 PackID）")]
     public string StoryID;
-
-    [Tooltip("绑定的关卡 ID（可选，为空则通用）")]
-    public string BoundStageID;
 
     [Tooltip("对话序列列表（CSV 导入生成）")]
     public List<DialogueSequence> Sequences = new List<DialogueSequence>();
-    
-    // 5 种节点数据
+
+    // 使用通用流程节点（已移动到 Common/ProcessFlowNodeData.cs）
     [Tooltip("剧情根节点（全图唯一）")]
-    public StoryRootNodeData Root;
+    public RootNodeData Root;
 
     [Tooltip("树 ID 节点列表（章节/阶段）")]
-    public List<SpineIDNodeData> SpineNodes = new List<SpineIDNodeData>();
+    public List<SpineNodeData> SpineNodes = new List<SpineNodeData>();
 
     [Tooltip("叶 ID 节点列表（演出）")]
-    public List<LeafIDNodeData> LeafNodes = new List<LeafIDNodeData>();
+    public List<LeafNode_A_Data> LeafNodes = new List<LeafNode_A_Data>();
 
     [Tooltip("触发器节点列表")]
     public List<TriggerNodeData> Triggers = new List<TriggerNodeData>();

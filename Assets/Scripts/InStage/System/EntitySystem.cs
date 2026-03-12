@@ -534,11 +534,8 @@ public class EntitySystem : SingletonMono<EntitySystem>
         // 这一步最好封装一下，但这里直接写也行
         MainModel.Instance.SetCurrentStage(stageID);
 
-        // 6. 自动加载绑定到该关卡的任务包
-        if (MissionManager.Instance != null)
-        {
-            MissionManager.Instance.LoadMissionPackForStage(stageID);
-        }
+        // 6. 自动加载绑定到该关卡的任务包（使用新的 GraphRunner 系统）喵~
+        // 注：旧的 MissionManager 已移除，任务系统已重构为 NekoGraph 电子伏特协议
     }
 
     /// <summary>

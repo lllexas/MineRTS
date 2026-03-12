@@ -1,298 +1,123 @@
 {
-    "PackID": "",
-    "BoundStageID": "Level_Test",
-    "Missions": [
-        {
-            "MissionID": "dde5aea2-7de1-44cb-8a90-62655306f1e0",
-            "Title": "测试任务：赚钱",
-            "Description": "先赚100块",
-            "Priority": 0,
-            "EditorPosition": {
-                "x": 140.8000030517578,
-                "y": -209.59999084472657
-            },
-            "IsActive": true,
-            "IsCompleted": false,
-            "IsFailed": false,
-            "Goals": [
-                {
-                    "Type": 5,
-                    "TargetKey": "Gold",
-                    "RequiredAmount": 100,
-                    "CurrentAmount": 0
-                }
-            ],
-            "Reward": {
-                "Money": 0,
-                "TechPoints": 0,
-                "Blueprints": []
-            },
-            "RewardID": "b73fc2a1-3a9b-4985-a687-a7edbff0b616",
-            "NextMissionID": ""
+    "PackID": "871f656a-5a12-469a-bf22-4a0ec50b803a",
+    "BoundMap": {
+        "NodeID": "50e8e08e-19cc-4a1e-9fd3-b1f8b06d1661",
+        "EditorPosition": {
+            "x": 332.0,
+            "y": 79.19999694824219
         },
-        {
-            "MissionID": "c8a803fd-28e0-4f93-82dc-57c7777f5005",
-            "Title": "讲故事……用来讲故事",
-            "Description": "很长的故事啊，这里到底能放多长的文章呢",
-            "Priority": 0,
-            "EditorPosition": {
-                "x": 632.0,
-                "y": -208.0
-            },
-            "IsActive": false,
-            "IsCompleted": false,
-            "IsFailed": false,
-            "Goals": [],
-            "Reward": {
-                "Money": 0,
-                "TechPoints": 0,
-                "Blueprints": []
-            },
-            "RewardID": "",
-            "NextMissionID": ""
-        }
-    ],
-    "Rewards": [
-        {
-            "RewardID": "b73fc2a1-3a9b-4985-a687-a7edbff0b616",
-            "Position": {
-                "x": 148.8000030517578,
-                "y": 97.60000610351563
-            },
-            "Data": {
-                "Money": 0,
-                "TechPoints": 0,
-                "Blueprints": []
-            }
-        }
-    ],
+        "OutputConnections": [],
+        "MapID": "Level_Test",
+        "SelectedPosition": {
+            "x": 0,
+            "y": 0
+        },
+        "PositionName": ""
+    },
+    "Missions": [],
+    "Rewards": [],
     "Triggers": [
         {
-            "NodeID": "d5465e64-6c2f-40ac-b135-b3952cd93287",
+            "NodeID": "1b5b404c-7698-47aa-a63d-d4ed341e23dd",
             "EditorPosition": {
-                "x": 191.1999969482422,
-                "y": 419.1999816894531
+                "x": -105.60000610351563,
+                "y": 83.19999694824219
             },
+            "OutputConnections": [
+                {
+                    "FromPortIndex": 0,
+                    "TargetNodeID": "ed029fc1-623a-4514-9dfc-726583066158",
+                    "ToPortIndex": 1
+                }
+            ],
             "Trigger": {
-                "UseEnumTrigger": true,
-                "TriggerType": 0,
-                "CustomEventName": "",
-                "TriggerParam": "30"
+                "EventName": "Time",
+                "Parameters": [
+                    "30"
+                ],
+                "HasTriggered": false
             },
-            "NextNodeIDs": [],
-            "NextSpawnID": "8d17a8e2-100a-4eae-b32b-e17a20e33d5b"
-        },
-        {
-            "NodeID": "2fa849fc-cd4d-4e85-b08e-887a0cec3755",
-            "EditorPosition": {
-                "x": 196.0,
-                "y": 584.0
-            },
-            "Trigger": {
-                "UseEnumTrigger": true,
-                "TriggerType": 0,
-                "CustomEventName": "",
-                "TriggerParam": "60"
-            },
-            "NextNodeIDs": [],
-            "NextSpawnID": "0932cd3f-234c-4e9b-baf9-e8bbdcfca5fe"
-        },
-        {
-            "NodeID": "0c1f7a5b-4703-494b-a6a4-c0328aff1eef",
-            "EditorPosition": {
-                "x": 197.59999084472657,
-                "y": 751.2000122070313
-            },
-            "Trigger": {
-                "UseEnumTrigger": true,
-                "TriggerType": 0,
-                "CustomEventName": "",
-                "TriggerParam": "90"
-            },
-            "NextNodeIDs": [],
-            "NextSpawnID": "a7ab7f1b-aa2d-4712-a5c7-07184edc318a"
-        },
-        {
-            "NodeID": "14272dbf-8e14-4500-a8c8-5d3c07289ddb",
-            "EditorPosition": {
-                "x": 189.59999084472657,
-                "y": 928.0
-            },
-            "Trigger": {
-                "UseEnumTrigger": true,
-                "TriggerType": 0,
-                "CustomEventName": "",
-                "TriggerParam": "120"
-            },
-            "NextNodeIDs": [],
-            "NextSpawnID": "fa5c1568-6ac1-471f-be5d-37c4d56ff2a5"
+            "FromMissionOrSpineID": "",
+            "FromTriggerID": "",
+            "NextNodeIDs": [
+                "ed029fc1-623a-4514-9dfc-726583066158"
+            ],
+            "NextSpawnID": ""
         }
     ],
     "SpawnActions": [
         {
-            "SpawnID": "8d17a8e2-100a-4eae-b32b-e17a20e33d5b",
+            "NodeID": "ed029fc1-623a-4514-9dfc-726583066158",
             "EditorPosition": {
-                "x": 504.0,
-                "y": 443.1999816894531
+                "x": 336.0,
+                "y": 267.1999816894531
             },
-            "Team": 0,
+            "OutputConnections": [
+                {
+                    "FromPortIndex": 0,
+                    "TargetNodeID": "4cb0b577-87c1-4547-ac59-e1c85916a291",
+                    "ToPortIndex": 0
+                }
+            ],
+            "SpawnID": "",
+            "Team": 2,
             "SpawnPos": {
-                "x": -62,
-                "y": 81
+                "x": 0,
+                "y": 0
             },
             "Units": [
                 {
-                    "BlueprintId": "g_maggot",
+                    "BlueprintId": "",
                     "Count": 3
                 }
             ],
-            "AttachAIBrainID": "01c9116a-cfd2-4e80-84a9-4a30be6abe3c"
-        },
-        {
-            "SpawnID": "0932cd3f-234c-4e9b-baf9-e8bbdcfca5fe",
-            "EditorPosition": {
-                "x": 493.6000061035156,
-                "y": 624.0
-            },
-            "Team": 0,
-            "SpawnPos": {
-                "x": -62,
-                "y": 81
-            },
-            "Units": [
-                {
-                    "BlueprintId": "g_maggot",
-                    "Count": 3
-                }
-            ],
-            "AttachAIBrainID": "510e7c92-c04f-443c-8aec-842218f4e594"
-        },
-        {
-            "SpawnID": "fa5c1568-6ac1-471f-be5d-37c4d56ff2a5",
-            "EditorPosition": {
-                "x": 500.8000183105469,
-                "y": 971.2000122070313
-            },
-            "Team": 0,
-            "SpawnPos": {
-                "x": -62,
-                "y": 81
-            },
-            "Units": [
-                {
-                    "BlueprintId": "g_maggot",
-                    "Count": 3
-                }
-            ],
-            "AttachAIBrainID": "808f518f-997b-45d4-91e6-5be084c97b18"
-        },
-        {
-            "SpawnID": "a7ab7f1b-aa2d-4712-a5c7-07184edc318a",
-            "EditorPosition": {
-                "x": 496.0,
-                "y": 816.7999877929688
-            },
-            "Team": 0,
-            "SpawnPos": {
-                "x": -62,
-                "y": 81
-            },
-            "Units": [
-                {
-                    "BlueprintId": "g_maggot",
-                    "Count": 3
-                }
-            ],
-            "AttachAIBrainID": "1264fc13-78c9-41eb-b1ff-00c1049837c6"
+            "FromMapID": "460a32e3-8bb9-4454-a105-a9ea1d15d088",
+            "FromTriggerID": "",
+            "AttachAIBrainID": "4cb0b577-87c1-4547-ac59-e1c85916a291"
         }
     ],
     "AIBrainActions": [
         {
-            "BrainNodeID": "01c9116a-cfd2-4e80-84a9-4a30be6abe3c",
+            "NodeID": "4cb0b577-87c1-4547-ac59-e1c85916a291",
             "EditorPosition": {
-                "x": 830.4000244140625,
-                "y": 462.3999938964844
+                "x": 683.2000122070313,
+                "y": 243.1999969482422
             },
-            "BrainIdentifier": "Red_Dot_Wave",
+            "OutputConnections": [],
+            "BrainNodeID": "",
+            "BrainIdentifier": "ghj",
             "TargetPos": {
                 "x": 0,
                 "y": 0
-            }
-        },
-        {
-            "BrainNodeID": "510e7c92-c04f-443c-8aec-842218f4e594",
-            "EditorPosition": {
-                "x": 820.0,
-                "y": 643.2000122070313
             },
-            "BrainIdentifier": "Red_Dot_Wave",
-            "TargetPos": {
-                "x": 0,
-                "y": 0
-            }
-        },
-        {
-            "BrainNodeID": "808f518f-997b-45d4-91e6-5be084c97b18",
-            "EditorPosition": {
-                "x": 820.0,
-                "y": 972.0
-            },
-            "BrainIdentifier": "Red_Dot_Wave",
-            "TargetPos": {
-                "x": 0,
-                "y": 0
-            }
-        },
-        {
-            "BrainNodeID": "1264fc13-78c9-41eb-b1ff-00c1049837c6",
-            "EditorPosition": {
-                "x": 820.7999877929688,
-                "y": 803.2000122070313
-            },
-            "BrainIdentifier": "Red_Dot_Wave",
-            "TargetPos": {
-                "x": 0,
-                "y": 0
-            }
+            "FromSpawnID": "ed029fc1-623a-4514-9dfc-726583066158"
         }
     ],
     "MapNodes": [
         {
-            "NodeID": "d14de200-b760-4063-8b55-77b39b44c78e",
+            "NodeID": "460a32e3-8bb9-4454-a105-a9ea1d15d088",
             "EditorPosition": {
-                "x": -102.4000015258789,
-                "y": 665.5999755859375
+                "x": 8.0,
+                "y": 276.79998779296877
             },
-            "MapID": "Level_Test",
-            "SelectedPosition": {
-                "x": -62,
-                "y": 81
-            },
-            "PositionName": "新位置",
-            "ConnectedSpawnIds": [
-                "8d17a8e2-100a-4eae-b32b-e17a20e33d5b",
-                "0932cd3f-234c-4e9b-baf9-e8bbdcfca5fe",
-                "a7ab7f1b-aa2d-4712-a5c7-07184edc318a",
-                "fa5c1568-6ac1-471f-be5d-37c4d56ff2a5"
+            "OutputConnections": [
+                {
+                    "FromPortIndex": 0,
+                    "TargetNodeID": "ed029fc1-623a-4514-9dfc-726583066158",
+                    "ToPortIndex": 0
+                }
             ],
-            "ConnectedBrainIds": [],
-            "IsBoundNode": false
-        },
-        {
-            "NodeID": "bcf21883-bfb6-40ec-a1f9-01fd665a1f7a",
-            "EditorPosition": {
-                "x": -99.20000457763672,
-                "y": 550.3999633789063
-            },
             "MapID": "Level_Test",
             "SelectedPosition": {
-                "x": 0,
-                "y": 0
+                "x": -63,
+                "y": 84
             },
-            "PositionName": "绑定地图",
-            "ConnectedSpawnIds": [],
-            "ConnectedBrainIds": [],
-            "IsBoundNode": true
+            "PositionName": "坐标 (-63,84)",
+            "ConnectedSpawnIds": [
+                "ed029fc1-623a-4514-9dfc-726583066158"
+            ],
+            "ConnectedBrainIds": []
         }
-    ]
+    ],
+    "Commands": []
 }

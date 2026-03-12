@@ -1,5 +1,6 @@
 using UnityEngine;
 using MineRTS.BigMap;
+using MineRTS.BigMap.UI;
 
 /// <summary>
 /// 【状态控制器】全局流程控制器，协调 UI 面板切换与游戏状态流转
@@ -74,6 +75,7 @@ public class GameFlowController : SingletonMono<GameFlowController>
 
     /// <summary>
     /// 监听大地图节点点击事件
+    /// 现在不直接进入关卡，而是显示节点信息面板
     /// </summary>
     [Subscribe("BigMap.NodeClicked")]
     void OnNodeClicked(object data)
@@ -82,7 +84,9 @@ public class GameFlowController : SingletonMono<GameFlowController>
         if (e != null && !string.IsNullOrEmpty(e.StageId))
         {
             Debug.Log($"<color=yellow>[GameFlow]</color> 收到节点点击事件：{e.DisplayName} ({e.StageId})");
-            EnterStage(e.StageId);
+
+            // 显示节点信息面板（由 WorldSpaceUIManager 处理）
+            // 不再直接进入关卡
         }
     }
 
@@ -191,6 +195,16 @@ public class GameFlowController : SingletonMono<GameFlowController>
 
                 // 1.5 UI 层面：打开大地图 UI 管理器（保存、设置等按钮）
                 if (BigMapUIManager.Instance != null) BigMapUIManager.Instance.Open();
+
+                // 1.6 UI 层面：初始化世界空间 UI 管理器
+                if (WorldSpaceUIManager.Instance != null)
+                {
+                    Debug.Log("<color=cyan>[GameFlow]</color> WorldSpaceUIManager 已初始化");
+                }
+                else
+                {
+                    Debug.LogWarning("<color=orange>[GameFlow]</color> WorldSpaceUIManager 实例未找到，请检查场景中是否有 BigMapUIManager GameObject");
+                }
 
                 // 2. 背景层面：切换到大地图炫酷底板
                 if (ViewportBackgroundQuad.Instance != null)
