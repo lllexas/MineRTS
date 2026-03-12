@@ -56,7 +56,7 @@ high-performance game logic and flexible mission/story editing.
 | 编程语言 | C#                                      |
 | 架构模式 | 自定义 ECS + 可视化脚本系统             |
 | 代码规模 | 200+ C# 脚本文件                        |
-| 目标平台 | Windows, Android, iOS                   |
+| 目标平台 | Windows                                 |
 
 ---
 
