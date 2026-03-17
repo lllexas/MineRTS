@@ -46,7 +46,8 @@ public static class CommandRegistryInfo
         "Time",       // ⏰ 时间相关
         "Mission",    // 🎮 任务相关
         "Debug",      // 🔧 调试相关
-        "System"      // ⚡ 系统相关
+        "System",     // ⚡ 系统相关
+        "UI"          // 🖼️ 界面相关
     };
 
     // 是否已初始化喵~

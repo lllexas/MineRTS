@@ -1,28 +1,51 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
-public class DeveloperConsole : SingletonMono<DeveloperConsole>
+/// <summary>
+/// ═══════════════════════════════════════════════════════════════
+/// DeveloperConsole - 开发者控制台逻辑层
+/// ═══════════════════════════════════════════════════════════════
+///
+/// 设计理念：
+/// 1. UI 与逻辑分离 - 不持有任何 UI 引用
+/// 2. 事件驱动输出 - 通过 PostSystem 发送输出事件
+/// 3. 命令注册管理 - 统一从 CommandRegistry 自动注册
+/// 4. 支持管道和分号 - 命令组合功能
+///
+/// 继承关系：
+///   DeveloperConsole : SingletonMono<DeveloperConsole>
+///   ↑
+///   └─ SocialCLI : DeveloperConsole (社交终端特化)
+///
+/// ═══════════════════════════════════════════════════════════════
+/// </summary>
+public class DeveloperConsole : MonoBehaviour
 {
-    [Header("UI Components")]
-    [SerializeField] private GameObject consoleWindow;
-    [SerializeField] private TMP_InputField inputField; // <--- 记得在 Inspector 里把 Line Type 改为 Multi Line Newline 喵！
-    [SerializeField] private TextMeshProUGUI logText;
-    [SerializeField] private ScrollRect scrollRect;
-    [SerializeField] private Button closeButton; 
-    [Header("Settings")]
-    [SerializeField] private bool _captureUnityLogs = false;  // 默认不截获
+    // =========================================================
+    //  输出事件数据结构
+    // =========================================================
+    public class ConsoleOutputEvent
+    {
+        public string message;
+        public Color color;
+    }
 
+    // =========================================================
+    //  命令注册表
+    // =========================================================
     private Dictionary<string, System.Action<string[]>> _commands;
-    private StringBuilder _logBuilder = new StringBuilder();
-    private bool _needScrollToBottom = false;
-    private const int MAX_LOG_LINES = 100;
 
-    // --- 公共接口 (API) ---
+    public bool EnableUnityLogging = false; 
 
+    // =========================================================
+    //  公共接口 (API)
+    // =========================================================
+
+    /// <summary>
+    /// 注册命令
+    /// </summary>
     public void AddCommand(string key, System.Action<string[]> action)
     {
         key = key.ToLower();
@@ -34,169 +57,44 @@ public class DeveloperConsole : SingletonMono<DeveloperConsole>
         _commands.Add(key, action);
     }
 
-    public void Log(string message, Color color)
-    {
-        string colorHex = ColorUtility.ToHtmlStringRGB(color);
-        _logBuilder.AppendLine($"<color=#{colorHex}>{message}</color>");
-
-        // 限制日志行数，防止内存无限增长
-        TrimLogLines();
-
-        logText.text = _logBuilder.ToString();
-
-        // 标记需要滚动到底部，将在Update中延迟执行
-        _needScrollToBottom = true;
-    }
-
-    private void TrimLogLines()
-    {
-        // 简单实现：计算换行符数量来估计行数
-        int lineCount = 0;
-        for (int i = 0; i < _logBuilder.Length; i++)
-        {
-            if (_logBuilder[i] == '\n') lineCount++;
-        }
-
-        // 如果超过最大行数，移除最旧的行
-        if (lineCount > MAX_LOG_LINES)
-        {
-            // 找到第(行数 - MAX_LOG_LINES)个换行符的位置
-            int linesToRemove = lineCount - MAX_LOG_LINES;
-            int charIndex = 0;
-            int foundNewlines = 0;
-
-            for (charIndex = 0; charIndex < _logBuilder.Length; charIndex++)
-            {
-                if (_logBuilder[charIndex] == '\n')
-                {
-                    foundNewlines++;
-                    if (foundNewlines == linesToRemove)
-                    {
-                        // 保留这个换行符之后的文本
-                        _logBuilder.Remove(0, charIndex + 1);
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
+    /// <summary>
+    /// 获取所有命令键
+    /// </summary>
     public IEnumerable<string> GetCommandKeys() => _commands.Keys;
 
+    // =========================================================
+    //  受保护的触发器（子类专用通道）
+    // =========================================================
 
-    // --- 内部实现 ---
-
-    protected override void Awake()
+    /// <summary>
+    /// 发射输出信号（受保护方法，仅供子类调用）喵~
+    /// </summary>
+    protected void FireOutputEvents(string message, Color color)
     {
-        base.Awake();
-        _commands = new Dictionary<string, System.Action<string[]>>();
-        RegisterCommands();
-        consoleWindow.SetActive(false);
-        closeButton.onClick.AddListener(ToggleConsole);
-
-        // 也可以在这里强制设置，防止主人忘记在 Inspector 里改喵
-        inputField.lineType = TMP_InputField.LineType.MultiLineNewline;
+        // 只发送一个事件，避免重复处理喵~
+        PostSystem.Instance.Send("DeveloperConsole.Output", new ConsoleOutputEvent { message = message, color = color });
     }
 
-    private void OnEnable()
+    /// <summary>
+    /// 输出日志（事件驱动，不直接操作 UI）
+    /// </summary>
+    public virtual void Log(string message, Color color)
     {
-        // 注意：多行模式下 onSubmit 行为会改变，我们主要靠键盘监听提交
-        inputField.onSubmit.AddListener(ProcessCommand);
-        if (_captureUnityLogs)
-        {
-            Application.logMessageReceived += HandleUnityLog;
-        }
+        FireOutputEvents(message, color);
     }
 
-    private void OnDisable()
-    {
-        inputField.onSubmit.RemoveListener(ProcessCommand);
-        if (_captureUnityLogs)
-        {
-            Application.logMessageReceived -= HandleUnityLog;
-        }
-    }
+    // =========================================================
+    //  命令执行入口
+    // =========================================================
 
-    private void Update()
-    {
-        // 1. 波浪号开关
-        if (Input.GetKeyDown(KeyCode.BackQuote))
-        {
-            ToggleConsole();
-        }
-
-        // 2. 核心逻辑重写喵：
-        if (consoleWindow.activeSelf && inputField.isFocused)
-        {
-            // 如果按下的是回车 (包括小键盘的回车)
-            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
-            {
-                // 情况 A: 按住了 Ctrl + Enter -> 插入换行符
-                if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
-                {
-                    int cursorPosition = inputField.caretPosition;
-                    inputField.text = inputField.text.Insert(cursorPosition, "\n");
-                    inputField.caretPosition = cursorPosition + 1; // 光标后移一位
-                }
-                // 情况 B: 只按了 Enter -> 立即执行指令喵！
-                else
-                {
-                    ProcessCommand(inputField.text);
-
-                    // 【关键】由于是多行模式，回车默认会加一个换行，
-                    // 我们要在下一帧或者清空时确保它不会污染下次输入
-                    inputField.text = "";
-                }
-            }
-        }
-
-        // 3. 延迟滚动到底部（避免在Log回调中强制刷新UI）
-        if (_needScrollToBottom && scrollRect != null)
-        {
-            scrollRect.verticalNormalizedPosition = 0f;
-            _needScrollToBottom = false;
-        }
-    }
-
-    private void ToggleConsole()
-    {
-        bool isActive = !consoleWindow.activeSelf;
-
-        if (!isActive)
-        {
-            // 关闭控制台时清空所有日志记录
-            _logBuilder.Clear();
-            if (logText != null)
-                logText.text = "";
-        }
-
-        consoleWindow.SetActive(isActive);
-        if (isActive)
-        {
-            inputField.ActivateInputField();
-        }
-    }
-
-    private void HandleUnityLog(string logString, string stackTrace, LogType type)
-    {
-        // 控制台关闭时不记录日志，避免TMP动态字体生成冲突
-        if (!consoleWindow.activeSelf)
-            return;
-
-        var color = type switch
-        {
-            LogType.Error or LogType.Exception => Color.red,
-            LogType.Warning => Color.yellow,
-            _ => Color.white,
-        };
-        Log(logString, color);
-    }
-
-    public void ProcessCommand(string input)
+    /// <summary>
+    /// 处理命令字符串（支持分号和管道）
+    /// </summary>
+    public virtual void ProcessCommand(string input)
     {
         if (string.IsNullOrWhiteSpace(input)) return;
 
-        // 【核心修改】支持分号、换行符作为指令分隔符
+        // 支持分号、换行符作为指令分隔符
         string[] commandQueue = input.Split(new[] { ';', '\n', '\r' }, System.StringSplitOptions.RemoveEmptyEntries);
 
         foreach (var commandLine in commandQueue)
@@ -204,26 +102,24 @@ public class DeveloperConsole : SingletonMono<DeveloperConsole>
             string trimmedLine = commandLine.Trim();
             if (string.IsNullOrWhiteSpace(trimmedLine)) continue;
 
-            // 【新增】检查是否有管道符 |
+            // 检查是否有管道符
             if (trimmedLine.Contains('|'))
             {
-                // 管道模式：spawn x_dog 0,0 1 | select | move 10,10
                 ExecutePipeline(trimmedLine);
             }
             else
             {
-                // 普通模式：spawn x_dog 0,0 1
                 ExecuteSingleCommand(trimmedLine);
             }
         }
-
-        // 执行完清空输入框
-        inputField.text = "";
-        inputField.ActivateInputField();
     }
 
+    // =========================================================
+    //  命令执行内部方法
+    // =========================================================
+
     /// <summary>
-    /// 执行单个命令喵~
+    /// 执行单个命令
     /// </summary>
     private void ExecuteSingleCommand(string input)
     {
@@ -249,57 +145,99 @@ public class DeveloperConsole : SingletonMono<DeveloperConsole>
         }
         else
         {
+            Debug.Log($"Unknown command: '{commandKey}'");
             Log($"Unknown command: '{commandKey}'", Color.red);
         }
     }
 
     /// <summary>
-    /// 执行管道命令喵~（支持 | 分隔符）
+    /// 执行管道命令
     /// </summary>
     private void ExecutePipeline(string input)
     {
         Log($"> {input}", Color.cyan);
 
-        // 分割管道命令
         string[] parts = input.Split('|');
-        
-        object payload = null;  // 管道传递的数据
-        
+        object payload = null;
+
         foreach (var part in parts)
         {
             string trimmed = part.Trim();
             if (string.IsNullOrWhiteSpace(trimmed)) continue;
-            
+
             string[] tokens = trimmed.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
             if (tokens.Length == 0) continue;
-            
+
             string commandName = tokens[0].ToLower();
             string[] args = tokens.Skip(1).ToArray();
-            
+
             // 执行命令，传入上游的 payload
             var output = CommandRegistry.Execute(commandName, args, payload, this);
-            
+
             // 将输出 Payload 传递给下游
             payload = output.Payload;
-            
+
             // 如果失败，停止管道
             if (output.Result == CommandRegistry.CommandResult.Failed)
             {
                 Log($"Pipeline failed at '{commandName}': {output.Message}", Color.red);
                 break;
             }
-            
+
             // 成功则继续
-            if (GraphRunner.Instance.EnableDebugLog)
+            if (GraphRunner.Instance != null && GraphRunner.Instance.EnableDebugLog)
             {
                 Log($"Pipeline: {commandName} → Payload: {(payload != null ? payload.GetType().Name : "null")}", Color.gray);
             }
         }
     }
 
+    // =========================================================
+    //  Unity 生命周期
+    // =========================================================
+
+    protected virtual void Awake()
+    {
+        _commands = new Dictionary<string, System.Action<string[]>>();
+        RegisterCommands();
+    }
+
+    private void OnEnable()
+    {
+        if (Application.isEditor && EnableUnityLogging)
+        {
+            // 编辑器模式下可以捕获 Unity 日志
+            Application.logMessageReceived += HandleUnityLog;
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (Application.isEditor && EnableUnityLogging)
+        {
+            Application.logMessageReceived -= HandleUnityLog;
+        }
+    }
+
+    /// <summary>
+    /// 处理 Unity 日志（可选）
+    /// </summary>
+    private void HandleUnityLog(string logString, string stackTrace, LogType type)
+    {
+        var color = type switch
+        {
+            LogType.Error or LogType.Exception => Color.red,
+            LogType.Warning => Color.yellow,
+            _ => Color.white,
+        };
+        Log(logString, color);
+    }
+
+    /// <summary>
+    /// 注册命令（从 CommandRegistry 自动注册）
+    /// </summary>
     private void RegisterCommands()
     {
-        // 【重构后】所有命令统一从 CommandRegistry 自动注册喵~
         CommandRegistry.RegisterAll(this);
     }
 }

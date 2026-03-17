@@ -1,0 +1,72 @@
+{
+  "RootNodeIds": [],
+  "PackID": "ba9ff42e-8645-4b89-b228-737c9c955073",
+  "DisplayName": "New VFS Pack",
+  "Description": "虚拟文件系统包",
+  "Author": "NekoTeam",
+  "Version": "1.0.0",
+  "CreatedAt": 1773569752,
+  "ModifiedAt": 1773569752,
+  "Nodes": [
+    {
+      "$type": "RootNodeData, Assembly-CSharp",
+      "_": [
+        "ef69e684-bfc8-4bea-a23a-593a15b99c13"
+      ],
+      "NodeID": "cf8bb8a4-b828-40cc-b491-342114862d95",
+      "EditorPosition": {
+        "x": 87.2,
+        "y": 150.400009
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "ef69e684-bfc8-4bea-a23a-593a15b99c13",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "VFSNodeData, Assembly-CSharp",
+      "ChildNodeIDs": [],
+      "Name": "13245rty",
+      "IsEnabled": true,
+      "NodeID": "a8ce6c7d-6369-45d3-be58-9e59737364f5",
+      "EditorPosition": {
+        "x": 656.0,
+        "y": -45.6
+      },
+      "OutputConnections": [],
+      "IsDirectory": true,
+      "IsFile": false
+    },
+    {
+      "$type": "VFSNodeData, Assembly-CSharp",
+      "ChildNodeIDs": [
+        "a8ce6c7d-6369-45d3-be58-9e59737364f5",
+        "a8ce6c7d-6369-45d3-be58-9e59737364f5"
+      ],
+      "Name": "234",
+      "IsEnabled": true,
+      "NodeID": "ef69e684-bfc8-4bea-a23a-593a15b99c13",
+      "EditorPosition": {
+        "x": 321.6,
+        "y": 64.8
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "a8ce6c7d-6369-45d3-be58-9e59737364f5",
+          "ToPortIndex": 0
+        },
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "a8ce6c7d-6369-45d3-be58-9e59737364f5",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsDirectory": true,
+      "IsFile": false
+    }
+  ]
+}

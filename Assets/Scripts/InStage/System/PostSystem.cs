@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using System.Linq;
 
 // =========================================================
 // 1. 标签定义 (反射模式专用)
@@ -24,45 +25,72 @@ public class Subscribe : Attribute
 // =========================================================
 public class PostSystem : SingletonMono<PostSystem>
 {
-    // 包装器
     private class Handler
     {
-        // 那个“活着的”对象，用于判断是否销毁。
-        // 对于反射模式，它是 host object。
-        // 对于委托模式，它是 action.Target (通常就是闭包所属的对象)。
         public object Target;
         public Action<object> Action;
         public int Priority;
     }
 
-    // 主表：事件名 -> 处理器列表
     private readonly Dictionary<string, List<Handler>> _eventTable = new Dictionary<string, List<Handler>>();
-
-    // 反向索引：对象实例 -> 事件名列表 (用于快速注销)
     private readonly Dictionary<object, HashSet<string>> _targetToEvents = new Dictionary<object, HashSet<string>>();
 
+    // 缓存所有 GameEvent 的字符串形式，用于快速比对喵~
+    private static HashSet<string> _gameEventStrings;
+
+    private void EnsureGameEventCache()
+    {
+        if (_gameEventStrings == null)
+        {
+            _gameEventStrings = new HashSet<string>(Enum.GetNames(typeof(GameEvent)));
+        }
+    }
+
     // =========================================================
-    // API 1: 发送事件 (通用)
+    // API 1: 发送事件 (分级入口)
     // =========================================================
+
+    /// <summary>
+    /// 🚀【普通货运窗口】分发原始事件。
+    /// ⚠️ 严禁在此直接发送 GameEvent 定义的契约事件喵！
+    /// </summary>
     public void Send(string eventName, object data = null)
+    {
+#if UNITY_EDITOR || DEBUG
+        EnsureGameEventCache();
+        if (_gameEventStrings.Contains(eventName))
+        {
+            Debug.LogError($"<color=red>[PostSystem] 阻断违规操作！</color> 事件 [{eventName}] 属于 NekoGraph 契约事件，" +
+                           $"【严禁】直接调用 PostSystem.Send！请务必通过 PostOffice.Send() 进行强类型分发喵！");
+            return; 
+        }
+#endif
+        SendInternal(eventName, data);
+    }
+
+    /// <summary>
+    /// 🔐【授权货运窗口】仅限 PostOffice 调用喵！
+    /// </summary>
+    public void SendFromPostOffice(string eventName, object data)
+    {
+        SendInternal(eventName, data);
+    }
+
+    private void SendInternal(string eventName, object data)
     {
         if (_eventTable.TryGetValue(eventName, out var list))
         {
-            // 倒序遍历，安全删除
+            // 倒序遍历，安全删除喵~
             for (int i = list.Count - 1; i >= 0; i--)
             {
                 var h = list[i];
                 try
                 {
-                    // --- 僵尸检查 ---
-                    // 如果 Target 是 Unity Object 且已被销毁 (== null)，或者 C# 对象被 GC (这很难发生因为被列表引用着，主要防 Unity 销毁)
-                    // 注意：Static 方法的 Target 是 null，这种永远不会被自动清理，必须手动 Off
                     if (h.Target != null && h.Target.Equals(null))
                     {
                         list.RemoveAt(i);
                         continue;
                     }
-
                     h.Action.Invoke(data);
                 }
                 catch (Exception e)
@@ -74,92 +102,56 @@ public class PostSystem : SingletonMono<PostSystem>
     }
 
     // =========================================================
-    // API 2: 传统订阅 (On / Off) - 临时/Lambda模式
+    // API 2: 反射注册模式 (Register / Unregister)
     // =========================================================
 
     /// <summary>
-    /// 传统方式订阅。适合动态逻辑或 Lambda。
-    /// </summary>
-    /// <param name="eventName">事件名</param>
-    /// <param name="callback">回调 (必须接受 object 参数)</param>
-    /// <param name="priority">优先级</param>
-    public void On(string eventName, Action<object> callback, int priority = 0)
-    {
-        if (callback == null) return;
-        // callback.Target 就是这个委托所属的对象实例 (如果是 Lambda，就是闭包类实例)
-        AddHandler(eventName, callback.Target, callback, priority);
-    }
-
-    /// <summary>
-    /// 取消订阅指定的回调。
-    /// </summary>
-    public void Off(string eventName, Action<object> callback)
-    {
-        if (callback == null) return;
-
-        if (_eventTable.TryGetValue(eventName, out var list))
-        {
-            // 找到特定的那个委托并移除
-            // Delegate 的判等会自动处理 Target 和 Method 的匹配
-            list.RemoveAll(h => h.Action == callback);
-        }
-    }
-
-    // =========================================================
-    // API 3: 反射订阅 (Register / Unregister) - 标签模式
-    // =========================================================
-
-    /// <summary>
-    /// 扫描对象上所有 [Subscribe] 标签并自动注册（包括基类中的标签）。
+    /// 自动扫描并注册对象中所有带有 [Subscribe] 特性的方法喵！
     /// </summary>
     public void Register(object target)
     {
         if (target == null) return;
-
         var type = target.GetType();
-        
-        // 递归扫描该类型及其所有基类，直到 System.Object
-        while (type != null && type != typeof(object))
+        var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+        foreach (var method in methods)
         {
-            var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
-
-            foreach (var method in methods)
+            var attrs = method.GetCustomAttributes<Subscribe>();
+            foreach (var attr in attrs)
             {
-                var attrs = method.GetCustomAttributes<Subscribe>();
-                if (attrs == null) continue;
-
-                foreach (var attr in attrs)
+                // 创建委托喵~ 
+                // 注意：这里需要根据方法参数进行适配喵
+                Action<object> action = (data) =>
                 {
-                    try
+                    var parameters = method.GetParameters();
+                    if (parameters.Length == 0)
                     {
-                        var action = (Action<object>)Delegate.CreateDelegate(typeof(Action<object>), target, method);
-                        AddHandler(attr.EventName, target, action, attr.Priority);
+                        method.Invoke(target, null);
                     }
-                    catch
+                    else
                     {
-                        Debug.LogError($"[PostSystem] Register Error: {target.GetType().Name}.{method.Name} signature mismatch.");
+                        method.Invoke(target, new[] { data });
                     }
-                }
+                };
+
+                AddHandler(attr.EventName, target, action, attr.Priority);
             }
-            
-            type = type.BaseType;
         }
     }
 
     /// <summary>
-    /// 注销该对象上所有的 [Subscribe] 监听，同时也注销该对象上绑定的所有 On 监听。
+    /// 快速注销该对象订阅的所有事件喵！
     /// </summary>
     public void Unregister(object target)
     {
         if (target == null) return;
-
-        if (_targetToEvents.TryGetValue(target, out var eventNames))
+        if (_targetToEvents.TryGetValue(target, out var events))
         {
-            foreach (var name in eventNames)
+            foreach (var evtName in events.ToList())
             {
-                if (_eventTable.TryGetValue(name, out var handlers))
+                if (_eventTable.TryGetValue(evtName, out var list))
                 {
-                    handlers.RemoveAll(h => h.Target == target);
+                    list.RemoveAll(h => h.Target == target);
                 }
             }
             _targetToEvents.Remove(target);
@@ -167,8 +159,32 @@ public class PostSystem : SingletonMono<PostSystem>
     }
 
     // =========================================================
-    // 内部核心
+    // API 3: 传统委托模式 (On / Off)
     // =========================================================
+
+    public void On(string eventName, Action<object> callback, int priority = 0)
+    {
+        if (callback == null) return;
+        AddHandler(eventName, callback.Target, callback, priority);
+    }
+
+    public void Off(string eventName, Action<object> callback)
+    {
+        if (callback == null) return;
+        if (_eventTable.TryGetValue(eventName, out var list))
+        {
+            var handler = list.FirstOrDefault(h => h.Action == callback);
+            if (handler != null)
+            {
+                list.Remove(handler);
+                if (handler.Target != null && _targetToEvents.TryGetValue(handler.Target, out var events))
+                {
+                    events.Remove(eventName);
+                }
+            }
+        }
+    }
+
     private void AddHandler(string eventName, object target, Action<object> action, int priority)
     {
         if (!_eventTable.TryGetValue(eventName, out var list))
@@ -177,28 +193,20 @@ public class PostSystem : SingletonMono<PostSystem>
             _eventTable[eventName] = list;
         }
 
-        // 优先级插入
-        int index = 0;
-        while (index < list.Count && list[index].Priority >= priority) index++;
+        // 防止重复注册同一 Action 喵
+        if (list.Any(h => h.Action == action)) return;
 
-        list.Insert(index, new Handler { Target = target, Action = action, Priority = priority });
+        list.Add(new Handler { Target = target, Action = action, Priority = priority });
+        list.Sort((a, b) => b.Priority.CompareTo(a.Priority));
 
-        // 记录反向索引 (如果 target 不为 null)
-        // 静态方法的 Target 是 null，这种情况下我们没法做反向索引注销，只能靠 Off 手动注销
         if (target != null)
         {
-            if (!_targetToEvents.TryGetValue(target, out var eventSet))
+            if (!_targetToEvents.TryGetValue(target, out var events))
             {
-                eventSet = new HashSet<string>();
-                _targetToEvents[target] = eventSet;
+                events = new HashSet<string>();
+                _targetToEvents[target] = events;
             }
-            eventSet.Add(eventName);
+            events.Add(eventName);
         }
-    }
-
-    public void ClearAll()
-    {
-        _eventTable.Clear();
-        _targetToEvents.Clear();
     }
 }

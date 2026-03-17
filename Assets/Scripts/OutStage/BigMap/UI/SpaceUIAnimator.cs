@@ -471,6 +471,39 @@ namespace MineRTS.BigMap.UI
             transform.localRotation = _initialRotation;
         }
 
+        // =========================================================
+        //  编辑器强力驱动接口（Editor Only - 绕过 DOTween 直接瞬移）
+        // =========================================================
+
+        /// <summary>
+        /// 【编辑器专用】直接设置 Y 轴旋转角度（绕过 DOTween，立即生效）
+        /// <para>注意：此方法仅供编辑器脚本调用，需要配合 Undo.RecordObject 使用</para>
+        /// </summary>
+        /// <param name="y">Y 轴旋转角度（度数）</param>
+        public virtual void ApplyEditorRotation(float y)
+        {
+            transform.localRotation = Quaternion.Euler(0, y, 0);
+        }
+
+        /// <summary>
+        /// 【编辑器专用】直接设置旋转（四元数版本，绕过 DOTween，立即生效）
+        /// <para>注意：此方法仅供编辑器脚本调用，需要配合 Undo.RecordObject 使用</para>
+        /// </summary>
+        /// <param name="rotation">目标旋转（四元数）</param>
+        public virtual void ApplyEditorRotation(Quaternion rotation)
+        {
+            transform.localRotation = rotation;
+        }
+
+        /// <summary>
+        /// 【编辑器专用】获取当前 Y 轴旋转角度
+        /// </summary>
+        /// <returns>Y 轴旋转角度（度数）</returns>
+        public virtual float GetEditorRotationY()
+        {
+            return transform.localEulerAngles.y;
+        }
+
         /// <summary>
         /// 播放缩放动画（轨道 C）
         /// 使用 DOVirtual.Float 驱动虚拟倍率，由 Update 合成到 transform.localScale

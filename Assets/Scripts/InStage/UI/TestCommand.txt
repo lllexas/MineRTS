@@ -27,3 +27,9 @@ nav_info
 
 ui_show NodeInfoPanel
 ui_show 史山2
+
+vfs_info;
+vfs_load GraphVSF/Packs/social_tree Social_01;
+ui_show SocialPanel;
+vfs_info;
+vfs_info;

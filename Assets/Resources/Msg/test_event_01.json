@@ -1,0 +1,252 @@
+{
+  "PackID": "test_event_01",
+  "DisplayName": "新社交消息",
+  "Description": "一个由 NekoGraph 驱动的交互式社交对话图喵~",
+  "Author": "NekoTeam",
+  "Version": "1.0.0",
+  "CreatedAt": 1773765408,
+  "ModifiedAt": 1773765408,
+  "Nodes": [
+    {
+      "$type": "RootNodeData, Assembly-CSharp",
+      "_": [
+        "ac23e0cd-881a-4509-9b90-6196beceeac8"
+      ],
+      "NodeID": "41e89cac-cd03-4749-8004-25f3c2ec141a",
+      "EditorPosition": {
+        "x": 137.599991,
+        "y": 66.3999939
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "ac23e0cd-881a-4509-9b90-6196beceeac8",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "NekoGraph.SocialMsgContentNodeData, Assembly-CSharp",
+      "Speaker": "指挥官",
+      "Body": "测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文。测试消息正文测\\n试\\n消\\n息正文测试消息正文文测试消息正文文测试消息正文文测试消息正文文测试消息正文文测试消息正文\n文\n。\n测\n试\t\t消息正文。测试消息正文测试消息正文。测试消息正文测\t\t             文测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文\\n测试消息正文测试消息正文测试消息正文",
+      "In": "41e89cac-cd03-4749-8004-25f3c2ec141a",
+      "Out": [
+        "eab67f7f-8fdd-44a8-af8b-c5a6b6a7856f",
+        "33b98900-18d1-4175-920f-2c8a0a153bb2"
+      ],
+      "NodeID": "ac23e0cd-881a-4509-9b90-6196beceeac8",
+      "EditorPosition": {
+        "x": 358.400024,
+        "y": 66.3999939
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "eab67f7f-8fdd-44a8-af8b-c5a6b6a7856f",
+          "ToPortIndex": 0
+        },
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "33b98900-18d1-4175-920f-2c8a0a153bb2",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "NekoGraph.ChoiceTextNodeData, Assembly-CSharp",
+      "OptionIndex": 1,
+      "Label": "选项a",
+      "In": "ac23e0cd-881a-4509-9b90-6196beceeac8",
+      "Out": [
+        "0883eee0-335f-4180-8b40-1e192dc3dd85"
+      ],
+      "NodeID": "eab67f7f-8fdd-44a8-af8b-c5a6b6a7856f",
+      "EditorPosition": {
+        "x": 733.600037,
+        "y": -27.2
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "0883eee0-335f-4180-8b40-1e192dc3dd85",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "NekoGraph.ChoiceTextNodeData, Assembly-CSharp",
+      "OptionIndex": 1,
+      "Label": "选项b",
+      "In": "ac23e0cd-881a-4509-9b90-6196beceeac8",
+      "Out": [
+        "eafcabee-d558-4473-8027-fa86db83edd6"
+      ],
+      "NodeID": "33b98900-18d1-4175-920f-2c8a0a153bb2",
+      "EditorPosition": {
+        "x": 720.8,
+        "y": 199.2
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "eafcabee-d558-4473-8027-fa86db83edd6",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "TriggerNodeData, Assembly-CSharp",
+      "Event": 0,
+      "InputNodeIDs": [
+        "eab67f7f-8fdd-44a8-af8b-c5a6b6a7856f"
+      ],
+      "SignalOutputs": [
+        "1de5005c-6101-48f5-b7d2-26cf3b18969d"
+      ],
+      "NodeID": "0883eee0-335f-4180-8b40-1e192dc3dd85",
+      "EditorPosition": {
+        "x": 1000.0,
+        "y": -26.4000015
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "1de5005c-6101-48f5-b7d2-26cf3b18969d",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "TriggerNodeData, Assembly-CSharp",
+      "Event": 0,
+      "InputNodeIDs": [
+        "33b98900-18d1-4175-920f-2c8a0a153bb2"
+      ],
+      "SignalOutputs": [
+        "0102929a-ebf7-4b84-b0ec-2e672f80c124"
+      ],
+      "NodeID": "eafcabee-d558-4473-8027-fa86db83edd6",
+      "EditorPosition": {
+        "x": 990.4,
+        "y": 196.0
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "0102929a-ebf7-4b84-b0ec-2e672f80c124",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "CommandNodeData, Assembly-CSharp",
+      "Command": {
+        "CommandName": "ai_wave",
+        "Parameter": "",
+        "Parameters": [
+          "",
+          "",
+          ""
+        ]
+      },
+      "InputNodeIDs": [
+        "0883eee0-335f-4180-8b40-1e192dc3dd85"
+      ],
+      "OutputNodeIDs": [
+        "bc68bbe2-5ff6-4320-b263-80ad966d2d4f"
+      ],
+      "NodeID": "2dd71aae-f534-46ca-bab0-c5e776bfc80c",
+      "EditorPosition": {
+        "x": 1740.0,
+        "y": -26.4000015
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "bc68bbe2-5ff6-4320-b263-80ad966d2d4f",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "CommandNodeData, Assembly-CSharp",
+      "Command": {
+        "CommandName": "",
+        "Parameter": "",
+        "Parameters": []
+      },
+      "InputNodeIDs": [
+        "eafcabee-d558-4473-8027-fa86db83edd6"
+      ],
+      "OutputNodeIDs": [
+        "bc68bbe2-5ff6-4320-b263-80ad966d2d4f"
+      ],
+      "NodeID": "207ddc55-e3e5-4181-9048-f581e932567a",
+      "EditorPosition": {
+        "x": 1720.0,
+        "y": 244.000015
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "bc68bbe2-5ff6-4320-b263-80ad966d2d4f",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "NekoGraph.SocialMsgEndNodeData, Assembly-CSharp",
+      "In": "207ddc55-e3e5-4181-9048-f581e932567a",
+      "NodeID": "bc68bbe2-5ff6-4320-b263-80ad966d2d4f",
+      "EditorPosition": {
+        "x": 2159.2,
+        "y": 129.6
+      },
+      "OutputConnections": []
+    },
+    {
+      "$type": "ComparerNodeData, Assembly-CSharp",
+      "ComparerName": "",
+      "Parameters": [],
+      "InputNodeIDs": [],
+      "PassOutputs": [
+        "2dd71aae-f534-46ca-bab0-c5e776bfc80c"
+      ],
+      "FailOutputs": [],
+      "NodeID": "1de5005c-6101-48f5-b7d2-26cf3b18969d",
+      "EditorPosition": {
+        "x": 1331.2,
+        "y": -43.2
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "2dd71aae-f534-46ca-bab0-c5e776bfc80c",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "ComparerNodeData, Assembly-CSharp",
+      "ComparerName": "",
+      "Parameters": [],
+      "InputNodeIDs": [],
+      "PassOutputs": [
+        "207ddc55-e3e5-4181-9048-f581e932567a"
+      ],
+      "FailOutputs": [],
+      "NodeID": "0102929a-ebf7-4b84-b0ec-2e672f80c124",
+      "EditorPosition": {
+        "x": 1311.2,
+        "y": 196.8
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "207ddc55-e3e5-4181-9048-f581e932567a",
+          "ToPortIndex": 0
+        }
+      ]
+    }
+  ]
+}

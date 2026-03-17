@@ -62,56 +62,54 @@ high-performance game logic and flexible mission/story editing.
 
 ## 🎨 NekoGraph 可视化脚本系统
 
-> ⭐ **项目核心亮点** - 自研节点式流程图编辑器，让游戏逻辑像电流一样流动喵~ (=^･ω･^=)
+> ⭐ **项目核心亮点** - 基于“解耦监听器”与“独立比较器”的 2.0 架构喵~ (=^･ω･^=)
 
 <div align="center">
 
 ![NekoGraph 可视化脚本系统示意图](./NekoGraph_Preview.png)
 
-_NekoGraph 编辑器界面与节点流程图_
+_NekoGraph 编辑器界面与节点流程图（旧版-未加入比较器）_
 
 </div>
 
 ### 系统概述 / Overview
 
-NekoGraph 是一个基于**策略模式**和**信号驱动**的可视化脚本系统，灵感来源于电路模拟。开发者可以通过节点连线编排任务流程、剧情事件、游戏逻辑，无需编写代码即可实现复杂的游戏行为。
+NekoGraph 2.0 采用了 **Trigger (监听) + Comparer (判定)**
+的彻底解耦模式。逻辑流不再是臃肿的单一节点，而是像积木一样可以自由组合的“协议化信号链”。
 
 **核心设计理念**:
 
-```
-逻辑即电路 / Logic as Circuit:
-- PackData      → RuntimeGraphInstance（电路板）
-- 节点          → 元件 (Component)
-- 连线          → 导线 (Wire)
-- GraphRunner   → 模拟器 (Simulator)
-- Signal        → 电流脉冲 (Current Pulse)
-- Payload       → 电流携带的数据 (Data Carrier)
-```
+- **Trigger (🔔 监听器)**：只负责“喊一嗓子”。它监听总线，一旦目标事件发生，立即将数据（Payload）打包并向下游发送。
+- **Comparer (⚖️ 比较器)**：逻辑安检站。它接收 Trigger 发来的包裹，根据预设逻辑进行判定。
+- **Backtrace
+  (🔄 失败回溯)**：当比较器判定失败时，信号会自动沿路径回溯并重新激活上游 Trigger，**消灭图面上的冗余回调连线**喵！
+
+### 🛡️ 强类型事件契约 (Strong-Typed Events)
+
+为了解决 Agent 时代的代码契约问题，我们建立了钢铁般的“邮局协议”喵：
+
+- **GameEvent**：集约化枚举定义，每个事件都绑定了 `EventProtocol`（如 Entity, Numeric, String）。
+- **PostOffice**：官方唯一发货口，自带运行时协议审计。
+- **Static Analyzer**：编辑器自动扫描代码，禁止私自绕过邮局发送契约事件喵！
 
 ### 架构总览 / Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    GraphRunner (单例/Single)                     │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │              运行时图实例字典 / Instance Dict            │   │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │   │
-│  │  │ Story Graph  │  │Mission Graph │  │  Event Graph │  │   │
-│  │  │  NodeMap     │  │  NodeMap     │  │  NodeMap     │  │   │
-│  │  │  Signals     │  │  Signals     │  │  Signals     │  │   │
-│  │  │PoweredTrig.  │  │PoweredTrig.  │  │PoweredTrig.  │  │   │
-│  │  └──────────────┘  └──────────────┘  └──────────────┘  │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                           ↑                                     │
-│                    Update() 驱动信号步进                        │
-└───────────────────────────┼─────────────────────────────────────┘
-                            │
-         ┌──────────────────┼──────────────────┐
-         │                  │                  │
-┌────────▼────────┐ ┌──────▼───────┐ ┌────────▼────────┐
-│ FlowNodeStrategy│ │TriggerStrategy│ │CommandStrategy  │
-│ (Root/Spine/Leaf)│ │(响应式触发器) │ │(命令执行)       │
-└─────────────────┘ └───────────────┘ └─────────────────┘
+│                    GraphRunner (中央调度器)                      │
+├─────────────────────────────────────────────────────────────────┤
+│  信号流转链条 / Signal Flow Chain:                               │
+│                                                                 │
+│  [Game Logic] -> PostOffice -> PostSystem                       │
+│                                     ↓                           │
+│  ┌────────────┐      ┌────────────┐      ┌────────────┐         │
+│  │ TriggerNode│─────▶│ComparerNode│─────▶│ CommandNode│         │
+│  │ (接收信号包)│      │ (逻辑判定)  │      │ (执行后果)  │         │
+│  └────────────┘      └─────┬──────┘      └────────────┘         │
+│             ▲              │                                    │
+│             └──────────────┘                                    │
+│               Fail Backtrace (失败回溯重连魔法)                   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### 核心组件 / Core Components
@@ -246,133 +244,59 @@ public static class NodeStrategyFactory
 
 #### 功能节点 / Functional Nodes
 
-| 节点类型        | 说明                                            | 阻塞 Signal           |
-| --------------- | ----------------------------------------------- | --------------------- |
-| **CommandNode** | 命令执行节点，调用 CommandRegistry 执行游戏命令 | ❌ 不阻塞             |
-| **TriggerNode** | 触发器节点，监听总线事件，条件满足才放行        | ✅ 阻塞，等待触发条件 |
-| **MapNode**     | 地图节点，大地图相关操作                        | ❌ 不阻塞             |
+| 节点类型         | 说明                                              | 协议要求    |
+| ---------------- | ------------------------------------------------- | ----------- |
+| **TriggerNode**  | **监听器**。仅负责监听事件并转发 Payload。        | ✅ 契约绑定 |
+| **ComparerNode** | **比较器**。执行逻辑判定（数值/ID/状态）。        | ✅ 协议匹配 |
+| **CommandNode**  | 命令执行节点。调用 CommandRegistry 执行游戏命令。 | ❌ 无       |
 
 ---
 
-### 电路协议 / Circuit Protocol
+### 电路协议 2.0 / Circuit Protocol
 
-> **核心设计理念**：逻辑即电路，Signal 是电流，节点是元件
+> **核心设计理念**：逻辑即电路，解耦监听与判定
 
-#### 阻塞机制 / Blocking Mechanism
-
-两种节点会阻塞 Signal 流动：
-
-**1. SpineNode - 阶段锁**
+#### 信号流转逻辑 / Signal Flow logic
 
 ```
-Signal 进入 SpineNode
-    ↓
-Spine 通过 ProcessID 匹配所有 LeafNode_A
-    ↓
-LeafNode_A 激活 MissionNode_A（任务开始）
-    ↓
-【Spine 卡住 Signal，等待...】
-    ↓
-子任务完成 → LeafNode_B 发送信号回 Spine
-    ↓
-Spine 检查：所有 LeafNode_B 完成？
-    ↓
-是 → Spine 放行 Signal 到下一个 Spine
-否 → 继续等待
+TriggerNode (监听)
+    ↓ [发送信号 + Payload]
+ComparerNode (判定)
+    ↙           ↘
+ [Pass]        [Fail]
+    ↓             ↘
+CommandNode     Backtrace (回溯至上游 Trigger)
 ```
 
-**2. TriggerNode - 条件门**
-
-```
-Signal 进入 TriggerNode
-    ↓
-TriggerNode 调用 PostSystem.On() 挂载监听
-    ↓
-【Trigger 卡住 Signal，等待事件...】
-    ↓
-事件发生（如"金币更变"）
-    ↓
-Trigger 检查：CurrentAmount >= RequiredAmount？
-    ↓
-是 → Trigger 触发，PostSystem.Off()，放行 Signal
-否 → 继续等待
-```
-
-#### 完整流程示例 / Complete Flow Example
-
-```
-【阶段 1：赚钱】
-RootNode → Spine("Test-赚钱")
-              ↓
-         【Spine 阻塞 Signal，开始等待】
-              ↓
-         【ProcessID 匹配】
-              ↓
-         LeafNode_A("Test-赚钱") → MissionNode_A("试试赚 100 块")
-                                         ↓
-                                  【UI 显示"任务进行中"】
-                                         ↓
-                              TriggerNode(金币>=100)
-                                         ↓
-                                  【等待...等待...】
-                                         ↓
-                                  【玩家赚够 100 块！】
-                                         ↓
-                                  MissionNode_S(成功)
-                                         ↓
-                                  【UI 显示"任务完成✅"】
-                                         ↓
-                                  LeafNode_B("Test-赚钱")
-                                         ↓
-                                  【信号回到 Spine】
-                                         ↓
-                                  Spine 检查：所有 LeafNode_B 完成 ✅
-                                         ↓
-【阶段 2：放行】
-Spine("Test-赚钱") → Spine("Test-结束")
-                        ↓
-                   【Spine 阻塞 Signal，开始等待】
-                        ↓
-                   【ProcessID 匹配】
-                        ↓
-                   LeafNode_A("Test-结束") → MissionNode_A("测试成功！大概")
-                                                  ↓
-                                           【UI 显示"任务进行中"】
-                                                  ↓
-                                           LeafNode_B("Test-结束")
-                                                  ↓
-                                           【信号回到 Spine】
-                                                  ↓
-                                           Spine 检查：所有 LeafNode_B 完成 ✅
-                                                  ↓
-【阶段 3：结束】
-Spine("Test-结束") → 【无下一个 Spine，流程结束】
-```
-
-#### Trigger 节点生命周期 / TriggerNode Lifecycle
+#### Trigger + Comparer 协同生命周期
 
 ```
 ┌─────────────────┐
 │  Signal 进入    │  ← 通电
-│  OnSignalEnter  │
+│  TriggerNode    │
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│ PostSystem.On() │ ← 挂载监听回调
-│ 监听指定事件    │
+│ PostSystem.On() │ ← 挂载轻量监听
 └────────┬────────┘
          │
-         │ 等待事件...（低功耗待机）
+         │ 等待事件... (低功耗)
          │
          ▼
 ┌─────────────────┐
-│  事件匹配判定   │
-│ MatchesTrigger  │
+│   事件触发！     │ ← 转发 Payload
+│ PropagateSignal │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  ComparerNode   │ ← 逻辑安检站
+│  Execute Logic  │
 └────────┬────────┘
          │
     ┌────┴────┐
-    │  匹配？  │
+    │  通过？  │
     └────┬────┘
          │
     Yes  │  No
@@ -380,86 +304,36 @@ Spine("Test-结束") → 【无下一个 Spine，流程结束】
     │         │
     ▼         ▼
 ┌─────────┐ ┌──────────┐
-│ 触发！  │ │ 继续等待 │
-│         │ │ (保持监听)│
-│ 1. Off()│ └──────────┘
-│ 2. 传导 │
-│ 3. 断开 │
-└─────────┘
+│  放行   │ │ 失败回溯 │
+│         │ │ 重置监听 │
+└─────────┘ └──────────┘
 ```
 
 ---
 
-### 编辑器工具 / Editor Tools
-
-NekoGraph 提供完整的可视化编辑器，支持节点创建、连线、复制粘贴、序列化等功能。
-
-**核心文件**: | 文件 | 功能 | |------|------| | `BaseGraphView<TPack>` | 通用画布基类，提供 Zoom/Drag/Selection 等功能 |
-| `MissionGraphView` | 任务系统专用画布 | | `StoryGraphView` | 剧情系统专用画布 | | `BaseGraphWindow`
-| 编辑器窗口基类，自动生成工具栏 | | `BaseNodeSearchWindow` | 节点搜索窗口，支持树状菜单 |
-
-**架构特点**:
-
-- ✅ **涌现式连接** - 无 PortType 校验，开发者可自由连接任何节点
-- ✅ **中央情报局** - NodeMap 统一管理画布上所有节点
-- ✅ **连线自动捕获** - CollectConnections 自动捕获所有连线，无需手动维护
-- ✅ **邮件自动分拣** - SerializeToPack/PopulateFromPack 使用反射自动序列化
-
----
-
-### 示例任务包结构 / Example Mission Pack
+### 示例任务包结构 / Example Mission Pack (2.0)
 
 ```json
 {
   "PackID": "Tutorial_01",
-  "BoundMap": { "MapID": "Level_001" },
   "Nodes": [
     {
-      "$type": "RootNodeData",
-      "NodeID": "root_001",
-      "OutputConnections": [{ "TargetNodeID": "spine_001" }]
-    },
-    {
-      "$type": "SpineNodeData",
-      "ProcessID": "phase_1",
-      "NodeID": "spine_001",
-      "OutputConnections": [{ "TargetNodeID": "spine_002" }]
-    },
-    {
-      "$type": "LeafNode_A_Data",
-      "ProcessID": "phase_1",
-      "OutputNodeIds": ["mission_001"]
-    },
-    {
-      "$type": "MissionNode_A_Data",
-      "MissionID": "first_blood",
-      "Title": "第一滴血",
-      "NodeID": "mission_001",
-      "OutputConnections": [{ "TargetNodeID": "trigger_001" }]
-    },
-    {
       "$type": "TriggerNodeData",
-      "Trigger": { "EventName": "Custom", "Parameters": ["击杀敌人", "", ""] },
-      "RequiredAmount": 1,
-      "NodeID": "trigger_001",
-      "OutputConnections": [{ "TargetNodeID": "mission_s_001" }]
+      "Event": "UnitKilled",
+      "NodeID": "trig_01",
+      "SignalOutputs": ["comp_01"]
     },
     {
-      "$type": "MissionNode_S_Data",
-      "MissionID": "first_blood",
-      "NodeID": "mission_s_001",
-      "OutputConnections": [{ "TargetNodeID": "command_001" }]
+      "$type": "ComparerNodeData",
+      "ComparerName": "id_match",
+      "Parameters": ["Boss_Enemy"],
+      "NodeID": "comp_01",
+      "PassOutputs": ["cmd_01"]
     },
     {
       "$type": "CommandNodeData",
-      "Command": { "CommandName": "cheat_gold", "Parameter": "100" },
-      "NodeID": "command_001",
-      "OutputConnections": [{ "TargetNodeID": "leaf_b_001" }]
-    },
-    {
-      "$type": "LeafNode_B_Data",
-      "ProcessID": "phase_1",
-      "NodeID": "leaf_b_001"
+      "Command": { "CommandName": "win_game" },
+      "NodeID": "cmd_01"
     }
   ]
 }

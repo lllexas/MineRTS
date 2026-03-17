@@ -11,7 +11,7 @@ namespace MineRTS.BigMap.UI.Panels
     /// </summary>
     public class LabRootPanelAnimator : SpaceUIAnimator
     {
-        private void Awake()
+        protected override void Awake()
         {
             base.Awake();
             _uiID = "LabRootPanel";

@@ -1,0 +1,110 @@
+{
+  "PackID": "ab46eb2a-d0ad-4c42-a3fb-ba960234d28e",
+  "Nodes": [
+    {
+      "$type": "RootNodeData, Assembly-CSharp",
+      "_": [
+        "d4388b09-e7e9-4da9-9156-2f319f20b1ba"
+      ],
+      "NodeID": "6a594644-449f-41d8-a07a-d6a29d187ddf",
+      "EditorPosition": {
+        "x": 26.4000015,
+        "y": 132.8
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "d4388b09-e7e9-4da9-9156-2f319f20b1ba",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "TechNodeData, Assembly-CSharp",
+      "TechType": 0,
+      "UnlockReward": {
+        "CommandName": "",
+        "Parameter": "",
+        "Parameters": []
+      },
+      "InputNodeIDs": [],
+      "OutputNodeIDs": [
+        "8828ba40-7112-4090-9c3a-0716b8aff551"
+      ],
+      "NodeID": "d4388b09-e7e9-4da9-9156-2f319f20b1ba",
+      "EditorPosition": {
+        "x": 290.400024,
+        "y": 108.8
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "8828ba40-7112-4090-9c3a-0716b8aff551",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "TechNode_RData, Assembly-CSharp",
+      "InputNodeIDs": [],
+      "OutputNodeIDs": [],
+      "NodeID": "168e9082-bbed-446d-a784-3273a45c2ee3",
+      "EditorPosition": {
+        "x": 961.600037,
+        "y": 340.0
+      },
+      "OutputConnections": []
+    },
+    {
+      "$type": "TriggerNodeData, Assembly-CSharp",
+      "Trigger": {
+        "EventName": "生存时间增加",
+        "Parameters": [],
+        "HasTriggered": false,
+        "IsRegistered": false
+      },
+      "InputNodeIDs": [],
+      "OutputNodeIDs": [
+        "566e5163-1cc7-4bfa-8ee2-de28a8f556c0"
+      ],
+      "ProgressOutputs": [
+        "168e9082-bbed-446d-a784-3273a45c2ee3"
+      ],
+      "CurrentAmount": 0.0,
+      "RequiredAmount": 1.0,
+      "NodeID": "8828ba40-7112-4090-9c3a-0716b8aff551",
+      "EditorPosition": {
+        "x": 636.8,
+        "y": 113.600006
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "566e5163-1cc7-4bfa-8ee2-de28a8f556c0",
+          "ToPortIndex": 0
+        },
+        {
+          "FromPortIndex": 1,
+          "TargetNodeID": "168e9082-bbed-446d-a784-3273a45c2ee3",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "CommandNodeData, Assembly-CSharp",
+      "Command": {
+        "CommandName": "",
+        "Parameter": "",
+        "Parameters": []
+      },
+      "InputNodeIDs": [],
+      "OutputNodeIDs": [],
+      "NodeID": "566e5163-1cc7-4bfa-8ee2-de28a8f556c0",
+      "EditorPosition": {
+        "x": 968.0,
+        "y": 109.600006
+      },
+      "OutputConnections": []
+    }
+  ]
+}

@@ -92,6 +92,7 @@ public static partial class CommandRegistry
                     // 创建委托
                     var handler = (CommandHandlerWithOutput)Delegate.CreateDelegate(typeof(CommandHandlerWithOutput), method);
                     _commandHandlers[attr.Name.ToLower()] = handler;
+                    _commandMetadatas[attr.Name.ToLower()] = attr;  // 同时注册元数据喵~
 
                     Debug.Log($"[CommandRegistry] 注册命令：{attr.Name} ({attr.DisplayName}) 喵~");
                 }
@@ -124,7 +125,8 @@ public static partial class CommandRegistry
                 // 如果有消息，打印到控制台
                 if (!string.IsNullOrEmpty(output.Message))
                 {
-                    console?.Log(output.Message, output.Result == CommandResult.Success ? Color.green : Color.red);
+                    // 直接使用 DeveloperConsole.Instance，避免闭包捕获 null
+                    console.Log(output.Message, output.Result == CommandResult.Success ? Color.green : Color.red);
                 }
                 // 不再返回 output.Result，因为 AddCommand 期望的是 void 返回
             });

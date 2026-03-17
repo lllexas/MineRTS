@@ -47,6 +47,13 @@ public class UserModel
     public SaveMetadata Metadata = new SaveMetadata();
     public GlobalProgression Progression = new GlobalProgression();
 
+    // ==================== 社交数据 ====================
+
+    /// <summary>
+    /// 社交系统数据（好友、消息、群组等）
+    /// </summary>
+    public SocialData Social = new SocialData();
+
     // ==================== 局外数据（大地图相关） ====================
 
     /// <summary>
@@ -68,6 +75,21 @@ public class UserModel
     /// Key: StageID, Value: 关卡数据
     /// </summary>
     public Dictionary<string, StageSaveData> StageDict = new Dictionary<string, StageSaveData>();
+
+    // ==================== 科技树数据 ====================
+
+    /// <summary>
+    /// 当前加载的科技树 PackID
+    /// </summary>
+    public string TechTreePackID;
+
+    // ==================== 图运行时状态数据 ====================
+
+    /// <summary>
+    /// 图实例运行时状态快照（科技树、剧情图等长期有效的图）
+    /// 用于保存图的进度：信号位置、阻隔节点状态等
+    /// </summary>
+    public List<GraphInstanceSnapshot> SavedGraphStates = new List<GraphInstanceSnapshot>();
 
     // ==================== 经济数据 管理方法 ====================
 

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(ls:*)",
       "Bash(git add:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(find G:\\\\ProjectOfGame\\\\MineRTS\\\\Assets\\\\Scripts\\\\NekoGraph:*)"
     ]
   },
   "outputStyle": "neko-chan"

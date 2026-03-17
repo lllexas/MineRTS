@@ -378,6 +378,114 @@ public static partial class CommandRegistry
     }
 
     // =========================================================
+    // 📂 VFS 相关命令
+    // =========================================================
+
+    [CommandInfo("vfs_load", "📂 加载 VFS", "System", new[] { "PackPath", "InstanceID" },
+        Tooltip = "加载 VFS 数据包喵~\n示例：vfs_load GraphVSF/Packs/social_tree Social_01",
+        Color = "0.3,0.5,0.7")]
+    public static CommandOutput VFSLoad(DeveloperConsole console, string[] args, object payload)
+    {
+        if (args.Length < 1)
+        {
+            return CommandOutput.Fail("Usage: vfs_load <PackPath> [InstanceID]");
+        }
+
+        string packPath = args[0];
+        string instanceID = args.Length > 1 ? args[1] : "default";
+
+        var analyser = GraphAnalyser.Instance;
+        if (analyser == null)
+        {
+            return CommandOutput.Fail("GraphAnalyser 实例不存在喵~");
+        }
+
+        var pack = VFSLoader.LoadPackFromResources(packPath);
+        if (pack == null)
+        {
+            return CommandOutput.Fail($"加载 VFS Pack 失败：{packPath}");
+        }
+
+        var instance = analyser.LoadVFSFromPack(pack, instanceID);
+        if (instance == null)
+        {
+            return CommandOutput.Fail("加载 VFS 实例失败喵~");
+        }
+
+        analyser.SetDefaultInstanceId(instanceID);
+
+        return CommandOutput.Success($"VFS 已加载：{instanceID} (节点数：{instance.NodeMap.Count}, 路径索引：{instance.PathIndex.Count})");
+    }
+
+
+    [CommandInfo("vfs_info", "🔍 VFS 信息", "System", null,
+        Tooltip = "显示 VFS 系统信息喵~",
+        Color = "0.5,0.5,0.5")]
+    public static CommandOutput VFSInfo(DeveloperConsole console, string[] args, object payload)
+    {
+        var analyser = GraphAnalyser.Instance;
+        if (analyser == null)
+        {
+            return CommandOutput.Fail("GraphAnalyser 未初始化喵~\n请使用 vfs_load 命令加载 VFS 数据包");
+        }
+
+        if (analyser.GetAllInstanceIds().Count == 0)
+        {
+            return CommandOutput.Fail("未加载任何 VFS 实例喵~\n请使用 vfs_load 命令加载 VFS 数据包");
+        }
+
+        return CommandOutput.Success((GameObject.FindFirstObjectByType<SocialCLI>()).GetVFSDebugInfo());
+    }
+
+    // =========================================================
+    // 💬 Social 社交相关命令
+    // =========================================================
+
+    [CommandInfo("social_send", "💬 发送社交消息", "Social", new[] { "PackID", "VFSPath (optional)", "Sender (optional)" },
+        Tooltip = "发送一条社交消息给玩家喵~\n示例：social_send event_01 /social/inbox/msg01.msg 指挥官",
+        Color = "0.3,0.5,0.8")]
+    public static CommandOutput SocialSend(DeveloperConsole console, string[] args, object payload)
+    {
+        if (args.Length < 1)
+        {
+            return CommandOutput.Fail("Usage: social_send <PackID> [VFSPath] [Sender]");
+        }
+
+        string packID = args[0];
+        string vfsPath = (args.Length > 1) ? args[1] : null;
+        string sender = (args.Length > 2) ? args[2] : "系统";
+
+        if (SocialManager.Instance == null)
+        {
+            return CommandOutput.Fail("SocialManager 实例不存在喵~");
+        }
+
+        SocialManager.Instance.SendMessage(packID, sender, vfsPath);
+        return CommandOutput.Success($"社交消息已发送：PackID={packID}, Sender={sender}, Path={(vfsPath ?? "默认")} 喵~");
+    }
+
+    [CommandInfo("social_markread", "💬 标记消息已读", "Social", new[] { "VFSPath" },
+        Tooltip = "标记某条社交消息为已读喵~\n示例：social_markread /social/messages/event_01.msg",
+        Color = "0.3,0.6,0.7")]
+    public static CommandOutput SocialMarkRead(DeveloperConsole console, string[] args, object payload)
+    {
+        if (args.Length < 1)
+        {
+            return CommandOutput.Fail("Usage: social_markread <VFSPath>");
+        }
+
+        string vfsPath = args[0];
+
+        if (SocialManager.Instance == null)
+        {
+            return CommandOutput.Fail("SocialManager 实例不存在喵~");
+        }
+
+        SocialManager.Instance.MarkAsRead(vfsPath);
+        return CommandOutput.Success($"消息已标记为已读：{vfsPath} 喵~");
+    }
+
+    // =========================================================
     // 🎮 Mission 任务相关命令
     // =========================================================
 
@@ -444,10 +552,10 @@ public static partial class CommandRegistry
         return CommandResult.Success;
     }*/
 
-    [CommandInfo("help", "⚡ 帮助", "System", new[] { "Command (optional)" },
+    [CommandInfo("system_help", "⚡ 系统帮助", "System", new[] { "Command (optional)" },
         Tooltip = "显示帮助信息或指定命令的用法喵~\n示例：help spawn",
         Color = "0.5,0.5,0.5")]
-    public static CommandOutput Help(DeveloperConsole console, string[] args, object payload)
+    public static CommandOutput SystemHelp(DeveloperConsole console, string[] args, object payload)
     {
         string helpText = "RTS Commands:\n";
         foreach (var command in console.GetCommandKeys())
