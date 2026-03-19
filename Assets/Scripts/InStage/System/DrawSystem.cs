@@ -153,7 +153,7 @@ public class DrawSystem : SingletonMono<DrawSystem>
                 tm.fontSize = 50;
                 tm.fontStyle = FontStyle.Bold;
                 tm.anchor = TextAnchor.MiddleCenter;
-                tm.alignment = TextAlignment.Center;
+                tm.alignment = UnityEngine.TextAlignment.Center;
 
                 var mr = textObj.GetComponent<MeshRenderer>();
                 mr.sortingLayerName = "Number";

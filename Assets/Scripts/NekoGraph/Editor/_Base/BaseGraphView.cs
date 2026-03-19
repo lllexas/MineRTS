@@ -455,11 +455,14 @@ public abstract class BaseGraphView<TPack> : GraphView, INekoGraphNodeFactory, I
             CollectConnections(node);  // 直接更新 node.Data.OutputConnections 和 [OutPort] 字段
         }
 
-        // 【一锅粥方案】所有节点直接丢进 Nodes 列表，类型信息交给 Newtonsoft.Json 处理喵~！
-        pack.Nodes = NodeMap.Values.Where(n => n.Data != null).Select(n => n.Data).ToList();
+        // 【一锅粥方案】所有节点直接丢进 Nodes 字典，类型信息交给 Newtonsoft.Json 处理喵~！
+        pack.Nodes = NodeMap.Values.Where(n => n.Data != null).ToDictionary(n => n.Data.NodeID, n => n.Data);
 
         // 子类扩展点：填充特殊字段喵~
         OnAfterSerialize(pack);
+
+        // 自动构建 RootNodeId 喵~
+        pack.BuildRootNodeId();
 
         return pack;
     }
@@ -476,7 +479,7 @@ public abstract class BaseGraphView<TPack> : GraphView, INekoGraphNodeFactory, I
     /// <summary>
     /// 从数据包填充画布喵~
     /// 【Newtonsoft.Json + TypeNameHandling.Auto 驱动】
-    /// - 直接从 Nodes 列表读取所有节点
+    /// - 直接从 Nodes 字典读取所有节点
     /// - 类型信息已自动恢复（$type 字段）
     /// - 无需手动遍历字段，一锅粥倒出来喵~！
     /// </summary>
@@ -486,8 +489,8 @@ public abstract class BaseGraphView<TPack> : GraphView, INekoGraphNodeFactory, I
         DeleteElements(graphElements);
         NodeMap.Clear();
 
-        // 【一锅粥方案】直接从 Nodes 列表读取所有节点，类型信息已自动恢复喵~！
-        foreach (var data in pack.Nodes)
+        // 【一锅粥方案】直接从 Nodes 字典读取所有节点，类型信息已自动恢复喵~！
+        foreach (var data in pack.Nodes.Values)
         {
             if (data != null && !string.IsNullOrEmpty(data.NodeID))
             {

@@ -7,7 +7,7 @@ using UnityEngine;
 /// TriggerNode 策略 - 响应式监听与信号传导喵！
 /// 职责：管理基于 PostSystem 的订阅生命周期，并将 Payload 注入 SignalContext 喵~
 /// </summary>
-public class TriggerNodeStrategy : INodeStrategy
+public class TriggerNodeStrategy : NodeStrategy
 {
     public static TriggerNodeStrategy Instance { get; private set; }
 
@@ -25,7 +25,7 @@ public class TriggerNodeStrategy : INodeStrategy
 
     private HashSet<string> _registeredNodes = new HashSet<string>();
 
-    public void OnSignalEnter(BaseNodeData data, SignalContext context, RuntimeGraphInstance instance)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
     {
         if (data is not TriggerNodeData triggerNode) return;
 
@@ -38,12 +38,12 @@ public class TriggerNodeStrategy : INodeStrategy
         }
 
         // 注册监听，注入简单的传导逻辑喵~
-        RegisterTrigger(triggerNode, context, instance);
+        RegisterTrigger(triggerNode, context, pack);
     }
 
-    public void OnEvent(BaseNodeData data, string eventName, object eventData, RuntimeGraphInstance instance) { }
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack) { }
 
-    private void RegisterTrigger(TriggerNodeData node, SignalContext context, RuntimeGraphInstance instance)
+    private void RegisterTrigger(TriggerNodeData node, SignalContext context, BasePackData pack)
     {
         Action<object> callback = null;
         callback = payload =>
@@ -61,40 +61,35 @@ public class TriggerNodeStrategy : INodeStrategy
             var nextSignal = context.Clone();
             nextSignal.Args = payload;
 
-            PropagateSignal(node, nextSignal, instance);
+            PropagateSignal(node, nextSignal, pack);
         };
 
         node.Register(callback);
         _registeredNodes.Add(node.NodeID);
 
         // 追踪管理，方便强制清理喵~
-        if (!_instanceToTriggers.TryGetValue(instance.InstanceID, out var nodeSet))
+        if (!_instanceToTriggers.TryGetValue(pack.PackID, out var nodeSet))
         {
             nodeSet = new HashSet<TriggerNodeData>();
-            _instanceToTriggers[instance.InstanceID] = nodeSet;
+            _instanceToTriggers[pack.PackID] = nodeSet;
         }
         nodeSet.Add(node);
     }
 
-    private void PropagateSignal(TriggerNodeData node, SignalContext signal, RuntimeGraphInstance instance)
+    private void PropagateSignal(TriggerNodeData node, SignalContext signal, BasePackData pack)
     {
         // 我们只关注 SignalOutputs (端口 0) 喵~
         if (node.SignalOutputs == null) return;
-        
-        foreach (var targetId in node.SignalOutputs)
-        {
-            var s = signal.Clone();
-            s.CurrentNodeId = targetId;
-            instance.InjectSignal(s);
-        }
+
+        EnqueueSignals(pack, node.SignalOutputs, signal);
     }
 
-    public void ForceDeactivate(string instanceID)
+    public void ForceDeactivate(string packID)
     {
         // 这里需要更精细的注销逻辑，目前先简单清理喵~
-        if (_instanceToTriggers.TryGetValue(instanceID, out var nodeSet))
+        if (_instanceToTriggers.TryGetValue(packID, out var nodeSet))
         {
-            _instanceToTriggers.Remove(instanceID);
+            _instanceToTriggers.Remove(packID);
         }
     }
 }

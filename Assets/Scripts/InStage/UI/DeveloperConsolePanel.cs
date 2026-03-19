@@ -76,10 +76,6 @@ public class DeveloperConsolePanel : ConsolePanelBase<DeveloperConsole>
     //  重写基类方法
     // =========================================================
 
-    protected override void OnEnable()
-    {
-        base.OnEnable();
-    }
 
     protected override void OnDisable()
     {

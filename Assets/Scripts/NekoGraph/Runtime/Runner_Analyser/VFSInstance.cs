@@ -231,7 +231,7 @@ public class VFSInstance
             PackID = PackID,
             DisplayName = PackID + " Runtime Snapshot",
             Description = "由 VFSInstance 动态生成的快照数据包喵~",
-            Nodes = new List<BaseNodeData>(NodeMap.Values),
+            Nodes = new Dictionary<string, BaseNodeData>(NodeMap),
             RootNodeId = RootNodeId
         };
         return pack;

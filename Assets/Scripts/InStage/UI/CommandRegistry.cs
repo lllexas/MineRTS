@@ -519,21 +519,20 @@ public static partial class CommandRegistry
         if (args.Length < 1) return CommandResult.Failed;
 
         string path = args[0];
-        // bool append = (args.Length > 1 && args[1] == "1");  // 旧系统参数，暂不支持
-        
+
         // 使用新的 GraphRunner 系统加载任务包喵~
-        var pack = GraphLoader.LoadPackFromResources(path);
+        var pack = MetaLib.GetPack<MissionPackData>(path);
         if (pack != null)
         {
-            var instance = GraphLoader.LoadFromPack(pack, null, "Mission");
-            if (instance != null && GraphRunner.Instance != null)
+            if (GraphRunner.Instance != null)
             {
-                GraphRunner.Instance.RegisterInstance(instance);
-                Log(console, $"[新系统] 任务包已加载：{path}", Color.green);
+                GraphRunner.Instance.SetPackDataDict(MainModel.Instance.CurrentUser.PackDataDict);
+                var instanceID = GraphRunner.Instance.LoadPack(pack);
+                Log(console, $"[新系统] 任务包已加载：{path} → InstanceID: {instanceID}", Color.green);
                 return CommandResult.Success;
             }
         }
-        
+
         Log(console, $"[新系统] 任务包加载失败：{path}", Color.red);
         return CommandResult.Failed;
     }

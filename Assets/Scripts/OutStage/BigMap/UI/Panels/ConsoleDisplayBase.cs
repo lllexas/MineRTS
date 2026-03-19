@@ -26,8 +26,16 @@ namespace MineRTS.BigMap.UI.Panels
     ///
     /// ═══════════════════════════════════════════════════════════════
     /// </summary>
-    public abstract class ConsoleDisplayBase : SpaceUIAnimator
+    public abstract class ConsoleDisplayBase<T> : SpaceUIAnimator where T : TUIManager
     {
+        // =========================================================
+        //  TUI 管理层（由子类实现）
+        // =========================================================
+
+        /// <summary>TUI 管理层实例（由子类实现）</summary>
+        protected abstract T ConsoleLogic { get; }
+
+
         // =========================================================
         //  UI 组件引用（显示层）
         // =========================================================
@@ -90,6 +98,9 @@ namespace MineRTS.BigMap.UI.Panels
             {
                 scrollbar.onValueChanged.RemoveListener(OnScrollbarChanged);
             }
+            // 反订阅清屏事件
+            if (ConsoleLogic != null)
+                ConsoleLogic.OnClearRequested -= ClearLog;
         }
 
         protected virtual void Start()
@@ -99,6 +110,17 @@ namespace MineRTS.BigMap.UI.Panels
             if (_buffer != null)
             {
                 _buffer.MaxColumns = CalculateMaxColumns();
+            }
+
+            // 统一在 ConsoleDisplayBase 层注入 Clear/Width 钩子
+            // 注意：必须先订阅 OnClearRequested，再设置 ConsoleWidth。
+            // 因为设置宽度可能立即触发 OnConsoleWidthChanged → Render() → InvokeClearRequested()，
+            // 若此时 ClearLog 还未订阅，清屏无效，内容会叠加。
+            if (ConsoleLogic != null)
+            {
+                ConsoleLogic.OnClearRequested += ClearLog;           // ← 先订阅
+                if (_buffer != null && _buffer.MaxColumns > 0)
+                    ConsoleLogic.ConsoleWidth = _buffer.MaxColumns;  // ← 后注入（可能立即触发 Render）
             }
         }
 

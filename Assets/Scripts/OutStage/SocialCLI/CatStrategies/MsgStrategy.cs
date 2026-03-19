@@ -81,13 +81,15 @@ namespace CatStrategies
             }
 
             _instanceID = "TUI_" + Guid.NewGuid().ToString("N").Substring(0, 4);
-            var instance = GraphLoader.LoadFromPackGeneric(pack, _instanceID, "Social", packID);
+            
+            // 使用新的 GraphRunner API 加载喵~
+            GraphRunner.Instance.SetPackDataDict(MainModel.Instance.CurrentUser.PackDataDict);
+            _instanceID = GraphRunner.Instance.LoadPack(pack);
 
-            if (instance != null)
+            if (_instanceID != null)
             {
-                GraphRunner.Instance.RegisterInstance(instance);
                 PostSystem.Instance.Register(this);
-                GraphRunner.Instance.InjectSignal(_instanceID, new SignalContext());
+                GraphRunner.Instance.InjectSignalFromRoot(_instanceID);
 
                 _cli.Log($"[系统] 正在建立加密连接以读取：{VFSPathResolver.GetFileName(vfsPath)}...", Color.gray);
             }
@@ -129,8 +131,9 @@ namespace CatStrategies
             if (!string.IsNullOrEmpty(_vfsPath))
                 SocialManager.Instance.MarkAsRead(_vfsPath);
 
+            // 使用 GraphRunner 卸载 Pack 喵~
             if (!string.IsNullOrEmpty(_instanceID))
-                GraphRunner.Instance.UnregisterInstance(_instanceID);
+                GraphRunner.Instance.UnloadPack(_instanceID);
 
             PostSystem.Instance.Unregister(this);
         }

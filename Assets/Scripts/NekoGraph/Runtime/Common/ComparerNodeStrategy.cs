@@ -6,7 +6,7 @@ using UnityEngine;
 /// <summary>
 /// ComparerNode 策略 - 逻辑判断与信号调度中心喵~
 /// </summary>
-public class ComparerNodeStrategy : INodeStrategy
+public class ComparerNodeStrategy : NodeStrategy
 {
     public static ComparerNodeStrategy Instance { get; private set; }
 
@@ -17,7 +17,7 @@ public class ComparerNodeStrategy : INodeStrategy
 
     private ComparerNodeStrategy() { }
 
-    public void OnSignalEnter(BaseNodeData data, SignalContext context, RuntimeGraphInstance instance)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
     {
         if (data is not ComparerNodeData comparerNode) return;
 
@@ -34,7 +34,7 @@ public class ComparerNodeStrategy : INodeStrategy
         if (result == ComparerResult.Pass)
         {
             // 通过：走绿灯喵！
-            Propagate(comparerNode.PassOutputs, context, instance);
+            Propagate(comparerNode.PassOutputs, context, pack);
         }
         else
         {
@@ -46,30 +46,24 @@ public class ComparerNodeStrategy : INodeStrategy
             }
 
             // 不通过：走红灯喵！
-            Propagate(comparerNode.FailOutputs, context, instance);
-            BacktraceAndReactivateTrigger(context, instance);
+            Propagate(comparerNode.FailOutputs, context, pack);
+            BacktraceAndReactivateTrigger(context, pack);
         }
     }
 
     /// <summary>
     /// 信号传播喵~
     /// </summary>
-    private void Propagate(List<string> targets, SignalContext context, RuntimeGraphInstance instance)
+    private void Propagate(List<string> targets, SignalContext context, BasePackData pack)
     {
         if (targets == null) return;
-        foreach (var targetId in targets)
-        {
-            // 分叉时复制路径列表，每个分支独立记录喵~
-            var next = context.Clone(copyPath: true);
-            next.CurrentNodeId = targetId;
-            instance.InjectSignal(next);
-        }
+        EnqueueSignals(pack, targets, context);
     }
 
     /// <summary>
     /// 顺着信号路径往回找，重新激活上一个 Trigger 节点喵！
     /// </summary>
-    private void BacktraceAndReactivateTrigger(SignalContext context, RuntimeGraphInstance instance)
+    private void BacktraceAndReactivateTrigger(SignalContext context, BasePackData pack)
     {
         // 信号路径是从近到远排列的，我们倒着找喵~
         // 注意：TraveledPath 存储的是 ConnectionData 列表
@@ -80,14 +74,14 @@ public class ComparerNodeStrategy : INodeStrategy
         for (int i = path.Count - 1; i >= 0; i--)
         {
             var conn = path[i];
-            
+
             // 优先使用 SourceNodeID，如果没有则使用当前节点 ID 回溯
-            string nodeId = !string.IsNullOrEmpty(conn.SourceNodeID) ? 
-                conn.SourceNodeID : 
-                FindSourceNodeId(conn, instance);
-            
-            if (!string.IsNullOrEmpty(nodeId) && 
-                instance.NodeMap.TryGetValue(nodeId, out var node) && 
+            string nodeId = !string.IsNullOrEmpty(conn.SourceNodeID) ?
+                conn.SourceNodeID :
+                FindSourceNodeId(conn, pack);
+
+            if (!string.IsNullOrEmpty(nodeId) &&
+                pack.Nodes.TryGetValue(nodeId, out var node) &&
                 node is TriggerNodeData triggerNode)
             {
                 if (GraphRunner.Instance.EnableDebugLog)
@@ -96,7 +90,7 @@ public class ComparerNodeStrategy : INodeStrategy
                 }
 
                 // 重新通过 Strategy 激活该 Trigger 的监听喵~
-                TriggerNodeStrategy.Instance.OnSignalEnter(triggerNode, context, instance);
+                TriggerNodeStrategy.Instance.OnSignalEnter(triggerNode, context, pack);
                 break; // 找到最近的一个就够了喵~
             }
         }
@@ -105,10 +99,10 @@ public class ComparerNodeStrategy : INodeStrategy
     /// <summary>
     /// 从连接数据中查找源节点 ID 喵~
     /// </summary>
-    private string FindSourceNodeId(ConnectionData conn, RuntimeGraphInstance instance)
+    private string FindSourceNodeId(ConnectionData conn, BasePackData pack)
     {
         // 遍历所有节点，找到包含该连接的节点
-        foreach (var kvp in instance.NodeMap)
+        foreach (var kvp in pack.Nodes)
         {
             if (kvp.Value is BaseNodeData node)
             {
@@ -117,7 +111,7 @@ public class ComparerNodeStrategy : INodeStrategy
                 {
                     foreach (var outputConn in node.OutputConnections)
                     {
-                        if (outputConn.TargetNodeID == conn.TargetNodeID && 
+                        if (outputConn.TargetNodeID == conn.TargetNodeID &&
                             outputConn.FromPortIndex == conn.FromPortIndex)
                         {
                             return kvp.Key;
@@ -129,5 +123,5 @@ public class ComparerNodeStrategy : INodeStrategy
         return null;
     }
 
-    public void OnEvent(BaseNodeData data, string eventName, object eventData, RuntimeGraphInstance instance) { }
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack) { }
 }

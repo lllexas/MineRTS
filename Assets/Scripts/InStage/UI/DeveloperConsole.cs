@@ -24,7 +24,7 @@ using static CommandRegistry;
 ///
 /// ═══════════════════════════════════════════════════════════════
 /// </summary>
-public class DeveloperConsole : MonoBehaviour
+public class DeveloperConsole : TUIManager
 {
     // =========================================================
     //  输出事件数据结构
@@ -139,10 +139,6 @@ public class DeveloperConsole : MonoBehaviour
     /// <summary>是否有活跃的交互策略喵~</summary>
     public bool HasActiveStrategy => _activeStrategy != null;
 
-    /// <summary>终端列宽（由面板层在 Start 时注入）喵~</summary>
-    public int ConsoleWidth { get; set; } = 52;
-
-
 /// <summary>设置并启动一个新的 cat 策略喵~</summary>
     public void SetActiveStrategy(ICatStrategy strategy, string vfsPath, string graphPath = null)
     {
@@ -167,14 +163,8 @@ public class DeveloperConsole : MonoBehaviour
     /// <summary>将回车确认转发给当前活跃策略喵~</summary>
     public void ConfirmStrategySelection() => _activeStrategy?.OnConfirm();
 
-    /// <summary>
-    /// 请求清空控制台输出喵~
-    /// 面板层订阅此事件后调用 ClearLog()
-    /// </summary>
-    public event Action OnClearRequested;
-
     /// <summary>触发清屏请求喵~</summary>
-    public virtual void ClearConsole() => OnClearRequested?.Invoke();
+    public virtual void ClearConsole() => InvokeClearRequested();
 
     /// <summary>请求将控制台视口滚动到顶部喵~（子类可重写）</summary>
     public virtual void ScrollConsoleToTop() { }  // 基类默认空实现

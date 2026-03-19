@@ -183,13 +183,7 @@ public class SaveManager : SingletonMono<SaveManager>
             // 6. 通知 BigMapManager 重新加载地图数据
             LoadBigMapForCurrentUser();
 
-            // 7. 加载科技树
-            LoadTechTreeForCurrentUser();
-
-            // 8. 恢复图运行时状态（读档）
-            RestoreGraphRunnerState(loadedUser);
-
-            // 9. 进入大地图
+            // 7. 进入大地图
             GameFlowController.Instance.SwitchToState(GameFlowController.GameState.BigMap);
         }
         catch (System.Exception e)
@@ -226,45 +220,6 @@ public class SaveManager : SingletonMono<SaveManager>
     }
 
     /// <summary>
-    /// 为当前用户加载科技树喵~
-    /// </summary>
-    private void LoadTechTreeForCurrentUser()
-    {
-        var user = MainModel.Instance.CurrentUser;
-        if (user == null)
-        {
-            Debug.LogWarning("<color=orange>[SaveManager]</color> 当前用户为空，跳过科技树加载");
-            return;
-        }
-
-        // 检查是否有科技树 PackID
-        if (string.IsNullOrEmpty(user.TechTreePackID))
-        {
-            Debug.Log("<color=yellow>[SaveManager]</color> 当前存档没有科技树数据，跳过加载");
-            return;
-        }
-
-        // 检查 TechTreeManager 是否存在
-        if (!TechTreeManager.HasInstance())
-        {
-            Debug.LogWarning("<color=orange>[SaveManager]</color> TechTreeManager 不存在，跳过科技树加载");
-            return;
-        }
-
-        // 从 Resources 加载科技树 Pack
-        var pack = GraphLoader.LoadPackFromResources<LabTechPackData>(user.TechTreePackID);
-        if (pack == null)
-        {
-            Debug.LogError($"<color=red>[SaveManager]</color> 科技树 Pack 加载失败：{user.TechTreePackID}");
-            return;
-        }
-
-        // 加载到 TechTreeManager
-        TechTreeManager.Instance.LoadTechTree(pack);
-        Debug.Log($"<color=cyan>[SaveManager]</color> 科技树已加载：{user.TechTreePackID}");
-    }
-
-    /// <summary>
     /// 【指令：SaveGame】保存当前状态到磁盘
     /// </summary>
     public void SaveGameToDisk()
@@ -280,49 +235,15 @@ public class SaveManager : SingletonMono<SaveManager>
             GameFlowController.Instance.SaveCurrentStageFromSystem();
         }
 
-        // 2. 捕获图运行时状态（科技树、剧情图等长期有效的图）
-        CaptureGraphRunnerState(currentUser);
-
-
+        // 2. 同步 VFS 数据
         PersistentVFSManager.Instance.SyncAll();
 
-
-        // 4. 使用 Newtonsoft.Json 序列化
+        // 3. 使用 Newtonsoft.Json 序列化
         string json = JsonConvert.SerializeObject(currentUser, JsonSettings);
         string fullPath = Path.Combine(SaveDirectory, CurrentSaveFileName + ".json");
 
         File.WriteAllText(fullPath, json);
         Debug.Log($"<color=cyan>[SaveManager]</color> 磁盘写入完毕：{fullPath}");
-    }
-
-    /// <summary>
-    /// 捕获 GraphRunner 中所有运行中的图实例状态喵~
-    /// </summary>
-    private void CaptureGraphRunnerState(UserModel user)
-    {
-        if (GraphRunner.Instance != null)
-        {
-            user.SavedGraphStates = GraphRunner.Instance.CaptureAllRunningGraphs();
-            Debug.Log($"<color=cyan>[SaveManager]</color> 已捕获 {user.SavedGraphStates.Count} 个图实例状态喵~");
-        }
-    }
-
-    /// <summary>
-    /// 恢复 GraphRunner 中的图实例状态喵~（读档）
-    /// </summary>
-    private void RestoreGraphRunnerState(UserModel user)
-    {
-        if (user.SavedGraphStates == null || user.SavedGraphStates.Count == 0)
-        {
-            Debug.Log("<color=yellow>[SaveManager]</color> 没有需要恢复的图实例状态喵~");
-            return;
-        }
-
-        if (GraphRunner.Instance != null)
-        {
-            GraphRunner.Instance.RestoreAllFromSnapshots(user.SavedGraphStates);
-            Debug.Log($"<color=cyan>[SaveManager]</color> 已恢复 {user.SavedGraphStates.Count} 个图实例状态喵~");
-        }
     }
 
     /// <summary>
@@ -434,12 +355,6 @@ public class SaveManager : SingletonMono<SaveManager>
 
         // 3. 【已迁移到 MainModel】销毁当前的 UserModel 引用
         MainModel.Instance.ClearCurrentUser();
-
-        // 4. 卸载科技树
-        if (TechTreeManager.HasInstance())
-        {
-            TechTreeManager.Instance.UnloadTechTree();
-        }
 
         System.GC.Collect();
     }

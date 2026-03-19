@@ -232,9 +232,9 @@ public static class VFSLoader
         if (string.IsNullOrEmpty(pack.RootNodeId)) return false;
 
         // 验证根节点是否存在
-        if (!pack.Nodes.Exists(n => n.NodeID == pack.RootNodeId))
+        if (!pack.Nodes.ContainsKey(pack.RootNodeId))
         {
-            Debug.LogError($"[VFSLoader] 根节点 {pack.RootNodeId} 不存在于 Nodes 列表中喵~");
+            Debug.LogError($"[VFSLoader] 根节点 {pack.RootNodeId} 不存在于 Nodes 字典中喵~");
             return false;
         }
 

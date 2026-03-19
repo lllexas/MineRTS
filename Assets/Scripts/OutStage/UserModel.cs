@@ -82,20 +82,14 @@ public class UserModel
     /// </summary>
     public Dictionary<string, StageSaveData> StageDict = new Dictionary<string, StageSaveData>();
 
-    // ==================== 科技树数据 ====================
+    // ==================== 图数据包数据 ====================
 
     /// <summary>
-    /// 当前加载的科技树 PackID
+    /// 图数据包字典（科技树、剧情图等）
+    /// Key: InstanceID
+    /// Value: BasePackData 本体（支持多态序列化：StoryPackData, LabTechPackData 等）
     /// </summary>
-    public string TechTreePackID;
-
-    // ==================== 图运行时状态数据 ====================
-
-    /// <summary>
-    /// 图实例运行时状态快照（科技树、剧情图等长期有效的图）
-    /// 用于保存图的进度：信号位置、阻隔节点状态等
-    /// </summary>
-    public List<GraphInstanceSnapshot> SavedGraphStates = new List<GraphInstanceSnapshot>();
+    public Dictionary<string, BasePackData> PackDataDict = new Dictionary<string, BasePackData>();
 
     // ==================== 经济数据 管理方法 ====================
 

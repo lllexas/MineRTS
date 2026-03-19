@@ -70,8 +70,10 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
         var instance = new VFSInstance(packID, "VFS");
 
         // 3. 从 PackData 填充 NodeMap（所有节点类型）
-        foreach (var node in pack.Nodes)
+        foreach (var kvp in pack.Nodes)
         {
+            var node = kvp.Value;
+            
             // 添加到 NodeMap（所有节点类型，包括 RootNodeData 和 VFSNodeData）
             instance.NodeMap[node.NodeID] = node;
 
@@ -116,8 +118,10 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
         var instance = new VFSInstance(packID, "VFS");
 
         // 2. 从 PackData 填充 NodeMap（所有节点类型）
-        foreach (var node in pack.Nodes)
+        foreach (var kvp in pack.Nodes)
         {
+            var node = kvp.Value;
+            
             // 添加到 NodeMap（所有节点类型，包括 RootNodeData 和 VFSNodeData）
             instance.NodeMap[node.NodeID] = node;
 

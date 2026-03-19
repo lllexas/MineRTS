@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Newtonsoft.Json;
+using System.Linq;
 
 /// <summary>
 /// ═══════════════════════════════════════════════════════════════
@@ -15,6 +16,7 @@ using Newtonsoft.Json;
 /// ═══════════════════════════════════════════════════════════════
 /// </summary>
 [Serializable]
+[JsonObject(ItemTypeNameHandling = TypeNameHandling.All)]
 public abstract class BasePackData
 {
     /// <summary>
@@ -61,11 +63,44 @@ public abstract class BasePackData
     public long ModifiedAt;
 
     /// <summary>
-    /// 所有节点的集合（Newtonsoft.Json + TypeNameHandling.Auto 自动保存类型信息）喵~
+    /// 节点字典：NodeID → BaseNodeData
+    /// Newtonsoft.Json + TypeNameHandling.Auto 自动保存类型信息喵~
     /// </summary>
     [JsonProperty(ItemTypeNameHandling = TypeNameHandling.Auto)]
-    [Tooltip("节点列表")]
-    public List<BaseNodeData> Nodes = new List<BaseNodeData>();
+    [Tooltip("节点字典")]
+    public Dictionary<string, BaseNodeData> Nodes = new Dictionary<string, BaseNodeData>();
+
+    /// <summary>
+    /// 根节点 ID（唯一，运行时自动构建）
+    /// </summary>
+    [Tooltip("根节点 ID")]
+    public string RootNodeId;
+
+    /// <summary>
+    /// 构建 RootNodeId（运行时调用，序列化后自动填充）喵~
+    /// </summary>
+    public void BuildRootNodeId()
+    {
+        RootNodeId = Nodes.Values
+            .FirstOrDefault(n => n is RootNodeData)?.NodeID;
+    }
+
+    // =========================================================
+    // 运行时状态字段 - "血管里的血液"喵~
+    // =========================================================
+    // 设计理念：
+    // 1. 信号应该在 PackData 内部流动，而不是单独存储
+    // 2. GraphRunner 和 GraphAnalyser 共用同一份数据
+    // 3. GraphAnalyser 模式下这些字段为空也不影响使用
+    // =========================================================
+
+    /// <summary>
+    /// 活跃信号队列 - 当前正在图中流动的信号喵~
+    /// GraphAnalyser 模式下通常为空
+    /// </summary>
+    [JsonProperty(ItemTypeNameHandling = TypeNameHandling.Auto)]
+    [Tooltip("活跃信号队列（运行时状态）")]
+    public Queue<SignalContext> ActiveSignals = new Queue<SignalContext>();
 
     protected BasePackData()
     {

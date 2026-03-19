@@ -116,8 +116,14 @@ public static class MetaLib
 
         try
         {
-            // 使用 GraphLoader 的反序列化设置喵~
-            return JsonConvert.DeserializeObject<T>(jsonContent, GraphLoader.GetJsonSettings());
+            // JSON 序列化设置喵~
+            var jsonSettings = new JsonSerializerSettings
+            {
+                TypeNameHandling = TypeNameHandling.Auto,
+                NullValueHandling = NullValueHandling.Ignore
+            };
+            
+            return JsonConvert.DeserializeObject<T>(jsonContent, jsonSettings);
         }
         catch (Exception e)
         {

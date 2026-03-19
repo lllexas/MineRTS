@@ -2,26 +2,29 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using Newtonsoft.Json;
 
 /// <summary>
 /// 图运行器 - 管理所有运行时图实例的中央调度器喵~
-/// 这是唯一的单例，负责驱动信号流动和事件广播
+/// 直接操作 BasePackData，不再需要 RuntimeGraphInstance 中间层喵！
 /// </summary>
 public class GraphRunner : SingletonMono<GraphRunner>
 {
     /// <summary>
-    /// 所有活跃的图实例字典：InstanceID -> RuntimeGraphInstance
+    /// 持久化 GUID 到实例化 Pack 字典喵~
+    /// Key: InstanceID (运行时生成的 GUID), Value: BasePackData 本体
+    /// 通常指向 UserModel.PackDataDict（GraphRunner 只是引用，不拥有所有权）
+    /// 生命周期跟随 UserModel，GraphRunner 只是个"打工人"喵~
     /// </summary>
-    private Dictionary<string, RuntimeGraphInstance> _instances;
+    public Dictionary<string, BasePackData> PersistentGuidToInstancedPackDict;
 
     /// <summary>
-    /// 节点策略缓存（用于快速查找）喵~
+    /// InstanceID 缓存列表 - 用于安全遍历，防止"回手掏"导致字典修改异常喵~
     /// </summary>
-    private Dictionary<BaseNodeData, INodeStrategy> _strategyCache;
+    [NonSerialized]
+    private List<string> _instanceIdCache = new List<string>();
 
     /// <summary>
-    /// 最大信号传播深度（防止无限循环）喵~
+    /// 最大信号传播深度（防止死循环）喵~
     /// </summary>
     public int MaxSignalDepth = 100;
 
@@ -33,8 +36,6 @@ public class GraphRunner : SingletonMono<GraphRunner>
     protected override void Awake()
     {
         base.Awake();
-        _instances = new Dictionary<string, RuntimeGraphInstance>();
-        _strategyCache = new Dictionary<BaseNodeData, INodeStrategy>();
     }
 
     private void Start()
@@ -45,100 +46,96 @@ public class GraphRunner : SingletonMono<GraphRunner>
 
     private void Update()
     {
-        // 驱动所有实例中的信号步进
-        TickAllInstances();
+        // 驱动所有 Pack 中的信号步进喵~
+        TickAllPacks();
     }
 
     private void OnDestroy()
     {
-        _instances.Clear();
-        _strategyCache.Clear();
+        PersistentGuidToInstancedPackDict?.Clear();
     }
 
     // =========================================================
-    // 核心 API - 图实例管理
+    // 核心 API - Pack 数据管理
     // =========================================================
 
     /// <summary>
-    /// 注册一个新的图实例（加载电路板）喵~
+    /// 设置 Pack 数据字典引用喵~
+    /// 通常指向 UserModel.PackDataDict
     /// </summary>
-    public void RegisterInstance(RuntimeGraphInstance instance)
+    public void SetPackDataDict(Dictionary<string, BasePackData> dict)
     {
-        if (instance == null)
+        PersistentGuidToInstancedPackDict = dict;
+    }
+
+    /// <summary>
+    /// 加载 Pack，返回 instanceID 作为句柄喵~
+    /// </summary>
+    /// <param name="pack">Pack 数据</param>
+    /// <returns>InstanceID (GUID)，用作其他系统的句柄</returns>
+    public string LoadPack(BasePackData pack)
+    {
+        if (pack == null)
         {
-            Debug.LogError("[GraphRunner] 尝试注册空的图实例喵~");
-            return;
+            Debug.LogError("[GraphRunner] 尝试加载空的 Pack 喵~");
+            return null;
         }
 
-        if (_instances.ContainsKey(instance.InstanceID))
-        {
-            Debug.LogWarning($"[GraphRunner] 图实例 {instance.InstanceID} 已存在，覆盖注册喵~");
-            UnregisterInstance(instance.InstanceID);
-        }
+        // 1. 动态生成 instanceID (GUID)
+        string instanceID = Guid.NewGuid().ToString("N");
 
-        _instances[instance.InstanceID] = instance;
-        instance.IsRunning = true;
+        // 2. 添加到主字典
+        PersistentGuidToInstancedPackDict[instanceID] = pack;
 
         if (EnableDebugLog)
         {
-            Debug.Log($"[GraphRunner] 图实例已注册：{instance.InstanceID}");
+            Debug.Log($"[GraphRunner] Pack 已加载：{pack.PackID} → InstanceID: {instanceID}");
+        }
+
+        return instanceID;
+    }
+
+    /// <summary>
+    /// 卸载指定 instanceID 的 Pack 喵~
+    /// </summary>
+    public void UnloadPack(string instanceID)
+    {
+        if (string.IsNullOrEmpty(instanceID)) return;
+
+        // 清理该实例的信号（如果有）
+        if (PersistentGuidToInstancedPackDict.TryGetValue(instanceID, out var pack))
+        {
+            pack.ActiveSignals.Clear();
+        }
+
+        PersistentGuidToInstancedPackDict.Remove(instanceID);
+
+        if (EnableDebugLog)
+        {
+            Debug.Log($"[GraphRunner] Pack 已卸载：InstanceID: {instanceID}");
         }
     }
 
     /// <summary>
-    /// 注销一个图实例（卸载电路板）喵~
+    /// 卸载所有指定 PackID 的实例喵~
     /// </summary>
-    public void UnregisterInstance(string instanceID)
+    public void UnloadPacks(string packID)
     {
-        if (_instances.TryGetValue(instanceID, out var instance))
+        if (string.IsNullOrEmpty(packID)) return;
+
+        var toRemove = PersistentGuidToInstancedPackDict
+            .Where(kvp => kvp.Value.PackID == packID)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        foreach (var instanceID in toRemove)
         {
-            instance.IsRunning = false;
-            instance.ClearSignals();
-            _instances.Remove(instanceID);
-
-            // 清理策略缓存
-            var toRemove = _strategyCache.Keys.Where(k => instance.NodeMap.ContainsValue(k)).ToList();
-            foreach (var key in toRemove)
-            {
-                _strategyCache.Remove(key);
-            }
-
-            // 清理该图实例的所有活跃监听器（TriggerNode 的响应式监听）
-            CleanupInstanceListeners(instanceID);
-
-            if (EnableDebugLog)
-            {
-                Debug.Log($"[GraphRunner] 图实例已注销：{instanceID}");
-            }
+            UnloadPack(instanceID);
         }
-    }
 
-    /// <summary>
-    /// 获取指定 ID 的图实例喵~
-    /// </summary>
-    public RuntimeGraphInstance GetInstance(string instanceID)
-    {
-        _instances.TryGetValue(instanceID, out var instance);
-        return instance;
-    }
-
-    /// <summary>
-    /// 获取所有活跃的图实例喵~
-    /// </summary>
-    public IEnumerable<RuntimeGraphInstance> GetAllInstances()
-    {
-        return _instances.Values;
-    }
-
-    /// <summary>
-    /// 清空所有图实例喵~
-    /// </summary>
-    public void ClearAllInstances()
-    {
-        var ids = _instances.Keys.ToList();
-        foreach (var id in ids)
+        if (EnableDebugLog)
         {
-            UnregisterInstance(id);
+            Debug.Log($"[GraphRunner] 已卸载 {toRemove.Count} 个 PackID 为 {packID} 的实例喵~");
         }
     }
 
@@ -147,83 +144,131 @@ public class GraphRunner : SingletonMono<GraphRunner>
     // =========================================================
 
     /// <summary>
-    /// 向指定图实例注入信号喵~
+    /// 向指定 instance 注入信号喵~
     /// </summary>
     public void InjectSignal(string instanceID, SignalContext signal)
     {
-        if (_instances.TryGetValue(instanceID, out var instance))
-        {
-            instance.InjectSignal(signal);
-        }
+        if (PersistentGuidToInstancedPackDict == null) return;
+        if (!PersistentGuidToInstancedPackDict.TryGetValue(instanceID, out var pack)) return;
+
+        pack.ActiveSignals.Enqueue(signal);
     }
 
     /// <summary>
-    /// 向所有图实例广播信号喵~
+    /// 从 Root 节点注入信号喵~（便捷方法）
+    /// </summary>
+    public void InjectSignalFromRoot(string instanceID, object args = null)
+    {
+        if (PersistentGuidToInstancedPackDict == null) return;
+        if (!PersistentGuidToInstancedPackDict.TryGetValue(instanceID, out var pack)) return;
+        if (string.IsNullOrEmpty(pack.RootNodeId))
+        {
+            Debug.LogWarning($"[GraphRunner] Pack 没有 RootNodeId，无法注入信号喵~");
+            return;
+        }
+
+        var signal = new SignalContext(pack.RootNodeId, args);
+        pack.ActiveSignals.Enqueue(signal);
+    }
+
+    /// <summary>
+    /// 向所有 Pack 广播信号喵~
     /// </summary>
     public void BroadcastSignal(SignalContext signal)
     {
-        foreach (var instance in _instances.Values)
+        if (PersistentGuidToInstancedPackDict == null) return;
+
+        foreach (var pack in PersistentGuidToInstancedPackDict.Values)
         {
-            instance.InjectSignal(signal.Clone());
+            pack.ActiveSignals.Enqueue(signal.Clone());
         }
     }
 
     /// <summary>
-    /// 驱动所有实例的信号步进喵~
+    /// 驱动所有 Pack 的信号步进喵~
+    /// 使用缓存列表防止"回手掏"导致字典修改异常喵~
     /// </summary>
-    private void TickAllInstances()
+    private void TickAllPacks()
     {
-        foreach (var instance in _instances.Values)
-        {
-            if (!instance.IsRunning) continue;
+        if (PersistentGuidToInstancedPackDict == null) return;
 
-            TickInstance(instance);
+        // 使用缓存列表安全遍历，防止信号处理过程中卸载 Pack 导致字典修改喵~
+        _instanceIdCache.Clear();
+        foreach (var key in PersistentGuidToInstancedPackDict.Keys)
+        {
+            _instanceIdCache.Add(key);
+        }
+
+        foreach (var instanceID in _instanceIdCache)
+        {
+            if (PersistentGuidToInstancedPackDict.TryGetValue(instanceID, out var pack))
+            {
+                if (pack.ActiveSignals.Count > 0)
+                {
+                    TickPack(pack);
+                }
+            }
         }
     }
 
     /// <summary>
-    /// 驱动单个实例的信号步进喵~
+    /// 驱动单个 Pack 的信号步进喵~
+    /// 限制每帧处理的信号数量，防止卡顿
     /// </summary>
-    private void TickInstance(RuntimeGraphInstance instance)
+    private void TickPack(BasePackData pack)
     {
-        // 限制每帧处理的信号数量，防止卡顿
-        int signalsToProcess = Math.Min(instance.ActiveSignals.Count, 50);
+        int signalsToProcess = Math.Min(pack.ActiveSignals.Count, 50);
 
         for (int i = 0; i < signalsToProcess; i++)
         {
-            if (instance.ActiveSignals.Count == 0) break;
+            if (pack.ActiveSignals.Count == 0) break;
 
-            var signal = instance.ActiveSignals.Dequeue();
-            ProcessSignal(signal, instance);
+            var signal = pack.ActiveSignals.Dequeue();
+
+            ProcessSignal(signal, pack);
         }
     }
 
     /// <summary>
     /// 处理单个信号的传播喵~
+    /// 包含深度检查，防止死循环喵~
     /// </summary>
-    private void ProcessSignal(SignalContext signal, RuntimeGraphInstance instance)
+    private void ProcessSignal(SignalContext signal, BasePackData pack)
     {
-        // 找到信号当前所在的节点
-        if (!string.IsNullOrEmpty(signal.CurrentNodeId) &&
-            instance.NodeMap.TryGetValue(signal.CurrentNodeId, out var currentNode))
+        // 深度检查：防止死循环喵~
+        if (signal.Depth > MaxSignalDepth)
+        {
+            if (EnableDebugLog)
+            {
+                Debug.LogWarning($"[GraphRunner] 信号深度超过上限 ({MaxSignalDepth})，已强制丢弃喵~ Signal: {signal.CurrentNodeId}");
+            }
+            return;
+        }
+
+        // 如果 CurrentNodeId 为空，直接丢弃信号喵~
+        if (string.IsNullOrEmpty(signal.CurrentNodeId))
+        {
+            if (EnableDebugLog)
+            {
+                Debug.LogWarning($"[GraphRunner] 信号没有 CurrentNodeId，已丢弃喵~");
+            }
+            return;
+        }
+
+        // 直接从 pack.Nodes 字典查找节点喵~
+        if (pack.Nodes.TryGetValue(signal.CurrentNodeId, out var currentNode))
         {
             var strategy = GetStrategy(currentNode);
             if (strategy != null)
             {
-                strategy.OnSignalEnter(currentNode, signal, instance);
+                strategy.OnSignalEnter(currentNode, signal, pack);
             }
         }
         else
         {
-            // 没有当前节点，可能是初始信号，需要找到入口节点（如 Root 节点）
-            var rootNodes = instance.GetNodesOfType<RootNodeData>();
-            foreach (var rootNode in rootNodes)
+            if (EnableDebugLog)
             {
-                var strategy = GetStrategy(rootNode);
-                if (strategy != null)
-                {
-                    strategy.OnSignalEnter(rootNode, signal, instance);
-                }
+                Debug.LogWarning($"[GraphRunner] 节点不存在：{signal.CurrentNodeId}");
             }
         }
     }
@@ -234,25 +279,16 @@ public class GraphRunner : SingletonMono<GraphRunner>
 
     /// <summary>
     /// 获取节点的策略处理器喵~
+    /// 直接从 NodeStrategyFactory 获取（工厂已按类型缓存）
     /// </summary>
-    private INodeStrategy GetStrategy(BaseNodeData data)
+    private NodeStrategy GetStrategy(BaseNodeData data)
     {
         if (data == null) return null;
-
-        if (!_strategyCache.TryGetValue(data, out var strategy))
-        {
-            strategy = NodeStrategyFactory.GetStrategy(data);
-            if (strategy != null)
-            {
-                _strategyCache[data] = strategy;
-            }
-        }
-
-        return strategy;
+        return NodeStrategyFactory.GetStrategy(data);
     }
 
     /// <summary>
-    /// 清理图实例的所有活跃监听器（TriggerNode 的响应式监听）喵~
+    /// 清理指定 instance 的所有活跃监听器（TriggerNode 的响应式监听）喵~
     /// </summary>
     private void CleanupInstanceListeners(string instanceID)
     {
@@ -262,274 +298,32 @@ public class GraphRunner : SingletonMono<GraphRunner>
 
     /// <summary>
     /// 获取调试信息喵~
+    /// 包含信号积压警告喵~
     /// </summary>
     public string GetDebugInfo()
     {
         var info = new System.Text.StringBuilder();
-        info.AppendLine($"[GraphRunner] 活跃图实例：{_instances.Count}");
-        foreach (var instance in _instances.Values)
+        info.AppendLine($"[GraphRunner] Pack 数据：{PersistentGuidToInstancedPackDict?.Count ?? 0}");
+
+        if (PersistentGuidToInstancedPackDict != null)
         {
-            info.AppendLine($"  - {instance.GetDebugInfo()}");
+            foreach (var kvp in PersistentGuidToInstancedPackDict)
+            {
+                var pack = kvp.Value;
+                int signalCount = pack.ActiveSignals.Count;
+                
+                // 信号积压警告喵~
+                if (signalCount > 20)
+                {
+                    info.AppendLine($"  ⚠️ [警告] 信号积压！InstanceID: {kvp.Key}, Count: {signalCount}");
+                }
+                else
+                {
+                    info.AppendLine($"  - {kvp.Key}: Nodes={pack.Nodes.Count}, Signals={signalCount}");
+                }
+            }
         }
+
         return info.ToString();
-    }
-
-    // =========================================================
-    // 存档系统 - 捕获运行中的图实例状态喵~
-    // =========================================================
-
-    /// <summary>
-    /// 捕获所有正在运行的图实例状态喵~
-    /// 只保存 IsRunning = true 的实例
-    /// </summary>
-    public List<GraphInstanceSnapshot> CaptureAllRunningGraphs()
-    {
-        var snapshots = new List<GraphInstanceSnapshot>();
-
-        foreach (var instance in _instances.Values)
-        {
-            if (instance.IsRunning)
-            {
-                snapshots.Add(CaptureInstanceSnapshot(instance));
-            }
-        }
-
-        if (EnableDebugLog)
-        {
-            Debug.Log($"[GraphRunner] 已捕获 {snapshots.Count} 个运行中的图实例快照喵~");
-        }
-
-        return snapshots;
-    }
-
-    /// <summary>
-    /// 捕获单个图实例的快照喵~
-    /// </summary>
-    private GraphInstanceSnapshot CaptureInstanceSnapshot(RuntimeGraphInstance instance)
-    {
-        var snapshot = new GraphInstanceSnapshot
-        {
-            InstanceID = instance.InstanceID,
-            PackID = instance.PackID,
-            GraphType = instance.GraphType,
-            SourceJsonFileName = instance.SourceJsonFileName,
-            ActiveSignals = new List<SignalContextSnapshot>(),
-            BlockingNodes = new List<NodeBlockingSnapshot>()
-        };
-
-        // 1. 捕获活跃信号队列喵~
-        foreach (var signal in instance.ActiveSignals)
-        {
-            snapshot.ActiveSignals.Add(CaptureSignalSnapshot(signal));
-        }
-
-        // 2. 捕获阻隔节点状态喵~
-        // 遍历所有节点，检查策略是否实现 IBlockingNodeStrategy
-        foreach (var node in instance.NodeMap.Values)
-        {
-            var strategy = GetStrategy(node);
-
-            // 问策略：你是不是阻隔节点策略？
-            if (strategy is IBlockingNodeStrategy blockingStrategy)
-            {
-                // 是阻隔节点，调用策略的捕获方法
-                var blockingState = blockingStrategy.CaptureBlockingState(node);
-
-                if (blockingState != null)
-                {
-                    snapshot.BlockingNodes.Add(new NodeBlockingSnapshot
-                    {
-                        NodeID = node.NodeID,
-                        BlockingStateJson = JsonConvert.SerializeObject(blockingState, GraphRunner.JsonSettings)
-                    });
-                }
-            }
-        }
-
-        if (EnableDebugLog)
-        {
-            Debug.Log($"[GraphRunner] 图实例 {instance.InstanceID} 快照：{snapshot.ActiveSignals.Count} 个信号，{snapshot.BlockingNodes.Count} 个阻隔节点喵~");
-        }
-
-        return snapshot;
-    }
-
-    /// <summary>
-    /// 捕获信号上下文快照喵~
-    /// </summary>
-    private SignalContextSnapshot CaptureSignalSnapshot(SignalContext signal)
-    {
-        var snapshot = new SignalContextSnapshot
-        {
-            CurrentNodeId = signal.CurrentNodeId,
-            ArgsJson = signal.Args != null ? JsonConvert.SerializeObject(signal.Args, JsonSettings) : null,
-            TraveledPath = new List<ConnectionDataSnapshot>()
-        };
-
-        // 记录信号走过的路径喵~
-        if (signal.TraveledPath != null)
-        {
-            foreach (var conn in signal.TraveledPath)
-            {
-                snapshot.TraveledPath.Add(new ConnectionDataSnapshot(conn));
-            }
-        }
-
-        return snapshot;
-    }
-
-    /// <summary>
-    /// JSON 序列化设置喵~
-    /// </summary>
-    private static readonly JsonSerializerSettings JsonSettings = new JsonSerializerSettings
-    {
-        TypeNameHandling = TypeNameHandling.Auto,
-        NullValueHandling = NullValueHandling.Ignore,
-        Formatting = Formatting.None
-    };
-
-    // =========================================================
-    // 读档系统 - 恢复图实例状态喵~
-    // =========================================================
-
-    /// <summary>
-    /// 恢复所有图实例快照喵~
-    /// </summary>
-    public void RestoreAllFromSnapshots(List<GraphInstanceSnapshot> snapshots)
-    {
-        if (snapshots == null || snapshots.Count == 0)
-        {
-            Debug.Log("[GraphRunner] 没有需要恢复的图实例快照喵~");
-            return;
-        }
-
-        foreach (var snapshot in snapshots)
-        {
-            RestoreFromSnapshot(snapshot);
-        }
-
-        Debug.Log($"[GraphRunner] 已恢复 {snapshots.Count} 个图实例喵~");
-    }
-
-    /// <summary>
-    /// 从快照恢复单个图实例喵~
-    /// </summary>
-    public void RestoreFromSnapshot(GraphInstanceSnapshot snapshot)
-    {
-        // 优先使用 PackID，兼容旧的 SourceJsonFileName
-        if (string.IsNullOrEmpty(snapshot.PackID) && string.IsNullOrEmpty(snapshot.SourceJsonFileName))
-        {
-            Debug.LogError($"[GraphRunner] 快照缺少 PackID 和 SourceJsonFileName，无法恢复：{snapshot.InstanceID}");
-            return;
-        }
-
-        // 1. 从 MetaLib 智能仓库获取 PackData
-        BasePackData pack = null;
-        if (!string.IsNullOrEmpty(snapshot.PackID))
-        {
-            pack = MetaLib.GetPack<BasePackData>(snapshot.PackID);
-        }
-        else // 兼容旧存档
-        {
-            Debug.LogWarning($"[GraphRunner] 快照缺少 PackID，尝试从 SourceJsonFileName 回退加载：{snapshot.SourceJsonFileName}");
-            var meta = MetaLib.GetMetaByPath(snapshot.SourceJsonFileName);
-            if (meta != null)
-            {
-                 pack = MetaLib.GetPack<BasePackData>(meta.PackID);
-            }
-        }
-
-        if (pack == null)
-        {
-            Debug.LogError($"[GraphRunner] Pack 加载失败 (PackID: {snapshot.PackID})");
-            return;
-        }
-        
-        // 2. 重新加载图实例（使用快照中的 InstanceID）
-        var instance = GraphLoader.LoadFromPackGeneric(
-            pack,
-            snapshot.InstanceID,
-            snapshot.GraphType,
-            snapshot.PackID
-        );
-
-        if (instance == null)
-        {
-            Debug.LogError($"[GraphRunner] 图实例加载失败：{snapshot.InstanceID}");
-            return;
-        }
-
-        // 4. 恢复阻隔节点状态
-        int restoredNodes = 0;
-        foreach (var blockingNodeSnapshot in snapshot.BlockingNodes)
-        {
-            if (instance.NodeMap.TryGetValue(blockingNodeSnapshot.NodeID, out var node))
-            {
-                var strategy = GetStrategy(node);
-                if (strategy is IBlockingNodeStrategy blockingStrategy)
-                {
-                    var state = JsonConvert.DeserializeObject(blockingNodeSnapshot.BlockingStateJson, JsonSettings);
-                    blockingStrategy.RestoreBlockingState(node, state);
-                    restoredNodes++;
-                }
-            }
-        }
-
-        // 5. 恢复信号队列（唤醒流程）
-        int restoredSignals = 0;
-        foreach (var signalSnapshot in snapshot.ActiveSignals)
-        {
-            // 重建 SignalContext
-            var signal = new SignalContext
-            {
-                CurrentNodeId = signalSnapshot.CurrentNodeId,
-                Args = signalSnapshot.ArgsJson != null ? JsonConvert.DeserializeObject(signalSnapshot.ArgsJson, JsonSettings) : null
-            };
-
-            // 遍历途径点，触发策略的唤醒方法
-            // 注意：不包含当前节点，只处理途径点
-            foreach (var connSnapshot in signalSnapshot.TraveledPath)
-            {
-                // 找到途径点对应的源节点
-                if (instance.NodeMap.TryGetValue(connSnapshot.SourceNodeID, out var passedNode))
-                {
-                    var strategy = GetStrategy(passedNode);
-                    // 这里不需要特殊处理，因为阻隔状态已经恢复
-                    // 信号注入后会自动按照策略逻辑流动
-                }
-            }
-
-            // 注入信号到实例
-            instance.InjectSignal(signal);
-            restoredSignals++;
-        }
-
-        // 6. 注册到 GraphRunner 并标记为运行中
-        instance.IsRunning = true;
-        RegisterInstance(instance);
-
-        if (EnableDebugLog)
-        {
-            Debug.Log($"[GraphRunner] 图实例 {snapshot.InstanceID} 恢复完成：{restoredNodes} 个阻隔节点，{restoredSignals} 个信号喵~");
-        }
-    }
-
-    // =========================================================
-    // 全局事件数据结构
-    // =========================================================
-
-    /// <summary>
-    /// 全局事件数据 - 用于在 PostSystem 和 GraphRunner 之间传递事件喵~
-    /// </summary>
-    public class GlobalEventData
-    {
-        public string EventName;
-        public object EventData;
-
-        public GlobalEventData(string eventName, object eventData)
-        {
-            EventName = eventName;
-            EventData = eventData;
-        }
     }
 }

@@ -24,12 +24,6 @@ using NekoGraph;
 public class VFSPackData : BasePackData
 {
     /// <summary>
-    /// 根节点 ID（唯一）
-    /// </summary>
-    [Tooltip("根节点 ID")]
-    public string RootNodeId;
-
-    /// <summary>
     /// 绑定的地图 ID（可选，用于关联特定关卡）
     /// </summary>
     [Tooltip("绑定的地图 ID")]
@@ -45,25 +39,13 @@ public class VFSPackData : BasePackData
     }
 
     /// <summary>
-    /// 添加根节点
-    /// </summary>
-    /// <param name="rootNode">根节点（RootNodeData）</param>
-    public void AddRootNode(RootNodeData rootNode)
-    {
-        if (rootNode == null) return;
-        Nodes.Add(rootNode);
-        RootNodeId = rootNode.NodeID;
-        Touch();
-    }
-
-    /// <summary>
     /// 添加 VFS 节点
     /// </summary>
     /// <param name="node">VFS 节点数据</param>
     public void AddNode(VFSNodeData node)
     {
         if (node == null) return;
-        Nodes.Add(node);
+        Nodes[node.NodeID] = node;
         Touch();
     }
 

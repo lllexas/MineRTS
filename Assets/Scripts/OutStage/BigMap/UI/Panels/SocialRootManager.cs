@@ -1,20 +1,16 @@
 using UnityEngine;
-using TMPro;
 
 namespace MineRTS.BigMap.UI.Panels
 {
     /// <summary>
     /// SocialRootManager - 社交根面板管理器
-    /// 
-    /// <para>【职责】管理 SocialRootPanel 的显示内容</para>
-    /// <para>【TUI 风格】使用制表符和 ASCII 艺术字显示</para>
+    ///
+    /// <para>【职责】管理 SocialRootPanel 的显示内容，通过事件推送渲染内容给 SocialRootPanelAnimator</para>
+    /// <para>【TUI 风格】使用制表符和 ASCII 艺术字显示；艺术字随面板宽度自适应三级模板</para>
+    /// <para>【继承】TUIManager（提供 ConsoleWidth / OnClearRequested 接口）</para>
     /// </summary>
-    public class SocialRootManager : MonoBehaviour
+    public class SocialRootManager : TUIManager
     {
-        [Header("UI 引用")]
-        [Tooltip("显示文本的 TMP_Text 组件")]
-        [SerializeField] private TMP_Text displayText;
-
         [Header("显示设置")]
         [Tooltip("标题颜色")]
         [SerializeField] private Color titleColor = new Color(0.2f, 0.8f, 1f);
@@ -25,70 +21,168 @@ namespace MineRTS.BigMap.UI.Panels
         [Tooltip("背景填充颜色")]
         [SerializeField] private Color fillColor = new Color(0.1f, 0.1f, 0.15f);
 
+        [Tooltip("通知计数颜色")]
+        [SerializeField] private Color notificationColor = new Color(1f, 0.6f, 0.2f);
+
+        private int _unreadCount = 0;
+
+        // ─────────────────────────────────────────────────────────────
+        //  艺术字模板（每元素为一行纯内容，不含边框）
+        // ─────────────────────────────────────────────────────────────
+
+        // Large：Social 6 行 + 空行 + CLI 6 行，各行约 39 / 19 字符宽
+        // 触发：contentW（= ConsoleWidth - 4）≥ 44
+        private static readonly string[] _artLarge = new[]
+        {
+            "███████╗ ██████╗  ██████╗██╗ █████╗ ██╗",
+            "██╔════╝██╔═══██╗██╔════╝██║██╔══██╗██║",
+            "███████╗██║   ██║██║     ██║███████║██║",
+            "╚════██║██║   ██║██║     ██║██╔══██║██║",
+            "███████║╚██████╔╝╚██████╗██║██║  ██║██║",
+            "╚══════╝ ╚═════╝  ╚═════╝╚═╝╚═╝  ╚═╝╚═╝",
+            "",
+            " ██████╗██╗     ██╗",
+            "██╔════╝██║     ██║",
+            "██║     ██║     ██║",
+            "██║     ██║     ██║",
+            "╚██████╗███████╗██║",
+            " ╚═════╝╚══════╝╚═╝",
+        };
+
+        // Medium：SocialCLI 3 行紧凑框线风格，各行约 23 字符宽
+        // 触发：contentW ≥ 22
+        private static readonly string[] _artMedium = new[]
+        {
+            "╔═╗┌─┐┌─┐┬┌─┐┬  ╔═╗╦  ╦",
+            "╚═╗│ ││  │├─┤│  ║  ║  ║",
+            "╚═╝└─┘└─┘┴└─┘┴─┘╚═╝╩═╝╩",
+        };
+
+        // Small：contentW < 22，不显示艺术字，仅 Tab 头 + 底栏边框
+
+        // ─────────────────────────────────────────────────────────────
+        //  TSS 样式
+        // ─────────────────────────────────────────────────────────────
+
+        /// <summary>获取艺术字区域的 TSS 样式</summary>
+        private TSSStyle ArtStyle => new TSSStyle
+        {
+            bleedX = 0,
+            bleedY = 0,
+            paddingX = 1,
+            paddingY = 0,
+            borderColor = borderColor,
+            contentColor = titleColor,
+            backgroundColor = null,
+            alignment = TextAlignment.Center,
+            expandArtSpaces = true // 自动将艺术字空格扩展为双倍
+        };
+
+        /// <summary>获取通知区域的 TSS 样式</summary>
+        private TSSStyle NotificationStyle => new TSSStyle
+        {
+            bleedX = 0,
+            bleedY = 0,
+            paddingX = 1,
+            paddingY = 0,
+            borderColor = borderColor,
+            contentColor = notificationColor,
+            backgroundColor = null,
+            alignment = TextAlignment.Center,
+            expandArtSpaces = false
+        };
+
+        // ─────────────────────────────────────────────────────────────
+        //  Unity 生命周期
+        // ─────────────────────────────────────────────────────────────
+
         private void Start()
         {
-            if (displayText == null)
+            // 不在此处手动 Render()。
+            // ConsoleDisplayBase.Start() 会注入 ConsoleWidth，
+            // 触发 OnConsoleWidthChanged → Render()。
+        }
+
+        /// <summary>ConsoleWidth 被注入新值时自动重新渲染</summary>
+        protected override void OnConsoleWidthChanged(int newWidth) => Render();
+
+        // ─────────────────────────────────────────────────────────────
+        //  渲染（使用 TUITool）
+        // ─────────────────────────────────────────────────────────────
+
+        /// <summary>向面板层推送完整渲染内容（先清屏，再逐行推送）</summary>
+        public void Render()
+        {
+            InvokeClearRequested();
+
+            int w = ConsoleWidth;
+            var artStyle = ArtStyle;
+            var notifStyle = NotificationStyle;
+
+            // ── 顶栏 ──────────────────────────────────────────────────
+            SendLine(TUITool.GenerateTopBorder("◉ SocialCLI", w, artStyle));
+
+            // ── 艺术字内容区 ─────────────────────────────────────────
+            string[] art = SelectTemplate(w);
+            if (art != null)
             {
-                displayText = GetComponent<TMP_Text>();
+                string[] lines = TUITool.GenerateTextBox(art, w, artStyle);
+                foreach (var line in lines)
+                {
+                    SendLine(line);
+                }
             }
 
-            RenderSocialCLI();
+            // ── 通知区（条件显示）────────────────────────────────────
+            if (_unreadCount > 0)
+            {
+                string notifText = $"✉ 【{_unreadCount}条新消息】";
+                SendLine(TUITool.GenerateDivider(w, notifStyle, '·', notifText));
+            }
+
+            // ── 底栏 ──────────────────────────────────────────────────
+            SendLine(TUITool.GenerateBottomBorder(w, artStyle));
         }
 
-        /// <summary>
-        /// 渲染 SocialCLI 的 TUI 界面
-        /// </summary>
-        private void RenderSocialCLI()
+        // ─────────────────────────────────────────────────────────────
+        //  公开操作
+        // ─────────────────────────────────────────────────────────────
+
+        /// <summary>更新未读计数并重新渲染</summary>
+        public void UpdateNotification(int count)
         {
-            if (displayText == null) return;
-
-            string titleHex = ColorUtility.ToHtmlStringRGB(titleColor);
-            string borderHex = ColorUtility.ToHtmlStringRGB(borderColor);
-            string fillHex = ColorUtility.ToHtmlStringRGB(fillColor);
-
-            // 使用制表符和 ASCII 艺术字拼出 SocialCLI
-            string tui = $@"
-<color=#{borderHex}>┌────────────────────────────────────────┐</color>
-<color=#{borderHex}>│</color><color=#{fillHex}>                                        </color><color=#{borderHex}>│</color>
-<color=#{borderHex}>│</color>  <color=#{titleHex}>███████╗ ██████╗  ██████╗██╗ █████╗ ██╗</color>  <color=#{borderHex}>│</color>
-<color=#{borderHex}>│</color>  <color=#{titleHex}>██╔════╝██╔═══██╗██╔════╝██║██╔══██╗██║</color>  <color=#{borderHex}>│</color>
-<color=#{borderHex}>│</color>  <color=#{titleHex}>███████╗██║   ██║██║     ██║███████║██║</color>  <color=#{borderHex}>│</color>
-<color=#{borderHex}>│</color>  <color=#{titleHex}>╚════██║██║   ██║██║     ██║██╔══██║██║</color>  <color=#{borderHex}>│</color>
-<color=#{borderHex}>│</color>  <color=#{titleHex}>███████║╚██████╔╝╚██████╗██║██║  ██║██║</color>  <color=#{borderHex}>│</color>
-<color=#{borderHex}>│</color>  <color=#{titleHex}>╚══════╝ ╚═════╝  ╚═════╝╚═╝╚═╝  ╚═╝╚═╝</color>  <color=#{borderHex}>│</color>
-<color=#{borderHex}>│</color><color=#{fillHex}>                                        </color><color=#{borderHex}>│</color>
-<color=#{borderHex}>│</color>  <color=#{titleHex}> ██████╗██╗     ██╗                    </color>  <color=#{borderHex}>│</color>
-<color=#{borderHex}>│</color>  <color=#{titleHex}>██╔════╝██║     ██║                    </color>  <color=#{borderHex}>│</color>
-<color=#{borderHex}>│</color>  <color=#{titleHex}>██║     ██║     ██║                    </color>  <color=#{borderHex}>│</color>
-<color=#{borderHex}>│</color>  <color=#{titleHex}>██║     ██║     ██║                    </color>  <color=#{borderHex}>│</color>
-<color=#{borderHex}>│</color>  <color=#{titleHex}>╚██████╗███████╗██║                    </color>  <color=#{borderHex}>│</color>
-<color=#{borderHex}>│</color>  <color=#{titleHex}> ╚═════╝╚══════╝╚═╝                    </color>  <color=#{borderHex}>│</color>
-<color=#{borderHex}>│</color><color=#{fillHex}>                                        </color><color=#{borderHex}>│</color>
-<color=#{borderHex}>└────────────────────────────────────────┘</color>
-";
-
-            displayText.text = tui;
-            displayText.richText = true;
-            displayText.alignment = TextAlignmentOptions.Center;
+            _unreadCount = count;
+            Render();
         }
 
-        /// <summary>
-        /// 更新显示（可在运行时调用）
-        /// </summary>
-        public void Refresh()
-        {
-            RenderSocialCLI();
-        }
-
-        /// <summary>
-        /// 设置自定义颜色
-        /// </summary>
+        /// <summary>设置自定义颜色</summary>
         public void SetColors(Color title, Color border, Color fill)
         {
             titleColor = title;
             borderColor = border;
             fillColor = fill;
-            RenderSocialCLI();
+            Render();
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  私有辅助
+        // ─────────────────────────────────────────────────────────────
+
+        /// <summary>根据内容宽度选择艺术字模板；返回 null 表示 Small 模式（不显示艺术字）</summary>
+        private static string[] SelectTemplate(int totalWidth)
+        {
+            // 估算内容宽度：totalWidth - 2*paddingX - 2(边框)
+            int contentW = totalWidth - 4;
+            
+            if (contentW >= 44) return _artLarge;
+            if (contentW >= 22) return _artMedium;
+            return null;
+        }
+
+        private void SendLine(string richText)
+        {
+            PostSystem.Instance.Send("SocialRoot.Output",
+                new DeveloperConsole.ConsoleOutputEvent { message = richText, color = Color.white });
         }
     }
 }

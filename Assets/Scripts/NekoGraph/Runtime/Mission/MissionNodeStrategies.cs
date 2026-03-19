@@ -7,7 +7,7 @@ using System.Linq;
 //
 // 【重构后】架构说明：
 //
-// 本文件只负责管理任务节点的状态，不处理任务逻辑！
+// 本文件只负责管理任务节点的状态，不处理任务逻辑喵~
 // 任务逻辑由流程图中的 TriggerNode 和 CommandNode 处理。
 //
 // 流程图示例：
@@ -34,9 +34,9 @@ using System.Linq;
 /// - 不再监听事件！事件监听由 TriggerNode 负责
 /// - 不再检查 Goals！进度由流程图中的 Trigger + Command 处理
 /// </summary>
-public class MissionNodeAStrategy : INodeStrategy
+public class MissionNodeAStrategy : NodeStrategy
 {
-    public void OnSignalEnter(BaseNodeData data, SignalContext context, RuntimeGraphInstance instance)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
     {
         if (data is not MissionNode_A_Data missionNode) return;
 
@@ -54,10 +54,10 @@ public class MissionNodeAStrategy : INodeStrategy
         SendUIRefreshSignal();
 
         // 向输出节点传播信号（触发后续的 TriggerNode）
-        PropagateSignal(missionNode, context, instance);
+        PropagateSignal(missionNode, context, pack);
     }
 
-    public void OnEvent(BaseNodeData data, string eventName, object eventData, RuntimeGraphInstance instance)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
     {
         // 任务节点通常不直接响应外部事件
         // 事件监听由 TriggerNode 负责
@@ -66,23 +66,13 @@ public class MissionNodeAStrategy : INodeStrategy
     /// <summary>
     /// 传播信号到输出节点喵~
     /// </summary>
-    private void PropagateSignal(MissionNode_A_Data node, SignalContext context, RuntimeGraphInstance instance)
+    private void PropagateSignal(MissionNode_A_Data node, SignalContext context, BasePackData pack)
     {
         // 通过连接传播信号
-        foreach (var conn in node.OutputConnections)
-        {
-            var newSignal = context.Clone();
-            newSignal.CurrentNodeId = conn.TargetNodeID;
-            instance.InjectSignal(newSignal);
-        }
+        EnqueueSignals(pack, node.OutputConnections, context);
 
         // 兼容旧版 OutPutNodeIDs 字段
-        foreach (var nextId in node.OutPutNodeIDs)
-        {
-            var newSignal = context.Clone();
-            newSignal.CurrentNodeId = nextId;
-            instance.InjectSignal(newSignal);
-        }
+        EnqueueSignals(pack, node.OutPutNodeIDs, context);
     }
 
     /// <summary>
@@ -106,9 +96,9 @@ public class MissionNodeAStrategy : INodeStrategy
 /// - 不再查找 MissionNode_A！完成状态由流程图的信号传播决定
 /// - 不直接发放奖励！奖励由后续的 CommandNode 处理
 /// </summary>
-public class MissionNodeSStrategy : INodeStrategy
+public class MissionNodeSStrategy : NodeStrategy
 {
-    public void OnSignalEnter(BaseNodeData data, SignalContext context, RuntimeGraphInstance instance)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
     {
         if (data is not MissionNode_S_Data missionNode) return;
 
@@ -118,7 +108,8 @@ public class MissionNodeSStrategy : INodeStrategy
         }
 
         // 找到对应的 MissionNode_A 并标记为完成
-        var missionA = instance.GetNodesOfType<MissionNode_A_Data>()
+        var missionA = pack.Nodes.Values
+            .OfType<MissionNode_A_Data>()
             .FirstOrDefault(m => m.MissionID == missionNode.MissionID);
 
         if (missionA != null)
@@ -136,10 +127,10 @@ public class MissionNodeSStrategy : INodeStrategy
         }
 
         // 向输出节点传播信号（可能是奖励 CommandNode）
-        PropagateSignal(missionNode, context, instance);
+        PropagateSignal(missionNode, context, pack);
     }
 
-    public void OnEvent(BaseNodeData data, string eventName, object eventData, RuntimeGraphInstance instance)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
     {
         // 任务节点通常不直接响应外部事件
         // 事件监听由 TriggerNode 负责
@@ -148,23 +139,13 @@ public class MissionNodeSStrategy : INodeStrategy
     /// <summary>
     /// 传播信号到输出节点喵~
     /// </summary>
-    private void PropagateSignal(MissionNode_S_Data node, SignalContext context, RuntimeGraphInstance instance)
+    private void PropagateSignal(MissionNode_S_Data node, SignalContext context, BasePackData pack)
     {
         // 通过连接传播信号
-        foreach (var conn in node.OutputConnections)
-        {
-            var newSignal = context.Clone();
-            newSignal.CurrentNodeId = conn.TargetNodeID;
-            instance.InjectSignal(newSignal);
-        }
+        EnqueueSignals(pack, node.OutputConnections, context);
 
         // 兼容旧版 OutPutNodeIDs 字段
-        foreach (var nextId in node.OutPutNodeIDs)
-        {
-            var newSignal = context.Clone();
-            newSignal.CurrentNodeId = nextId;
-            instance.InjectSignal(newSignal);
-        }
+        EnqueueSignals(pack, node.OutPutNodeIDs, context);
     }
 
     /// <summary>
@@ -184,9 +165,9 @@ public class MissionNodeSStrategy : INodeStrategy
 /// 2. 发送 UI 失败信号
 /// 3. 向后续节点传播信号（可能是惩罚 CommandNode 或剧情分支）
 /// </summary>
-public class MissionNodeFStrategy : INodeStrategy
+public class MissionNodeFStrategy : NodeStrategy
 {
-    public void OnSignalEnter(BaseNodeData data, SignalContext context, RuntimeGraphInstance instance)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
     {
         if (data is not MissionNode_F_Data missionNode) return;
 
@@ -196,7 +177,8 @@ public class MissionNodeFStrategy : INodeStrategy
         }
 
         // 找到对应的 MissionNode_A 并标记为失败
-        var missionA = instance.GetNodesOfType<MissionNode_A_Data>()
+        var missionA = pack.Nodes.Values
+            .OfType<MissionNode_A_Data>()
             .FirstOrDefault(m => m.MissionID == missionNode.MissionID);
 
         if (missionA != null)
@@ -214,10 +196,10 @@ public class MissionNodeFStrategy : INodeStrategy
         }
 
         // 向输出节点传播信号
-        PropagateSignal(missionNode, context, instance);
+        PropagateSignal(missionNode, context, pack);
     }
 
-    public void OnEvent(BaseNodeData data, string eventName, object eventData, RuntimeGraphInstance instance)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
     {
         // 任务节点通常不直接响应外部事件
         // 事件监听由 TriggerNode 负责
@@ -226,23 +208,13 @@ public class MissionNodeFStrategy : INodeStrategy
     /// <summary>
     /// 传播信号到输出节点喵~
     /// </summary>
-    private void PropagateSignal(MissionNode_F_Data node, SignalContext context, RuntimeGraphInstance instance)
+    private void PropagateSignal(MissionNode_F_Data node, SignalContext context, BasePackData pack)
     {
         // 通过连接传播信号
-        foreach (var conn in node.OutputConnections)
-        {
-            var newSignal = context.Clone();
-            newSignal.CurrentNodeId = conn.TargetNodeID;
-            instance.InjectSignal(newSignal);
-        }
+        EnqueueSignals(pack, node.OutputConnections, context);
 
         // 兼容旧版 OutPutNodeIDs 字段
-        foreach (var nextId in node.OutPutNodeIDs)
-        {
-            var newSignal = context.Clone();
-            newSignal.CurrentNodeId = nextId;
-            instance.InjectSignal(newSignal);
-        }
+        EnqueueSignals(pack, node.OutPutNodeIDs, context);
     }
 
     /// <summary>
@@ -263,9 +235,9 @@ public class MissionNodeFStrategy : INodeStrategy
 /// 3. 发送 UI 刷新信号
 /// 4. 向后续节点传播信号
 /// </summary>
-public class MissionNodeRStrategy : INodeStrategy
+public class MissionNodeRStrategy : NodeStrategy
 {
-    public void OnSignalEnter(BaseNodeData data, SignalContext context, RuntimeGraphInstance instance)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
     {
         if (data is not MissionNode_R_Data missionNode) return;
 
@@ -275,7 +247,8 @@ public class MissionNodeRStrategy : INodeStrategy
         }
 
         // 找到对应的 MissionNode_A 并重置状态
-        var missionA = instance.GetNodesOfType<MissionNode_A_Data>()
+        var missionA = pack.Nodes.Values
+            .OfType<MissionNode_A_Data>()
             .FirstOrDefault(m => m.MissionID == missionNode.MissionID);
 
         if (missionA != null)
@@ -306,10 +279,10 @@ public class MissionNodeRStrategy : INodeStrategy
         }
 
         // 向输出节点传播信号
-        PropagateSignal(missionNode, context, instance);
+        PropagateSignal(missionNode, context, pack);
     }
 
-    public void OnEvent(BaseNodeData data, string eventName, object eventData, RuntimeGraphInstance instance)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
     {
         // 任务节点通常不直接响应外部事件
         // 事件监听由 TriggerNode 负责
@@ -318,23 +291,13 @@ public class MissionNodeRStrategy : INodeStrategy
     /// <summary>
     /// 传播信号到输出节点喵~
     /// </summary>
-    private void PropagateSignal(MissionNode_R_Data node, SignalContext context, RuntimeGraphInstance instance)
+    private void PropagateSignal(MissionNode_R_Data node, SignalContext context, BasePackData pack)
     {
         // 通过连接传播信号
-        foreach (var conn in node.OutputConnections)
-        {
-            var newSignal = context.Clone();
-            newSignal.CurrentNodeId = conn.TargetNodeID;
-            instance.InjectSignal(newSignal);
-        }
+        EnqueueSignals(pack, node.OutputConnections, context);
 
         // 兼容旧版 OutPutNodeIDs 字段
-        foreach (var nextId in node.OutPutNodeIDs)
-        {
-            var newSignal = context.Clone();
-            newSignal.CurrentNodeId = nextId;
-            instance.InjectSignal(newSignal);
-        }
+        EnqueueSignals(pack, node.OutPutNodeIDs, context);
     }
 
     /// <summary>

@@ -9,9 +9,9 @@ using UnityEngine;
 /// <summary>
 /// Root 节点策略 - 流程的起始锚点喵~
 /// </summary>
-public class RootNodeStrategy : INodeStrategy
+public class RootNodeStrategy : NodeStrategy
 {
-    public void OnSignalEnter(BaseNodeData data, SignalContext context, RuntimeGraphInstance instance)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
     {
         if (data is not RootNodeData rootNode) return;
 
@@ -21,31 +21,21 @@ public class RootNodeStrategy : INodeStrategy
         }
 
         // 向所有输出节点传播信号
-        PropagateSignal(rootNode, context, instance);
+        EnqueueSignals(pack, rootNode.OutputConnections, context);
     }
 
-    public void OnEvent(BaseNodeData data, string eventName, object eventData, RuntimeGraphInstance instance)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
     {
         // Root 节点不响应外部事件
-    }
-
-    private void PropagateSignal(RootNodeData node, SignalContext context, RuntimeGraphInstance instance)
-    {
-        foreach (var conn in node.OutputConnections)
-        {
-            var newSignal = context.Clone();
-            newSignal.CurrentNodeId = conn.TargetNodeID;
-            instance.InjectSignal(newSignal);
-        }
     }
 }
 
 /// <summary>
 /// Spine 节点策略 - 流程的逻辑骨架/无线输电继电器喵~
 /// </summary>
-public class SpineNodeStrategy : INodeStrategy, IBlockingNodeStrategy
+public class SpineNodeStrategy : NodeStrategy, IBlockingNodeStrategy
 {
-    public void OnSignalEnter(BaseNodeData data, SignalContext context, RuntimeGraphInstance instance)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
     {
         if (data is not SpineNodeData spineNode) return;
 
@@ -55,13 +45,13 @@ public class SpineNodeStrategy : INodeStrategy, IBlockingNodeStrategy
         }
 
         // 1. 激活关联的 Leaf A 节点
-        ActivateLeafNodes(spineNode, context, instance);
+        ActivateLeafNodes(spineNode, context, pack);
 
         // 2. 向下一个 Spine 节点传播信号
-        PropagateToNextSpine(spineNode, context, instance);
+        PropagateToNextSpine(spineNode, context, pack);
     }
 
-    public void OnEvent(BaseNodeData data, string eventName, object eventData, RuntimeGraphInstance instance)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
     {
         if (data is not SpineNodeData spineNode) return;
 
@@ -72,13 +62,12 @@ public class SpineNodeStrategy : INodeStrategy, IBlockingNodeStrategy
         }
     }
 
-    private void ActivateLeafNodes(SpineNodeData node, SignalContext context, RuntimeGraphInstance instance)
+    private void ActivateLeafNodes(SpineNodeData node, SignalContext context, BasePackData pack)
     {
         // 查找所有与当前 Spine 节点共享 ProcessID 的 Leaf A 节点
-        var leafNodes = instance.GetNodesOfType<LeafNode_A_Data>();
-        foreach (var leaf in leafNodes)
+        foreach (var leafKvp in pack.Nodes)
         {
-            if (leaf.ProcessID == node.ProcessID)
+            if (leafKvp.Value is LeafNode_A_Data leaf && leaf.ProcessID == node.ProcessID)
             {
                 if (GraphRunner.Instance.EnableDebugLog)
                 {
@@ -86,30 +75,18 @@ public class SpineNodeStrategy : INodeStrategy, IBlockingNodeStrategy
                 }
 
                 // 向 Leaf A 节点发送信号
-                var newSignal = context.Clone();
-                newSignal.CurrentNodeId = leaf.NodeID;
-                instance.InjectSignal(newSignal);
+                EnqueueSignal(pack, leaf.NodeID, context);
             }
         }
     }
 
-    private void PropagateToNextSpine(SpineNodeData node, SignalContext context, RuntimeGraphInstance instance)
+    private void PropagateToNextSpine(SpineNodeData node, SignalContext context, BasePackData pack)
     {
-        // 通过 OutputConnections 或 NextSpineNodeIDs 传播
-        foreach (var conn in node.OutputConnections)
-        {
-            var newSignal = context.Clone();
-            newSignal.CurrentNodeId = conn.TargetNodeID;
-            instance.InjectSignal(newSignal);
-        }
+        // 通过 OutputConnections 传播
+        EnqueueSignals(pack, node.OutputConnections, context);
 
         // 兼容旧版 NextSpineNodeIDs 字段
-        foreach (var nextId in node.NextSpineNodeIDs)
-        {
-            var newSignal = context.Clone();
-            newSignal.CurrentNodeId = nextId;
-            instance.InjectSignal(newSignal);
-        }
+        EnqueueSignals(pack, node.NextSpineNodeIDs, context);
     }
 
     // =========================================================
@@ -156,9 +133,9 @@ public class SpineNodeStrategy : INodeStrategy, IBlockingNodeStrategy
 /// <summary>
 /// Leaf A 节点策略 - 处理具体的执行演出喵~
 /// </summary>
-public class LeafNodeAStrategy : INodeStrategy
+public class LeafNodeAStrategy : NodeStrategy
 {
-    public void OnSignalEnter(BaseNodeData data, SignalContext context, RuntimeGraphInstance instance)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
     {
         if (data is not LeafNode_A_Data leafNode) return;
 
@@ -168,38 +145,30 @@ public class LeafNodeAStrategy : INodeStrategy
         }
 
         // 向输出节点传播信号（通常是执行具体动作）
-        foreach (var conn in leafNode.OutputConnections)
-        {
-            var newSignal = context.Clone();
-            newSignal.CurrentNodeId = conn.TargetNodeID;
-            instance.InjectSignal(newSignal);
-        }
+        EnqueueSignals(pack, leafNode.OutputConnections, context);
 
-        // 同时通知对应的 Leaf B 节点（通过 Spine 节点中转）
-        NotifyLeafB(leafNode, context, instance);
+        // 同时通知对应的 Leaf B 节点（通过 pack.Nodes 查找）
+        NotifyLeafB(leafNode, context, pack);
     }
 
-    public void OnEvent(BaseNodeData data, string eventName, object eventData, RuntimeGraphInstance instance)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
     {
         // Leaf A 节点通常不直接响应外部事件
     }
 
-    private void NotifyLeafB(LeafNode_A_Data node, SignalContext context, RuntimeGraphInstance instance)
+    private void NotifyLeafB(LeafNode_A_Data node, SignalContext context, BasePackData pack)
     {
         // 查找对应的 Leaf B 节点（共享 ProcessID）
-        var leafBNodes = instance.GetNodesOfType<LeafNode_B_Data>();
-        foreach (var leafB in leafBNodes)
+        foreach (var leafBKvp in pack.Nodes)
         {
-            if (leafB.ProcessID == node.ProcessID)
+            if (leafBKvp.Value is LeafNode_B_Data leafB && leafB.ProcessID == node.ProcessID)
             {
                 if (GraphRunner.Instance.EnableDebugLog)
                 {
                     Debug.Log($"[LeafNode A] 通知 Leaf B: {leafB.NodeID}");
                 }
 
-                var newSignal = context.Clone();
-                newSignal.CurrentNodeId = leafB.NodeID;
-                instance.InjectSignal(newSignal);
+                EnqueueSignal(pack, leafB.NodeID, context);
             }
         }
     }
@@ -208,9 +177,9 @@ public class LeafNodeAStrategy : INodeStrategy
 /// <summary>
 /// Leaf B 节点策略 - 处理执行完毕的回调喵~
 /// </summary>
-public class LeafNodeBStrategy : INodeStrategy
+public class LeafNodeBStrategy : NodeStrategy
 {
-    public void OnSignalEnter(BaseNodeData data, SignalContext context, RuntimeGraphInstance instance)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
     {
         if (data is not LeafNode_B_Data leafNode) return;
 
@@ -220,15 +189,10 @@ public class LeafNodeBStrategy : INodeStrategy
         }
 
         // 向输出节点传播信号（通常是完成回调）
-        foreach (var conn in leafNode.OutputConnections)
-        {
-            var newSignal = context.Clone();
-            newSignal.CurrentNodeId = conn.TargetNodeID;
-            instance.InjectSignal(newSignal);
-        }
+        EnqueueSignals(pack, leafNode.OutputConnections, context);
     }
 
-    public void OnEvent(BaseNodeData data, string eventName, object eventData, RuntimeGraphInstance instance)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
     {
         // Leaf B 节点通常不直接响应外部事件
     }

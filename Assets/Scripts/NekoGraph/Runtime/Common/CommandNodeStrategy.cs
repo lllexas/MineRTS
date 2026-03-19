@@ -12,9 +12,9 @@ using UnityEngine;
 ///
 /// 【重构后】直接使用 CommandRegistry.Execute() 统一入口喵~
 /// </summary>
-public class CommandNodeStrategy : INodeStrategy
+public class CommandNodeStrategy : NodeStrategy
 {
-    public void OnSignalEnter(BaseNodeData data, SignalContext context, RuntimeGraphInstance instance)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
     {
         if (data is not CommandNodeData commandNode) return;
 
@@ -24,13 +24,13 @@ public class CommandNodeStrategy : INodeStrategy
         }
 
         // 执行命令
-        ExecuteCommand(commandNode, context, instance);
+        ExecuteCommand(commandNode, context, pack);
 
         // 向输出节点传播信号
-        PropagateSignal(commandNode, context, instance);
+        PropagateSignal(commandNode, context, pack);
     }
 
-    public void OnEvent(BaseNodeData data, string eventName, object eventData, RuntimeGraphInstance instance)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
     {
         // 命令节点通常不直接响应外部事件
     }
@@ -38,7 +38,7 @@ public class CommandNodeStrategy : INodeStrategy
     /// <summary>
     /// 执行命令喵~
     /// </summary>
-    private void ExecuteCommand(CommandNodeData node, SignalContext context, RuntimeGraphInstance instance)
+    private void ExecuteCommand(CommandNodeData node, SignalContext context, BasePackData pack)
     {
         var command = node.Command;
 
@@ -58,13 +58,13 @@ public class CommandNodeStrategy : INodeStrategy
         try
         {
             var output = CommandRegistry.Execute(command.CommandName, args, context.Args, null);
-            
+
             // 将命令输出的 Payload 传递给下游节点
             if (output.Payload != null)
             {
                 context.Args = output.Payload;
             }
-            
+
             // 如果有日志消息，打印出来
             if (!string.IsNullOrEmpty(output.Message))
             {
@@ -115,20 +115,9 @@ public class CommandNodeStrategy : INodeStrategy
     /// <summary>
     /// 传播信号到输出节点喵~
     /// </summary>
-    private void PropagateSignal(CommandNodeData node, SignalContext context, RuntimeGraphInstance instance)
+    private void PropagateSignal(CommandNodeData node, SignalContext context, BasePackData pack)
     {
-        foreach (var conn in node.OutputConnections)
-        {
-            var newSignal = context.Clone();
-            newSignal.CurrentNodeId = conn.TargetNodeID;
-            instance.InjectSignal(newSignal);
-        }
-
-        foreach (var nextId in node.OutputNodeIDs)
-        {
-            var newSignal = context.Clone();
-            newSignal.CurrentNodeId = nextId;
-            instance.InjectSignal(newSignal);
-        }
+        EnqueueSignals(pack, node.OutputConnections, context);
+        EnqueueSignals(pack, node.OutputNodeIDs, context);
     }
 }
