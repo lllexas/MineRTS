@@ -18,7 +18,7 @@ using UnityEngine;
 /// - 使用侧边索引（NodeToPath、Hierarchy）分离图结构与路径语义
 ///
 /// 生命周期：
-/// 1. VFSLoader.LoadPackFromResources() → VFSPackData（沉睡数据）
+/// 1. MetaLib.GetPack<VFSPackData>(packID) → VFSPackData（沉睡数据）
 /// 2. new VFSInstance() → VFSInstance（空壳实例）
 /// 3. GraphAnalyser.LoadVFS() → InternalRebuildTree()（注入灵魂）
 /// 4. PathIndex 生成完成，可以快如闪电地查询喵~！
@@ -28,9 +28,9 @@ using UnityEngine;
 public class VFSInstance
 {
     /// <summary>
-    /// 实例 ID
+    /// 实例 ID (已废弃，统一使用 PackID 喵~)
     /// </summary>
-    public string InstanceID;
+    // public string InstanceID; 
 
     /// <summary>
     /// 图类型（固定为 "VFS"）
@@ -38,9 +38,14 @@ public class VFSInstance
     public string GraphType;
 
     /// <summary>
-    /// 源 JSON 文件名（或 PackID）
+    /// 源 JSON 文件名（即 PackID）
     /// </summary>
     public string SourceJsonFileName;
+
+    /// <summary>
+    /// 统一使用 PackID 访问喵~
+    /// </summary>
+    public string PackID => SourceJsonFileName;
 
     /// <summary>
     /// 节点字典：NodeID → BaseNodeData（通用类型）
@@ -53,9 +58,9 @@ public class VFSInstance
     public Dictionary<string, string> PathIndex = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// 根节点 ID 列表
+    /// 根节点 ID（唯一）
     /// </summary>
-    public List<string> RootNodeIds = new List<string>();
+    public string RootNodeId;
 
     /// <summary>
     /// 是否已加载（由 GraphAnalyser 注入灵魂后设置为 true）
@@ -83,17 +88,15 @@ public class VFSInstance
     /// <summary>
     /// 创建 VFS 实例喵~
     /// </summary>
-    /// <param name="instanceID">实例 ID</param>
+    /// <param name="packID">Pack ID (源文件名)</param>
     /// <param name="graphType">图类型（默认 "VFS"）</param>
-    /// <param name="sourceJsonFileName">源 JSON 文件名（或 PackID）</param>
-    public VFSInstance(string instanceID, string graphType = "VFS", string sourceJsonFileName = null)
+    public VFSInstance(string packID, string graphType = "VFS")
     {
-        InstanceID = instanceID;
+        SourceJsonFileName = packID;
         GraphType = graphType;
-        SourceJsonFileName = sourceJsonFileName;
         NodeMap = new Dictionary<string, BaseNodeData>();
         PathIndex = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        RootNodeIds = new List<string>();
+        RootNodeId = null;
         IsLoaded = false;
     }
 
@@ -119,7 +122,7 @@ public class VFSInstance
             return false;
         }
 
-        // 2. 建立连线关系
+        // 2. 建立连线关系 + 更新 Hierarchy
         if (!string.IsNullOrEmpty(parentID) && NodeMap.TryGetValue(parentID, out var parent))
         {
             // 在父节点的 OutputConnections 里添加一条连线指向新节点喵~
@@ -134,12 +137,18 @@ public class VFSInstance
             {
                 vfs.ParentNodeID = parentID;
             }
+
+            // 更新 Hierarchy（确保 GetChildren/ls 能找到新节点喵~）
+            if (!Hierarchy.ContainsKey(parentID))
+                Hierarchy[parentID] = new List<string>();
+            if (!Hierarchy[parentID].Contains(node.NodeID))
+                Hierarchy[parentID].Add(node.NodeID);
         }
         else if (node is RootNodeData)
         {
-            // 如果没有父节点且是根节点类型，加入根列表
-            if (!RootNodeIds.Contains(node.NodeID))
-                RootNodeIds.Add(node.NodeID);
+            RootNodeId = node.NodeID;
+            if (!Hierarchy.ContainsKey(node.NodeID))
+                Hierarchy[node.NodeID] = new List<string>();
         }
 
         // 3. 加入地图
@@ -156,52 +165,33 @@ public class VFSInstance
 
     /// <summary>
     /// 更新单个节点的路径索引喵~（局部更新）
+    /// 直接从 NodeToPath 查父节点路径，与 AnalyzeRecursive 生成的路径格式完全一致喵~
     /// </summary>
     private void UpdateNodePathIndex(VFSNodeData node, string parentID)
     {
-        // 计算节点的完整路径
-        string nodePath = BuildNodePath(node, parentID);
-        
-        // 添加到路径索引
-        if (!string.IsNullOrEmpty(nodePath))
-        {
-            PathIndex[nodePath] = node.NodeID;
-        }
-    }
-
-    /// <summary>
-    /// 构建节点的完整路径喵~
-    /// </summary>
-    private string BuildNodePath(VFSNodeData node, string parentID)
-    {
-        if (node == null) return "";
-
-        // 如果是根目录，直接返回 /
-        if (string.IsNullOrEmpty(parentID) && node is RootNodeData)
-        {
-            return "/";
-        }
-
-        // 获取父节点路径
+        // 1. 从 NodeToPath 查父节点的已知路径（由 AnalyzeRecursive 正确建立）
         string parentPath = "";
-        if (!string.IsNullOrEmpty(parentID) && NodeMap.TryGetValue(parentID, out var parentNode))
+        if (!string.IsNullOrEmpty(parentID))
         {
-            if (parentNode is VFSNodeData parentVfs)
-            {
-                parentPath = BuildNodePath(parentVfs, parentVfs.ParentNodeID);
-            }
+            NodeToPath.TryGetValue(parentID, out parentPath);
         }
 
-        // 拼接当前节点路径
-        string nodeName = node.Name + (node.IsDirectory ? "" : node.Extension);
+        // 2. 拼接当前节点名（目录无扩展名，文件带扩展名）
+        string nodeName = node.IsDirectory ? node.Name : (node.Name + node.Extension);
+
+        string nodePath;
         if (string.IsNullOrEmpty(parentPath) || parentPath == "/")
-        {
-            return "/" + nodeName;
-        }
+            nodePath = "/" + nodeName;
         else
-        {
-            return parentPath + "/" + nodeName;
-        }
+            nodePath = parentPath.TrimEnd('/') + "/" + nodeName;
+
+        // 3. 目录路径加尾斜杠，与 AnalyzeRecursive 行为一致
+        if (node.IsDirectory)
+            nodePath += "/";
+
+        // 4. 同时维护 NodeToPath，让这个节点的子节点也能正确查到父路径
+        NodeToPath[node.NodeID] = nodePath;
+        PathIndex[nodePath] = node.NodeID;
     }
 
     /// <summary>
@@ -222,8 +212,8 @@ public class VFSInstance
             potentialParent.OutputConnections.RemoveAll(c => c.TargetNodeID == nodeID);
         }
 
-        // 2. 从根节点列表移除
-        RootNodeIds.Remove(nodeID);
+        // 2. 如果是根节点，清空
+        if (RootNodeId == nodeID) RootNodeId = null;
 
         // 3. 从地图移除
         NodeMap.Remove(nodeID);
@@ -238,11 +228,11 @@ public class VFSInstance
     {
         var pack = new VFSPackData
         {
-            PackID = SourceJsonFileName ?? InstanceID,
-            DisplayName = InstanceID + " Runtime Snapshot",
+            PackID = PackID,
+            DisplayName = PackID + " Runtime Snapshot",
             Description = "由 VFSInstance 动态生成的快照数据包喵~",
             Nodes = new List<BaseNodeData>(NodeMap.Values),
-            RootNodeIds = new List<string>(RootNodeIds)
+            RootNodeId = RootNodeId
         };
         return pack;
     }
@@ -265,8 +255,8 @@ public class VFSInstance
             NodeMap.Add(node.NodeID, node);
 
         // 如果是根节点，添加到根节点列表
-        if (node is RootNodeData && !RootNodeIds.Contains(node.NodeID))
-            RootNodeIds.Add(node.NodeID);
+        if (node is RootNodeData)
+            RootNodeId = node.NodeID;
     }
 
     /// <summary>
@@ -392,7 +382,7 @@ public class VFSInstance
         PathIndex.Clear();
         NodeToPath.Clear();
         Hierarchy.Clear();
-        RootNodeIds.Clear();
+        RootNodeId = null;
         IsLoaded = false;
     }
 
@@ -402,12 +392,12 @@ public class VFSInstance
     /// </summary>
     public string GetDebugInfo()
     {
-        string info = $"=== VFSInstance: {InstanceID} ===\n";
+        string info = $"=== VFSInstance: {PackID} ===\n";
         info += $"图类型：{GraphType}\n";
         info += $"源文件：{SourceJsonFileName}\n";
         info += $"节点数：{NodeMap.Count}\n";
         info += $"路径索引：{PathIndex.Count}\n";
-        info += $"根节点：{string.Join(", ", RootNodeIds)}\n";
+        info += $"根节点：{RootNodeId ?? "null"}\n";
         info += $"已加载：{IsLoaded}\n";
 
         return info;

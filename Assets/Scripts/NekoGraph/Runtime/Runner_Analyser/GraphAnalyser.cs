@@ -31,14 +31,14 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
 
     /// <summary>
     /// 所有的 VFS 实例都在这里排队喵~
-    /// InstanceID → VFSInstance
+    /// PackID → VFSInstance
     /// </summary>
     private Dictionary<string, VFSInstance> _vfsInstances = new Dictionary<string, VFSInstance>();
 
     /// <summary>
-    /// 默认实例 ID（用于单实例模式）
+    /// 默认 Pack ID（用于单实例模式）
     /// </summary>
-    private string _defaultInstanceId = "default";
+    private string _defaultPackId = "default";
 
     // =========================================================
     //  入口：加载并初始化 VFS 实例喵~
@@ -49,9 +49,8 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
     /// 【数据的觉醒祭坛】
     /// </summary>
     /// <param name="packID">资源包 ID（用于从 Resources 加载）</param>
-    /// <param name="instanceID">实例 ID（用于多实例管理）</param>
     /// <returns>初始化完成的 VFS 实例</returns>
-    public VFSInstance LoadVFS(string packID, string instanceID = null)
+    public VFSInstance LoadVFS(string packID)
     {
         if (string.IsNullOrEmpty(packID))
         {
@@ -59,19 +58,16 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
             return null;
         }
 
-        if (string.IsNullOrEmpty(instanceID))
-            instanceID = _defaultInstanceId;
-
-        // 1. 调用 Loader 加载 JSON（沉睡状态）
-        var pack = VFSLoader.LoadPackFromResources(packID);
+        // 1. 调用 MetaLib 加载（沉睡状态）- 彻底拥抱 PackID 体系喵~
+        var pack = MetaLib.GetPack<VFSPackData>(packID);
         if (pack == null)
         {
-            Debug.LogError($"[GraphAnalyser] 加载 VFS Pack 失败：{packID}");
+            Debug.LogError($"[GraphAnalyser] 加载 VFS Pack 失败：{packID}，请检查 MetaLib.json 配置喵！");
             return null;
         }
 
-        // 2. 转换为运行时实例
-        var instance = new VFSInstance(instanceID, "VFS", packID);
+        // 2. 转换为运行时实例 (PackID 作为唯一标识)
+        var instance = new VFSInstance(packID, "VFS");
 
         // 3. 从 PackData 填充 NodeMap（所有节点类型）
         foreach (var node in pack.Nodes)
@@ -82,7 +78,7 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
             // 如果是根节点，添加到根节点列表
             if (node is RootNodeData)
             {
-                instance.RootNodeIds.Add(node.NodeID);
+                instance.RootNodeId = node.NodeID;
             }
         }
 
@@ -91,12 +87,12 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
         InternalRebuildTree(instance);
 
         // 5. 注册到总包字典
-        if (_vfsInstances.ContainsKey(instanceID))
-            _vfsInstances[instanceID] = instance;
+        if (_vfsInstances.ContainsKey(packID))
+            _vfsInstances[packID] = instance;
         else
-            _vfsInstances.Add(instanceID, instance);
+            _vfsInstances.Add(packID, instance);
 
-        Debug.Log($"[GraphAnalyser] VFS 实例加载完成：{instanceID} (节点数：{instance.NodeMap.Count}, 路径索引：{instance.PathIndex.Count})");
+        Debug.Log($"[GraphAnalyser] VFS 实例加载完成：{packID} (节点数：{instance.NodeMap.Count}, 路径索引：{instance.PathIndex.Count})");
 
         return instance;
     }
@@ -105,9 +101,8 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
     /// 从已有的 VFSPackData 创建实例喵~
     /// </summary>
     /// <param name="pack">VFS 数据包</param>
-    /// <param name="instanceID">实例 ID</param>
     /// <returns>初始化完成的 VFS 实例</returns>
-    public VFSInstance LoadVFSFromPack(VFSPackData pack, string instanceID = null)
+    public VFSInstance LoadVFSFromPack(VFSPackData pack)
     {
         if (pack == null)
         {
@@ -115,11 +110,10 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
             return null;
         }
 
-        if (string.IsNullOrEmpty(instanceID))
-            instanceID = _defaultInstanceId;
+        string packID = pack.PackID;
 
         // 1. 创建运行时实例
-        var instance = new VFSInstance(instanceID, "VFS", pack.PackID);
+        var instance = new VFSInstance(packID, "VFS");
 
         // 2. 从 PackData 填充 NodeMap（所有节点类型）
         foreach (var node in pack.Nodes)
@@ -130,7 +124,7 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
             // 如果是根节点，添加到根节点列表
             if (node is RootNodeData)
             {
-                instance.RootNodeIds.Add(node.NodeID);
+                instance.RootNodeId = node.NodeID;
             }
         }
 
@@ -138,12 +132,12 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
         InternalRebuildTree(instance);
 
         // 4. 注册到总包字典
-        if (_vfsInstances.ContainsKey(instanceID))
-            _vfsInstances[instanceID] = instance;
+        if (_vfsInstances.ContainsKey(packID))
+            _vfsInstances[packID] = instance;
         else
-            _vfsInstances.Add(instanceID, instance);
+            _vfsInstances.Add(packID, instance);
 
-        Debug.Log($"[GraphAnalyser] VFS 实例创建完成：{instanceID} (节点数：{instance.NodeMap.Count}, 路径索引：{instance.PathIndex.Count})");
+        Debug.Log($"[GraphAnalyser] VFS 实例创建完成：{packID} (节点数：{instance.NodeMap.Count}, 路径索引：{instance.PathIndex.Count})");
 
         return instance;
     }
@@ -156,13 +150,13 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
     /// 在 VFS 中创建或写入文件喵~
     /// 【echo "xxx" > path】的底层实现喵！
     /// </summary>
-    /// <param name="instanceID">实例 ID</param>
+    /// <param name="packID">Pack ID</param>
     /// <param name="path">目标完整路径（如 /social/messages/m1.json）</param>
     /// <param name="content">文件内容</param>
     /// <returns>是否操作成功</returns>
-    public bool WriteFile(string instanceID, string path, string content)
+    public bool WriteFile(string packID, string path, string content)
     {
-        var instance = GetInstance(instanceID);
+        var instance = GetInstance(packID);
         if (instance == null) return false;
 
         path = VFSPathResolver.Normalize(path);
@@ -184,7 +178,7 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
             string parentPath = VFSPathResolver.GetParentPath(path);
             
             // 递归创建父目录喵~（如果不存在）
-            if (!EnsureDirectoryExists(instanceID, parentPath))
+            if (!EnsureDirectoryExists(packID, parentPath))
             {
                 Debug.LogError($"[GraphAnalyser] 创建父目录失败：{parentPath}");
                 return false;
@@ -231,9 +225,9 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
     /// 确保目录存在喵~（递归创建）
     /// 【mkdir -p path】的底层实现喵！
     /// </summary>
-    private bool EnsureDirectoryExists(string instanceID, string path)
+    private bool EnsureDirectoryExists(string packID, string path)
     {
-        var instance = GetInstance(instanceID);
+        var instance = GetInstance(packID);
         if (instance == null) return false;
 
         path = VFSPathResolver.Normalize(path);
@@ -255,22 +249,22 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
         string parentPath = VFSPathResolver.GetParentPath(path);
         if (!string.IsNullOrEmpty(parentPath) && parentPath != "/")
         {
-            if (!EnsureDirectoryExists(instanceID, parentPath))
+            if (!EnsureDirectoryExists(packID, parentPath))
             {
                 return false;
             }
         }
 
         // 创建当前目录喵~
-        return CreateDirectoryInternal(instanceID, path);
+        return CreateDirectoryInternal(packID, path);
     }
 
     /// <summary>
     /// 创建目录的内部方法（不检查父目录）喵~
     /// </summary>
-    private bool CreateDirectoryInternal(string instanceID, string path)
+    private bool CreateDirectoryInternal(string packID, string path)
     {
-        var instance = GetInstance(instanceID);
+        var instance = GetInstance(packID);
         if (instance == null) return false;
 
         path = VFSPathResolver.Normalize(path);
@@ -301,18 +295,18 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
     /// 在 VFS 中创建目录喵~
     /// 【mkdir path】的底层实现喵！
     /// </summary>
-    public bool CreateDirectory(string instanceID, string path)
+    public bool CreateDirectory(string packID, string path)
     {
-        return EnsureDirectoryExists(instanceID, path);
+        return EnsureDirectoryExists(packID, path);
     }
 
     /// <summary>
     /// 删除路径对应的节点喵~
     /// 【rm -rf path】喵！
     /// </summary>
-    public bool Delete(string instanceID, string path)
+    public bool Delete(string packID, string path)
     {
-        var instance = GetInstance(instanceID);
+        var instance = GetInstance(packID);
         if (instance == null) return false;
 
         var node = instance.GetNodeByPath(path);
@@ -344,13 +338,10 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
         instance.Hierarchy.Clear();
 
         // 从根节点开始遍历
-        foreach (var rootId in instance.RootNodeIds)
+        if (!string.IsNullOrEmpty(instance.RootNodeId) &&
+            instance.NodeMap.TryGetValue(instance.RootNodeId, out var root))
         {
-            if (instance.NodeMap.TryGetValue(rootId, out var root))
-            {
-                // 根节点路径定义为 "/"
-                AnalyzeRecursive(root, "/", instance);
-            }
+            AnalyzeRecursive(root, "/", instance);
         }
 
         Debug.Log($"[GraphAnalyser] VFS 树重构完成喵！节点数：{instance.NodeMap.Count}, 路径索引：{instance.PathIndex.Count}");
@@ -411,20 +402,20 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
     /// <summary>
     /// 全系统通用的节点查询接口喵~
     /// </summary>
-    /// <param name="instanceID">实例 ID</param>
+    /// <param name="packID">Pack ID</param>
     /// <param name="path">路径（如 "/social/friends/"）</param>
     /// <returns>BaseNodeData，如果不存在则返回 null</returns>
-    public BaseNodeData GetNode(string instanceID, string path)
+    public BaseNodeData GetNode(string packID, string path)
     {
         if (_vfsInstances.Count == 0)
         {
-            Debug.LogWarning("[GraphAnalyser] 未初始化！请先调用 vfs_load 命令加载 VFS 数据包喵~");
+            Debug.LogWarning("[GraphAnalyser] 未初始化！请先调用 vfs_mount 命令加载 VFS 数据包喵~");
             return null;
         }
 
-        if (!_vfsInstances.TryGetValue(instanceID, out var instance))
+        if (!_vfsInstances.TryGetValue(packID, out var instance))
         {
-            Debug.LogWarning($"[GraphAnalyser] 实例不存在：{instanceID}。可用实例：{string.Join(", ", _vfsInstances.Keys)}");
+            Debug.LogWarning($"[GraphAnalyser] 实例不存在：{packID}。可用实例：{string.Join(", ", _vfsInstances.Keys)}");
             return null;
         }
 
@@ -437,26 +428,26 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
     /// </summary>
     public BaseNodeData GetNode(string path)
     {
-        return GetNode(_defaultInstanceId, path);
+        return GetNode(_defaultPackId, path);
     }
 
     /// <summary>
     /// 获取子节点列表喵~
     /// </summary>
-    /// <param name="instanceID">实例 ID</param>
+    /// <param name="packID">Pack ID</param>
     /// <param name="path">父路径</param>
     /// <returns>子节点列表</returns>
-    public List<BaseNodeData> GetChildren(string instanceID, string path)
+    public List<BaseNodeData> GetChildren(string packID, string path)
     {
         if (_vfsInstances.Count == 0)
         {
-            Debug.LogWarning("[GraphAnalyser] 未初始化！请先调用 vfs_load 命令加载 VFS 数据包喵~");
+            Debug.LogWarning("[GraphAnalyser] 未初始化！请先调用 vfs_mount 命令加载 VFS 数据包喵~");
             return new List<BaseNodeData>();
         }
 
-        if (!_vfsInstances.TryGetValue(instanceID, out var instance))
+        if (!_vfsInstances.TryGetValue(packID, out var instance))
         {
-            Debug.LogWarning($"[GraphAnalyser] 实例不存在：{instanceID}。可用实例：{string.Join(", ", _vfsInstances.Keys)}");
+            Debug.LogWarning($"[GraphAnalyser] 实例不存在：{packID}。可用实例：{string.Join(", ", _vfsInstances.Keys)}");
             return new List<BaseNodeData>();
         }
 
@@ -468,15 +459,15 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
     /// </summary>
     public List<BaseNodeData> GetChildren(string path)
     {
-        return GetChildren(_defaultInstanceId, path);
+        return GetChildren(_defaultPackId, path);
     }
 
     /// <summary>
     /// 检查路径是否存在喵~
     /// </summary>
-    public bool PathExists(string instanceID, string path)
+    public bool PathExists(string packID, string path)
     {
-        return GetNode(instanceID, path) != null;
+        return GetNode(packID, path) != null;
     }
 
     // =========================================================
@@ -490,49 +481,49 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
     {
         if (instance == null) return;
 
-        if (_vfsInstances.ContainsKey(instance.InstanceID))
-            _vfsInstances[instance.InstanceID] = instance;
+        if (_vfsInstances.ContainsKey(instance.PackID))
+            _vfsInstances[instance.PackID] = instance;
         else
-            _vfsInstances.Add(instance.InstanceID, instance);
+            _vfsInstances.Add(instance.PackID, instance);
 
         instance.IsLoaded = true;
-        Debug.Log($"[GraphAnalyser] 实例注册：{instance.InstanceID}");
+        Debug.Log($"[GraphAnalyser] 实例注册：{instance.PackID}");
     }
 
     /// <summary>
     /// 注销 VFS 实例喵~
     /// </summary>
-    public void UnregisterInstance(string instanceID)
+    public void UnregisterInstance(string packID)
     {
-        if (_vfsInstances.TryGetValue(instanceID, out var instance))
+        if (_vfsInstances.TryGetValue(packID, out var instance))
         {
             instance.IsLoaded = false;
             instance.Clear();
-            _vfsInstances.Remove(instanceID);
-            Debug.Log($"[GraphAnalyser] 实例注销：{instanceID}");
+            _vfsInstances.Remove(packID);
+            Debug.Log($"[GraphAnalyser] 实例注销：{packID}");
         }
     }
 
     /// <summary>
     /// 获取 VFS 实例喵~
     /// </summary>
-    public VFSInstance GetInstance(string instanceID)
+    public VFSInstance GetInstance(string packID)
     {
-        _vfsInstances.TryGetValue(instanceID, out var instance);
+        _vfsInstances.TryGetValue(packID, out var instance);
         return instance;
     }
 
     /// <summary>
-    /// 设置默认实例 ID 喵~
+    /// 设置默认 Pack ID 喵~
     /// </summary>
-    public void SetDefaultInstanceId(string instanceID)
+    public void SetDefaultPackId(string packID)
     {
-        if (!string.IsNullOrEmpty(instanceID))
-            _defaultInstanceId = instanceID;
+        if (!string.IsNullOrEmpty(packID))
+            _defaultPackId = packID;
     }
 
     /// <summary>
-    /// 获取所有实例 ID 列表喵~
+    /// 获取所有实例 ID (PackID) 列表喵~
     /// </summary>
     public List<string> GetAllInstanceIds()
     {
@@ -556,7 +547,7 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
             info += $"\n  实例：{kvp.Key}\n";
             info += $"    节点数：{kvp.Value.NodeMap.Count}\n";
             info += $"    路径索引：{kvp.Value.PathIndex.Count}\n";
-            info += $"    根节点：{string.Join(", ", kvp.Value.RootNodeIds)}\n";
+            info += $"    根节点：{kvp.Value.RootNodeId ?? "null"}\n";
         }
 
         return info;

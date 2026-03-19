@@ -141,6 +141,10 @@ public class GameFlowController : SingletonMono<GameFlowController>
                     BigMapUIManager.Instance.Close();
                     Debug.Log("<color=orange>[GameFlow]</color> 大地图 UI 管理器已关闭");
                 }
+
+                // 事件层面：发布"期望隐藏所有面板"事件，通知分布式 UI 隐藏
+                PostSystem.Instance.Send("期望隐藏所有面板", null);
+                Debug.Log("<color=orange>[GameFlow]</color> 已发送期望隐藏所有面板事件");
                 break;
             case GameState.InStage:
 

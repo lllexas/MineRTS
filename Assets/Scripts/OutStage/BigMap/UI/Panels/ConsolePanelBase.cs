@@ -127,6 +127,16 @@ namespace MineRTS.BigMap.UI.Panels
         /// </summary>
         public abstract void OnSubmitCommand(string input);
 
+        /// <summary>
+        /// 获取逻辑层实例（由子类提供 T 引用）
+        /// </summary>
+        protected abstract T ConsoleLogic { get; }
+
+        /// <summary>
+        /// 关闭动作（简单 FadeOut）
+        /// </summary>
+        protected override void CloseAction() => FadeOut();
+
         // =========================================================
         //  Unity 生命周期
         // =========================================================
@@ -145,9 +155,11 @@ namespace MineRTS.BigMap.UI.Panels
         {
             // 注销滚动条事件
             if (scrollbar != null)
-            {
                 scrollbar.onValueChanged.RemoveListener(OnScrollbarChanged);
-            }
+
+            // 反订阅清屏事件
+            if (ConsoleLogic != null)
+                ConsoleLogic.OnClearRequested -= ClearLog;
         }
 
         /// <summary>
@@ -164,11 +176,7 @@ namespace MineRTS.BigMap.UI.Panels
                 inputField.Select();
             }
             
-            // 显示光标
-            if (cursorRoot != null)
-            {
-                cursorRoot.gameObject.SetActive(true);
-            }
+            // 显示光标（cursorBackground 在 Update 中按需启用）
         }
 
         /// <summary>
@@ -189,11 +197,6 @@ namespace MineRTS.BigMap.UI.Panels
 
             // 隐藏光标
             if (cursorBackground != null) cursorBackground.enabled = false;
-            if (cursorCharText != null) cursorCharText.enabled = false;
-            if (cursorRoot != null)
-            {
-                cursorRoot.gameObject.SetActive(false);
-            }
             
             // 隐藏 IME 预览
             if (imePreviewText != null)
@@ -212,6 +215,13 @@ namespace MineRTS.BigMap.UI.Panels
         {
             // 重新计算可见行数（确保 Layout 已完成）
             RecalculateVisibleRows();
+            _buffer.MaxColumns = CalculateMaxColumns();
+            if (ConsoleLogic != null && _buffer.MaxColumns > 0)
+                ConsoleLogic.ConsoleWidth = _buffer.MaxColumns;
+
+            // 订阅清屏事件
+            if (ConsoleLogic != null)
+                ConsoleLogic.OnClearRequested += ClearLog;
         }
 
         /// <summary>
@@ -264,46 +274,27 @@ namespace MineRTS.BigMap.UI.Panels
                 inputText.enableWordWrapping = true;
             }
 
-            // 初始化光标组件
-            if (cursorRoot != null)
+            // 初始化光标背景（层级由 Inspector 排好，不在代码中移动）
+            if (cursorBackground != null)
             {
-                _cursorRootRect = cursorRoot;
-                
-                // 设置 cursorRoot 为 inputText 的子对象
-                if (inputText != null)
-                {
-                    cursorRoot.SetParent(inputText.transform, false);
-                }
-                cursorRoot.anchoredPosition = Vector2.zero;
-                cursorRoot.sizeDelta = new Vector2(2, inputText.fontSize);
+                var bgRect = cursorBackground.rectTransform;
+                bgRect.pivot        = new Vector2(0f, 0f);
+                bgRect.anchorMin    = new Vector2(0f, 0f);
+                bgRect.anchorMax    = new Vector2(0f, 0f);
+                bgRect.anchoredPosition = Vector2.zero;
+                cursorBackground.color   = Color.white;
+                cursorBackground.enabled = false;
+            }
 
-                // 初始化背景
-                if (cursorBackground != null)
-                {
-                    cursorBackground.color = Color.white;
-                    cursorBackground.enabled = false;
-                }
-                
-                // 初始化文字
-                if (cursorCharText != null)
-                {
-                    cursorCharText.fontSize = inputText.fontSize;
-                    cursorCharText.font = inputText.font;
-                    cursorCharText.color = Color.black;
-                    cursorCharText.text = "";
-                    cursorCharText.enabled = false;
-                }
-
-                // 初始化 IME 预览文本
-                if (imePreviewText != null)
-                {
-                    imePreviewText.richText = true;
-                    imePreviewText.enableWordWrapping = false;
-                    imePreviewText.alignment = TextAlignmentOptions.TopLeft;
-                    imePreviewText.fontSize = inputText.fontSize;
-                    imePreviewText.font = inputText.font;
-                    imePreviewText.enabled = false; // 初始隐藏
-                }
+            // 初始化 IME 预览文本
+            if (imePreviewText != null && inputText != null)
+            {
+                imePreviewText.richText = true;
+                imePreviewText.enableWordWrapping = false;
+                imePreviewText.alignment = TextAlignmentOptions.TopLeft;
+                imePreviewText.fontSize = inputText.fontSize;
+                imePreviewText.font = inputText.font;
+                imePreviewText.enabled = false;
             }
         }
 
@@ -371,10 +362,6 @@ namespace MineRTS.BigMap.UI.Panels
                 inputField.Select();
                 
                 // 强制立即更新光标位置
-                if (cursorRoot != null)
-                {
-                    cursorRoot.gameObject.SetActive(true);
-                }
                 UpdateInputLine(inputField.text, inputField.caretPosition);
             }
         }
@@ -455,200 +442,101 @@ namespace MineRTS.BigMap.UI.Panels
         // =========================================================
 
         /// <summary>
-        /// 更新光标文本内容
-        /// </summary>
-        private void UpdateCursorText(string charAtCaret)
-        {
-            if (cursorCharText == null) return;
-            
-            // 显示光标处的字符（黑色文字，覆盖在白色背景上实现反色）
-            cursorCharText.text = charAtCaret;
-        }
-
-        /// <summary>
-        /// 精确计算光标位置（cursorRoot 是 inputText 的子对象，坐标直接对齐）
-        /// </summary>
-        private void UpdateCursorCursorPosition(string beforeCursor)
-        {
-            if (_cursorRootRect == null || inputText == null) return;
-
-            TMP_TextInfo textInfo = inputText.textInfo;
-
-            // 计算 Prompt 的实际字符数（去除富文本标签）
-            string prompt = GetPrompt();
-            int actualPromptLength = StripRichTextTags(prompt).Length;
-            int caretIndexInText = actualPromptLength + beforeCursor.Length;
-
-            Vector2 cursorPos = Vector2.zero;
-            float cursorWidth = 2f;
-
-            if (textInfo.characterCount > 0 && caretIndexInText < textInfo.characterCount)
-            {
-                // 获取光标处字符的精确起始位置
-                TMP_CharacterInfo charInfo = textInfo.characterInfo[caretIndexInText];
-                cursorPos.x = charInfo.origin;
-
-                // 计算字符宽度（块状光标，使用字符实际宽度）
-                float charWidth = charInfo.xAdvance - charInfo.origin;
-                cursorWidth = charWidth;
-            }
-            else if (textInfo.characterCount > 0)
-            {
-                // 光标在末尾（半宽块状光标）
-                TMP_CharacterInfo lastChar = textInfo.characterInfo[textInfo.characterCount - 1];
-                cursorPos.x = lastChar.xAdvance;
-                cursorWidth = inputText.fontSize * 0.5f; // 半宽块块
-            }
-
-            // 更新 cursorRoot 位置
-            _cursorRootRect.anchoredPosition = new Vector2(cursorPos.x, 0);
-            _cursorRootRect.sizeDelta = new Vector2(cursorWidth, inputText.fontSize);
-
-            // 更新背景和文字
-            if (cursorBackground != null)
-            {
-                cursorBackground.rectTransform.sizeDelta = new Vector2(cursorWidth, inputText.fontSize);
-                cursorBackground.enabled = true;
-            }
-
-            if (cursorCharText != null)
-            {
-                cursorCharText.rectTransform.anchoredPosition = Vector2.zero;
-                cursorCharText.rectTransform.sizeDelta = new Vector2(cursorWidth, inputText.fontSize);
-                cursorCharText.color = Color.black;
-                cursorCharText.enabled = true;
-            }
-        }
-
-        /// <summary>
-        /// 移除富文本标签，返回纯文本
-        /// </summary>
-        private static string StripRichTextTags(string text)
-        {
-            if (string.IsNullOrEmpty(text)) return text;
-
-            var result = new System.Text.StringBuilder();
-            bool inTag = false;
-
-            for (int i = 0; i < text.Length; i++)
-            {
-                char c = text[i];
-
-                if (c == '<')
-                {
-                    inTag = true;
-                }
-                else if (c == '>' && inTag)
-                {
-                    inTag = false;
-                }
-                else if (!inTag)
-                {
-                    result.Append(c);
-                }
-            }
-
-            return result.ToString();
-        }
-
-        /// <summary>
-        /// 处理光标闪烁
+        /// 处理光标闪烁（纯状态维护，由 UpdateInputLine 消费）
         /// </summary>
         private void HandleCursorBlink()
         {
-            if (cursorBackground == null && cursorCharText == null) return;
-
-            if (!enableCursorBlink)
-            {
-                if (cursorBackground != null) cursorBackground.color = Color.white;
-                if (cursorCharText != null) cursorCharText.color = Color.black;
-                _cursorVisible = true;
-                if (cursorCharText != null) cursorCharText.gameObject.SetActive(true);
-                return;
-            }
-
+            if (!enableCursorBlink) { _cursorVisible = true; return; }
             _cursorBlinkTimer += Time.unscaledDeltaTime * cursorBlockBlinkSpeed;
-            float blinkValue = Mathf.Sin(_cursorBlinkTimer * Mathf.PI);
-
-            if (blinkValue >= 0)
-            {
-                if (!_cursorVisible)
-                {
-                    if (cursorBackground != null) cursorBackground.color = Color.white;
-                    if (cursorCharText != null) cursorCharText.gameObject.SetActive(true);
-                    _cursorVisible = true;
-                }
-            }
-            else
-            {
-                if (_cursorVisible)
-                {
-                    if (cursorBackground != null) cursorBackground.color = Color.clear;
-                    if (cursorCharText != null) cursorCharText.gameObject.SetActive(false);
-                    _cursorVisible = false;
-                }
-            }
+            _cursorVisible = Mathf.Sin(_cursorBlinkTimer * Mathf.PI) >= 0;
         }
 
         /// <summary>
-        /// 更新输入行（同步处理）
+        /// 更新输入行（同步处理，富文本反色光标方案）
         /// </summary>
         protected virtual void UpdateInputLine(string input, int caret)
         {
             if (inputText == null || inputField == null) return;
-
             string composition = Input.compositionString;
-
-            // 确保 caret 在有效范围内
             caret = Mathf.Clamp(caret, 0, input.Length);
+            if (input != _lastInputText) _targetColumn = -1;
 
-            // 输入变化时重置目标列
-            _targetColumn = -1;
+            HandleCursorBlink();
 
-            // IME 预览
-            string imePreview = string.IsNullOrEmpty(composition)
-                ? ""
-                : $"<u color=white>{composition}</u>";
+            string beforeCaret = input.Substring(0, caret);
+            string afterCaret  = caret < input.Length ? input.Substring(caret + 1) : "";
+            char   rawChar     = caret < input.Length ? input[caret] : '\0';
 
-            // 更新 inputText（Prompt + 全部输入内容，每行填补 Prompt）
-            // 每行前面添加 Prompt（第一行已有 Prompt，只需处理后续行）
-            string formattedInput = input.Replace("\n", "\n" + GetPrompt());
+            string cursorSegment;
+            if (_cursorVisible && rawChar != '\0' && rawChar != '\n')
+                cursorSegment = $"<color=#000000>{rawChar}</color>";
+            else
+                cursorSegment = rawChar == '\0' ? "" : rawChar.ToString();
+
+            string inputWithCursor = beforeCaret + cursorSegment + afterCaret;
+            string imePreview = string.IsNullOrEmpty(composition) ? "" : $"<u color=white>{composition}</u>";
+            string formattedInput = inputWithCursor.Replace("\n", "\n" + GetPrompt());
             inputText.text = GetPrompt() + formattedInput + imePreview;
-            inputText.ForceMeshUpdate(); // 强制更新网格，确保字符信息准确
+            inputText.ForceMeshUpdate();
 
-            // 独立更新 IME 预览文本
+            if (cursorBackground != null)
+            {
+                if (_cursorVisible) { PositionCursorBackground(caret, input); cursorBackground.enabled = true; }
+                else cursorBackground.enabled = false;
+            }
+
             if (imePreviewText != null)
             {
-                if (!string.IsNullOrEmpty(composition))
-                {
-                    imePreviewText.text = $"<color=#FFFFFF>{composition}</color>";
-                    imePreviewText.enabled = true;
-                }
-                else
-                {
-                    imePreviewText.enabled = false;
-                }
+                if (!string.IsNullOrEmpty(composition)) { imePreviewText.text = $"<color=#FFFFFF>{composition}</color>"; imePreviewText.enabled = true; }
+                else imePreviewText.enabled = false;
             }
+        }
 
-            // 更新光标（IME 输入期间也保持显示）
-            if (cursorRoot != null)
+        /// <summary>
+        /// 将 cursorBackground Image 精确定位到光标字符处
+        /// </summary>
+        private void PositionCursorBackground(int rawCaret, string rawInput)
+        {
+            TMP_TextInfo textInfo = inputText.textInfo;
+            if (textInfo == null || textInfo.characterCount == 0) return;
+
+            int promptLen = GetPromptVisibleLength();
+            int newlines = 0;
+            for (int i = 0; i < rawCaret && i < rawInput.Length; i++)
+                if (rawInput[i] == '\n') newlines++;
+            int charIndex = promptLen * (1 + newlines) + rawCaret;
+
+            bool isAtEnd = charIndex >= textInfo.characterCount;
+            TMP_CharacterInfo ci = isAtEnd
+                ? textInfo.characterInfo[textInfo.characterCount - 1]
+                : textInfo.characterInfo[charIndex];
+
+            float x = isAtEnd ? ci.xAdvance : ci.origin;
+            float y = ci.descender;
+            float w = isAtEnd ? (inputText.fontSize * 0.5f) : (ci.xAdvance - ci.origin);
+            float h = ci.ascender - ci.descender;
+
+            Vector3 worldPos = inputText.transform.TransformPoint(x, y, 0f);
+            RectTransform bgRect = cursorBackground.rectTransform;
+            bgRect.localPosition = bgRect.parent.InverseTransformPoint(worldPos);
+            bgRect.sizeDelta = new Vector2(w, h);
+        }
+
+        /// <summary>
+        /// 计算 Prompt 的可见字符数（去除富文本标签）
+        /// </summary>
+        private int GetPromptVisibleLength()
+        {
+            string prompt = GetPrompt();
+            if (string.IsNullOrEmpty(prompt)) return 0;
+            int count = 0; bool inTag = false;
+            foreach (char c in prompt)
             {
-                // 计算光标处字符（用于反色显示）
-                string charAtCaret = "";
-                if (caret < input.Length)
-                {
-                    charAtCaret = input[caret].ToString();
-                }
-
-                // 更新 cursorText 内容
-                UpdateCursorText(charAtCaret);
-
-                // 精确计算光标位置
-                UpdateCursorCursorPosition(input.Substring(0, caret));
-
-                // 处理光标闪烁
-                HandleCursorBlink();
+                if (c == '<') inTag = true;
+                else if (c == '>' && inTag) inTag = false;
+                else if (!inTag) count++;
             }
+            return count;
         }
 
         // =========================================================
@@ -764,18 +652,41 @@ namespace MineRTS.BigMap.UI.Panels
         // =========================================================
 
         /// <summary>
-        /// 计算每行最大列数
+        /// 计算每行最大列数（margin 感知 + 字体精确宽度）
         /// </summary>
         protected virtual int CalculateMaxColumns()
         {
-            if (historyText == null || historyText.font == null) return 80;
+            if (historyText == null || historyText.font == null) return 140;
 
-            // 根据 TMP 的字符信息计算
-            // 简单估算：视口宽度 / 字符平均宽度
-            float viewportWidth = historyText.rectTransform.rect.width;
-            float charWidth = lineHeight * 0.6f; // 等宽字体宽高比约 0.6
+            float viewportWidth = historyText.rectTransform.rect.width
+                                  - historyText.margin.x - historyText.margin.z;
+            if (viewportWidth <= 0) return 140;
 
+            float charWidth = GetActualCharWidth();
             return Mathf.FloorToInt(viewportWidth / charWidth);
+        }
+
+        /// <summary>
+        /// 从字体表取实际半宽字符推进宽度（ASCII → CJK 半宽 → 0.5em 兜底）
+        /// </summary>
+        private float GetActualCharWidth()
+        {
+            if (historyText == null || historyText.font == null)
+                return historyText.fontSize * 0.5f;
+
+            var font = historyText.font;
+            float scale = historyText.fontSize / font.faceInfo.pointSize;
+
+            // 优先用 'M'（ASCII 半宽参考字符）
+            if (font.characterLookupTable != null && font.characterLookupTable.TryGetValue('M', out var chM))
+                return chM.glyph.metrics.horizontalAdvance * scale;
+
+            // 'M' 不在字体表（纯 CJK Mono 字体）→ 用全宽字符 advance 的一半
+            if (font.characterLookupTable != null && font.characterLookupTable.TryGetValue('我', out var chWo))
+                return (chWo.glyph.metrics.horizontalAdvance * scale) / 2f;
+
+            // 终极兜底：等宽 CJK 字体半宽 = 0.5em
+            return historyText.fontSize * 0.5f;
         }
 
         /// <summary>
@@ -793,7 +704,7 @@ namespace MineRTS.BigMap.UI.Panels
                 // TMP 的行高约等于 fontSize * 1.2（考虑行间距）
                 float actualLineHeight = historyText.fontSize * 1.2f;
 
-                _visibleRows = Mathf.CeilToInt(textHeight / actualLineHeight);
+                _visibleRows = Mathf.FloorToInt(textHeight / actualLineHeight);
                 if (_visibleRows <= 0)
                 {
                     _visibleRows = 25; // 默认值，防止计算结果为 0
@@ -953,10 +864,29 @@ namespace MineRTS.BigMap.UI.Panels
         {
             if (inputField == null || !inputField.isFocused) return;
 
-            // 上下箭头导航（保持列位置）
-            if (Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.DownArrow))
+            // 策略激活时：数字键（1-9）直接选择选项，不需要 Enter
+            if (ConsoleLogic != null && ConsoleLogic.HasActiveStrategy)
             {
-                HandleVerticalNavigation(Input.GetKey(KeyCode.UpArrow));
+                for (int i = 1; i <= 9; i++)
+                {
+                    if (Input.GetKeyDown(KeyCode.Alpha0 + i) || Input.GetKeyDown(KeyCode.Keypad0 + i))
+                    {
+                        ConsoleLogic.ProcessCommand(i.ToString());
+                        inputField.text = "";
+                        _lastInputText = "";
+                        return;
+                    }
+                }
+            }
+
+            // 上下箭头：有活跃策略时转发给策略，否则正常导航
+            if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.DownArrow))
+            {
+                bool isUp = Input.GetKeyDown(KeyCode.UpArrow);
+                if (ConsoleLogic != null && ConsoleLogic.HasActiveStrategy)
+                    ConsoleLogic.SendArrowKeyToStrategy(isUp);
+                else
+                    HandleVerticalNavigation(isUp);
                 return;
             }
 
@@ -988,7 +918,16 @@ namespace MineRTS.BigMap.UI.Panels
                 {
                     return;
                 }
-                
+
+                // 有活跃策略且输入为空时，转发 Confirm（↑↓ 导航后 Enter 确认）
+                if (ConsoleLogic != null && ConsoleLogic.HasActiveStrategy && string.IsNullOrWhiteSpace(inputField.text))
+                {
+                    ConsoleLogic.ConfirmStrategySelection();
+                    inputField.text = "";
+                    _lastInputText = "";
+                    return;
+                }
+
                 // 提交时移除所有换行符（防止自动换行或手动换行截断指令）
                 string input = System.Text.RegularExpressions.Regex.Replace(inputField.text, @"\s*\n\s*", " ");
                 

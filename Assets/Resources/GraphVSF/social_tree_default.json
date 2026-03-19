@@ -1,0 +1,91 @@
+{
+  "RootNodeId": "cf8bb8a4-b828-40cc-b491-342114862d95",
+  "PackID": "social_tree_default",
+  "DisplayName": "New VFS Pack",
+  "Description": "虚拟文件系统包",
+  "Author": "NekoTeam",
+  "Version": "1.0.0",
+  "CreatedAt": 1773889459,
+  "ModifiedAt": 1773889459,
+  "Nodes": [
+    {
+      "$type": "RootNodeData, Assembly-CSharp",
+      "_": [
+        "a8ce6c7d-6369-45d3-be58-9e59737364f5"
+      ],
+      "NodeID": "cf8bb8a4-b828-40cc-b491-342114862d95",
+      "EditorPosition": {
+        "x": 87.2,
+        "y": 150.400009
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "a8ce6c7d-6369-45d3-be58-9e59737364f5",
+          "ToPortIndex": 0
+        }
+      ]
+    },
+    {
+      "$type": "VFSNodeData, Assembly-CSharp",
+      "ParentNodeID": "cf8bb8a4-b828-40cc-b491-342114862d95",
+      "ChildNodeIDs": [
+        "41fc373a-1c97-47c4-91ec-10bf7a98eefb",
+        "aa5a6638-8ef0-4ab9-a421-ba7217c02174"
+      ],
+      "Extension": "",
+      "IsEnabled": true,
+      "NodeID": "a8ce6c7d-6369-45d3-be58-9e59737364f5",
+      "Name": "You",
+      "EditorPosition": {
+        "x": 320.800018,
+        "y": 137.6
+      },
+      "OutputConnections": [
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "41fc373a-1c97-47c4-91ec-10bf7a98eefb",
+          "ToPortIndex": 0
+        },
+        {
+          "FromPortIndex": 0,
+          "TargetNodeID": "aa5a6638-8ef0-4ab9-a421-ba7217c02174",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsDirectory": true,
+      "IsFile": false
+    },
+    {
+      "$type": "VFSNodeData, Assembly-CSharp",
+      "ParentNodeID": "a8ce6c7d-6369-45d3-be58-9e59737364f5",
+      "ChildNodeIDs": [],
+      "IsEnabled": true,
+      "NodeID": "41fc373a-1c97-47c4-91ec-10bf7a98eefb",
+      "Name": "AiXing",
+      "EditorPosition": {
+        "x": 681.600037,
+        "y": 60.8
+      },
+      "OutputConnections": [],
+      "IsDirectory": true,
+      "IsFile": false
+    },
+    {
+      "$type": "VFSNodeData, Assembly-CSharp",
+      "ParentNodeID": "a8ce6c7d-6369-45d3-be58-9e59737364f5",
+      "ChildNodeIDs": [],
+      "Extension": "msg",
+      "IsEnabled": true,
+      "NodeID": "aa5a6638-8ef0-4ab9-a421-ba7217c02174",
+      "Name": "README",
+      "EditorPosition": {
+        "x": 680.0,
+        "y": 264.8
+      },
+      "OutputConnections": [],
+      "IsDirectory": false,
+      "IsFile": true
+    }
+  ]
+}

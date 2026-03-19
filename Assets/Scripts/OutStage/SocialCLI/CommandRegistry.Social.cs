@@ -41,13 +41,7 @@ public static partial class CommandRegistry
     [SocialCommand]
     public static CommandOutput Pwd(DeveloperConsole console, string[] args, object payload)
     {
-        var scli = console as SocialCLI;
-        if (scli == null)
-        {
-            return CommandOutput.Fail("此命令只能在社交终端执行喵！");
-        }
-
-        return CommandOutput.Success($"当前目录：{scli.CurrentPath}");
+        return CommandOutput.Success($"当前目录：{console.CurrentPath}");
     }
 
     [CommandInfo("cd", "📂 切换目录", "Social", new[] { "path" },
@@ -56,45 +50,32 @@ public static partial class CommandRegistry
     [SocialCommand]
     public static CommandOutput Cd(DeveloperConsole console, string[] args, object payload)
     {
-        var scli = console as SocialCLI;
-        if (scli == null)
-        {
-            return CommandOutput.Fail("此命令只能在社交终端执行喵！");
-        }
-
         if (args.Length < 1)
         {
-            scli.SetCurrentPath("/social/");
-            return CommandOutput.Success($"当前目录：{scli.CurrentPath}");
+            console.SetCurrentPath("/");
+            return CommandOutput.Success($"当前目录：{console.CurrentPath}");
         }
 
         string path = args[0];
 
         if (path == "..")
         {
-            string parentPath = VFSPathResolver.GetParentPath(scli.CurrentPath);
-            scli.SetCurrentPath(parentPath);
+            string parentPath = VFSPathResolver.GetParentPath(console.CurrentPath);
+            console.SetCurrentPath(parentPath);
         }
-        else if (path == "/" || path == "/social/")
+        else if (path == "/" || path == "~")
         {
-            scli.SetCurrentPath("/social/");
+            console.SetCurrentPath("/");
         }
         else
         {
-            string targetPath;
-            if (path.StartsWith("/"))
-            {
-                targetPath = VFSPathResolver.Normalize(path);
-            }
-            else
-            {
-                targetPath = VFSPathResolver.Combine(scli.CurrentPath, path);
-            }
-
-            scli.SetCurrentPath(targetPath);
+            string targetPath = path.StartsWith("/")
+                ? VFSPathResolver.Normalize(path)
+                : VFSPathResolver.Combine(console.CurrentPath, path);
+            console.SetCurrentPath(targetPath);
         }
 
-        return CommandOutput.Success($"当前目录：{scli.CurrentPath}");
+        return CommandOutput.Success($"当前目录：{console.CurrentPath}");
     }
 
     [CommandInfo("ls", "📋 列出目录", "Social", new[] { "path" },
@@ -103,13 +84,10 @@ public static partial class CommandRegistry
     [SocialCommand]
     public static CommandOutput List(DeveloperConsole console, string[] args, object payload)
     {
-        var scli = console as SocialCLI;
-        if (scli == null)
-        {
-            return CommandOutput.Fail("此命令只能在社交终端执行喵！");
-        }
+        if (string.IsNullOrEmpty(console.CurrentVFSPackID))
+            return CommandOutput.Fail("未挂载文件系统喵！");
 
-        string path = args.Length > 0 ? args[0] : scli.CurrentPath;
+        string path = args.Length > 0 ? args[0] : console.CurrentPath;
 
         var analyser = GraphAnalyser.Instance;
         if (analyser == null)
@@ -118,20 +96,20 @@ public static partial class CommandRegistry
         }
 
         // 检查路径是否存在
-        if (!analyser.PathExists(scli.VFSInstanceID, path))
+        if (!analyser.PathExists(console.CurrentVFSPackID, path))
         {
             return CommandOutput.Fail($"路径不存在：{path}");
         }
 
         // 检查是否是目录
-        var node = analyser.GetNode(scli.VFSInstanceID, path);
+        var node = analyser.GetNode(console.CurrentVFSPackID, path);
         if (node is VFSNodeData vfs && !vfs.IsDirectory)
         {
             return CommandOutput.Fail($"不是目录：{path}");
         }
 
         // 获取子节点列表
-        var children = analyser.GetChildren(scli.VFSInstanceID, path);
+        var children = analyser.GetChildren(console.CurrentVFSPackID, path);
 
         StringBuilder sb = new StringBuilder();
         sb.AppendLine($"目录：{path}");
@@ -209,16 +187,16 @@ public static partial class CommandRegistry
     [SocialCommand]
     public static CommandOutput Cat(DeveloperConsole console, string[] args, object payload)
     {
-        var scli = console as SocialCLI;
-        if (scli == null) return CommandOutput.Fail("此命令只能在社交终端执行喵！");
+        if (string.IsNullOrEmpty(console.CurrentVFSPackID))
+            return CommandOutput.Fail("未挂载文件系统喵！");
 
         if (args.Length < 1) return CommandOutput.Fail("请指定要读取的文件路径喵~");
 
         string path = args[0];
-        string targetPath = path.StartsWith("/") ? path : VFSPathResolver.Combine(scli.CurrentPath, path);
+        string targetPath = path.StartsWith("/") ? path : VFSPathResolver.Combine(console.CurrentPath, path);
 
         var analyser = GraphAnalyser.Instance;
-        var node = analyser.GetNode(scli.VFSInstanceID, targetPath);
+        var node = analyser.GetNode(console.CurrentVFSPackID, targetPath);
 
         if (node == null) return CommandOutput.Fail($"文件不存在：{targetPath}");
         if (node is VFSNodeData vfs)
@@ -234,7 +212,7 @@ public static partial class CommandRegistry
                     if (msgData != null && !string.IsNullOrEmpty(msgData.PackID))
                     {
                         // 使用策略模式接管喵！✨
-                        scli.SetActiveStrategy(new SocialCLIStrategies.MsgStrategy(scli), targetPath, msgData.PackID);
+                        console.SetActiveStrategy(new CatStrategies.MsgStrategy(console), targetPath, msgData.PackID);
                         return CommandOutput.Success(""); // 逻辑已接管，无需额外输出
                     }
                 }
@@ -277,16 +255,11 @@ public static partial class CommandRegistry
             return CommandOutput.Fail("此命令只能在大控制台执行喵！社交终端无法修改隔离设置。");
         }
 
-        var scli = console as SocialCLI;
+        // 从场景中查找 SocialCLI 实例
+        var scli = UnityEngine.Object.FindFirstObjectByType<SocialCLI>();
         if (scli == null)
         {
-            // 尝试从场景中查找 SocialCLI 实例
-            var socialCli = UnityEngine.Object.FindFirstObjectByType<SocialCLI>();
-            if (socialCli == null)
-            {
-                return CommandOutput.Fail("找不到 SocialCLI 实例喵~");
-            }
-            scli = socialCli;
+            return CommandOutput.Fail("找不到 SocialCLI 实例喵~");
         }
 
         if (args.Length < 1)

@@ -35,14 +35,14 @@ public class PostSystem : SingletonMono<PostSystem>
     private readonly Dictionary<string, List<Handler>> _eventTable = new Dictionary<string, List<Handler>>();
     private readonly Dictionary<object, HashSet<string>> _targetToEvents = new Dictionary<object, HashSet<string>>();
 
-    // 缓存所有 GameEvent 的字符串形式，用于快速比对喵~
-    private static HashSet<string> _gameEventStrings;
+    // 缓存所有 TriggerEvent 的字符串形式，用于快速比对喵~
+    private static HashSet<string> _triggerEventStrings;
 
-    private void EnsureGameEventCache()
+    private void EnsureTriggerEventCache()
     {
-        if (_gameEventStrings == null)
+        if (_triggerEventStrings == null)
         {
-            _gameEventStrings = new HashSet<string>(Enum.GetNames(typeof(GameEvent)));
+            _triggerEventStrings = new HashSet<string>(Enum.GetNames(typeof(TriggerEvent)));
         }
     }
 
@@ -52,13 +52,13 @@ public class PostSystem : SingletonMono<PostSystem>
 
     /// <summary>
     /// 🚀【普通货运窗口】分发原始事件。
-    /// ⚠️ 严禁在此直接发送 GameEvent 定义的契约事件喵！
+    /// ⚠️ 严禁在此直接发送 TriggerEvent 定义的契约事件喵！
     /// </summary>
     public void Send(string eventName, object data = null)
     {
 #if UNITY_EDITOR || DEBUG
-        EnsureGameEventCache();
-        if (_gameEventStrings.Contains(eventName))
+        EnsureTriggerEventCache();
+        if (_triggerEventStrings.Contains(eventName))
         {
             Debug.LogError($"<color=red>[PostSystem] 阻断违规操作！</color> 事件 [{eventName}] 属于 NekoGraph 契约事件，" +
                            $"【严禁】直接调用 PostSystem.Send！请务必通过 PostOffice.Send() 进行强类型分发喵！");
@@ -107,35 +107,41 @@ public class PostSystem : SingletonMono<PostSystem>
 
     /// <summary>
     /// 自动扫描并注册对象中所有带有 [Subscribe] 特性的方法喵！
+    /// 注意：沿继承链向上遍历，确保基类的 private 方法也能被正确扫描到喵~
     /// </summary>
     public void Register(object target)
     {
         if (target == null) return;
+
+        // 沿继承链向上遍历，DeclaredOnly 每次只扫当前层自己声明的方法
+        // 这样基类的 private [Subscribe] 方法也能被正确找到喵~
         var type = target.GetType();
-        var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-        foreach (var method in methods)
+        while (type != null && type != typeof(MonoBehaviour) && type != typeof(object))
         {
-            var attrs = method.GetCustomAttributes<Subscribe>();
-            foreach (var attr in attrs)
-            {
-                // 创建委托喵~ 
-                // 注意：这里需要根据方法参数进行适配喵
-                Action<object> action = (data) =>
-                {
-                    var parameters = method.GetParameters();
-                    if (parameters.Length == 0)
-                    {
-                        method.Invoke(target, null);
-                    }
-                    else
-                    {
-                        method.Invoke(target, new[] { data });
-                    }
-                };
+            var methods = type.GetMethods(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
 
-                AddHandler(attr.EventName, target, action, attr.Priority);
+            foreach (var method in methods)
+            {
+                var attrs = method.GetCustomAttributes<Subscribe>();
+                foreach (var attr in attrs)
+                {
+                    // 捕获当前迭代的 method，避免闭包陷阱喵~
+                    var capturedMethod = method;
+                    var paramCount = method.GetParameters().Length;
+                    Action<object> action = (data) =>
+                    {
+                        if (paramCount == 0)
+                            capturedMethod.Invoke(target, null);
+                        else
+                            capturedMethod.Invoke(target, new[] { data });
+                    };
+
+                    AddHandler(attr.EventName, target, action, attr.Priority);
+                }
             }
+
+            type = type.BaseType;
         }
     }
 

@@ -10,7 +10,7 @@ using NekoGraph;
 
 /// <summary>
 /// 监听器节点 - 事件分发中心喵！
-/// 基于 GameEvent 枚举自动生成界面喵~
+/// 基于 TriggerEvent 枚举自动生成界面喵~
 /// </summary>
 [NodeMenuItem("🔔 事件监听器 (Trigger)", typeof(TriggerNodeData))]
 [NodeType(NodeSystem.Common)]

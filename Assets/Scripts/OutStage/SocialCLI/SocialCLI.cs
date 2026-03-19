@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
-using SocialCLIStrategies;
+using CatStrategies;
 
 /// <summary>
 /// ═══════════════════════════════════════════════════════════════
@@ -52,104 +52,19 @@ public class SocialCLI : DeveloperConsole
     /// </summary>
     public bool EnableCommandIsolation = true;
 
-    // =========================================================
-    //  策略模式：接管交互逻辑喵~
-    // =========================================================
-    private ICatStrategy _activeStrategy;
-
-    /// <summary>
-    /// 设置并启动一个新的 cat 策略喵~
-    /// </summary>
-    public void SetActiveStrategy(ICatStrategy strategy, string vfsPath, string graphPath = null)
-    {
-        CloseActiveStrategy();
-        _activeStrategy = strategy;
-        _activeStrategy.Execute(vfsPath, graphPath);
-    }
-
-    /// <summary>
-    /// 关闭当前正在运行的策略喵~
-    /// </summary>
-    public void CloseActiveStrategy()
-    {
-        if (_activeStrategy != null)
-        {
-            _activeStrategy.Close();
-            _activeStrategy = null;
-        }
-    }
+    // 策略系统方法已上移至 DeveloperConsole 基类喵~
 
     // =========================================================
     //  VFS 实例配置
     // =========================================================
 
-    /// <summary>
-    /// VFS 实例 ID
-    /// </summary>
-    [Tooltip("VFS 实例 ID")]
-    public string VFSInstanceID = "Social_01";
+    // CurrentPath / SetCurrentPath 已上移至基类喵~
 
-    /// <summary>
-    /// VFS 资源包路径（用于从 Resources 加载）
-    /// </summary>
-    [Tooltip("VFS 资源包路径（相对于 Resources 目录）")]
-    public string VFSPackPath = "GraphVSF/Packs/social_tree";
+    /// <summary>社交终端首选的 VFS 盘符喵~ 默认 social_tree_default，Inspector 可覆盖</summary>
+    [Tooltip("首选 VFS 包 ID（盘符），不存在时自动回退到第一个可用盘")]
+    [SerializeField] private string _preferredVFSPackID = "social_tree_default";
 
-    /// <summary>
-    /// 是否自动加载 VFS
-    /// </summary>
-    [Tooltip("是否自动加载 VFS 文件树")]
-    public bool AutoLoadVFS = true;
-
-    // =========================================================
-    //  当前路径（GraphAnalyser 驱动）喵~
-    // =========================================================
-
-    /// <summary>
-    /// 当前路径（只读，从 GraphAnalyser 查询）喵~
-    /// </summary>
-    public string CurrentPath { get; private set; } = "/social/";
-
-    /// <summary>
-    /// 设置当前路径喵~
-    /// </summary>
-    /// <param name="path">新路径</param>
-    /// <returns>是否成功</returns>
-    public bool SetCurrentPath(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-        {
-            Log("路径不能为空", Color.red);
-            return false;
-        }
-
-        // 使用 GraphAnalyser 验证路径
-        var analyser = GraphAnalyser.Instance;
-        if (analyser == null)
-        {
-            Log("GraphAnalyser 实例不存在", Color.red);
-            return false;
-        }
-
-        // 检查路径是否存在
-        if (!analyser.PathExists(VFSInstanceID, path))
-        {
-            Log($"路径不存在：{path}", Color.red);
-            return false;
-        }
-
-        // 检查是否是目录（通过 VFSNodeData 判断）
-        var node = analyser.GetNode(VFSInstanceID, path);
-        if (node is VFSNodeData vfs && !vfs.IsDirectory)
-        {
-            Log($"不是目录：{path}", Color.red);
-            return false;
-        }
-
-        CurrentPath = path;
-        Log($"路径已切换到：{CurrentPath}", Color.green);
-        return true;
-    }
+    protected override string GetPreferredPackID() => _preferredVFSPackID;
 
     // =========================================================
     //  初始化（反射扫描）
@@ -195,10 +110,11 @@ public class SocialCLI : DeveloperConsole
     {
         if (string.IsNullOrWhiteSpace(input)) return;
 
-        // 0. 策略模式拦截喵~
-        if (_activeStrategy != null)
+        // 策略拦截已在基类 DeveloperConsole.ProcessCommand 处理，
+        // 但 SocialCLI 完全重写了 ProcessCommand，需在此处调用基类处理喵~
+        if (HasActiveStrategy)
         {
-            _activeStrategy.OnInput(input);
+            base.ProcessCommand(input);
             return;
         }
 
@@ -221,79 +137,8 @@ public class SocialCLI : DeveloperConsole
             }
         }
 
-        // 2. 识别重定向符号喵~ (支持 >> 和 >)
-        if (input.Contains(">"))
-        {
-            HandleRedirection(input);
-            return;
-        }
-
-        // 3. 普通命令直接转发给基类喵~
+        // 2. 安检通过，转发给基类（基类负责重定向解析和执行）喵~
         base.ProcessCommand(input);
-    }
-
-    /// <summary>
-    /// 处理重定向逻辑喵~
-    /// </summary>
-    private void HandleRedirection(string input)
-    {
-        bool isAppend = input.Contains(">>");
-        string separator = isAppend ? ">>" : ">";
-
-        // 分割命令和路径
-        int sepIndex = input.IndexOf(separator);
-        string commandPart = input.Substring(0, sepIndex).Trim();
-        string pathPart = input.Substring(sepIndex + separator.Length).Trim();
-
-        if (string.IsNullOrEmpty(pathPart))
-        {
-            Log("未指定重定向目标路径喵！", Color.red);
-            return;
-        }
-
-        // 执行命令获取 Payload
-        // 由于这里不支持复杂的管道组合重定向（目前先做单命令），直接手动调 CommandRegistry
-        string[] cmdParts = commandPart.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-        if (cmdParts.Length == 0) return;
-
-        string cmdName = cmdParts[0].ToLower();
-        string[] args = cmdParts.Skip(1).ToArray();
-
-        Log($"> {input}", Color.cyan);
-
-        var output = CommandRegistry.Execute(cmdName, args, null, this);
-        if (output.Result == CommandRegistry.CommandResult.Failed)
-        {
-            Log($"命令执行失败，重定向已终止喵：{output.Message}", Color.red);
-            return;
-        }
-
-        // 处理写入内容：优先使用 Payload，没有 Payload 就用 Message 凑合一下喵~
-        string contentToWrite = (output.Payload?.ToString()) ?? output.Message ?? "";
-        string fullPath = pathPart.StartsWith("/") ? pathPart : VFSPathResolver.Combine(CurrentPath, pathPart);
-
-        var analyser = GraphAnalyser.Instance;
-        if (analyser == null) return;
-
-        // 追加模式逻辑喵~
-        if (isAppend)
-        {
-            var existing = analyser.GetNode(VFSInstanceID, fullPath);
-            if (existing is VFSNodeData vfs)
-            {
-                contentToWrite = vfs.DataJson + "\n" + contentToWrite;
-            }
-        }
-
-        // 写入文件喵~
-        if (analyser.WriteFile(VFSInstanceID, fullPath, contentToWrite))
-        {
-            Log($"内容已{(isAppend ? "追加" : "写入")}到：{fullPath}", Color.green);
-        }
-        else
-        {
-            Log($"写入失败，请检查路径是否正确喵：{fullPath}", Color.red);
-        }
     }
 
     /// <summary>
@@ -357,125 +202,23 @@ public class SocialCLI : DeveloperConsole
         PostSystem.Instance.Send("SocialCLI.Output", new DeveloperConsole.ConsoleOutputEvent { message = message, color = color });
     }
 
-    // =========================================================
-    //  Unity 生命周期
-    // =========================================================
+    /// <summary>请求面板将视口滚动到顶部喵~</summary>
+    public override void ScrollConsoleToTop()
+    {
+        PostSystem.Instance.Send("SocialCLI.ScrollToTop", null);
+    }
+
+    // ==================== Unity 生命周期 ====================
+
     protected override void Awake()
     {
-        base.Awake();
-        // 注册到事件系统，接收社交协议事件喵~
-        PostSystem.Instance.Register(this);
-
-        // 不再自动加载 VFS，等待用户手动调用 vfs_load 命令
-        CurrentPath = "/social/";
-        Debug.Log("[SocialCLI] 已启动，使用 vfs_load 命令加载 VFS 数据包喵~");
+        base.Awake(); // 基类负责 PostSystem.Register 和 VFS 兜底初始化喵~
+        Debug.Log("[SocialCLI] 终端就绪，正在等待 VFS 系统供电信号喵~");
     }
 
-
-    // =========================================================
-    //  GraphVSF 初始化（GraphAnalyser 集成版）喵~
-    // =========================================================
-
-    /// <summary>
-    /// 初始化 GraphVSF 文件树喵~
-    /// 使用 GraphAnalyser 单例加载和管理 VFS 实例
-    /// </summary>
-    private void InitializeGraphVSF()
-    {
-        // 获取 GraphAnalyser 单例
-        var analyser = GraphAnalyser.Instance;
-        if (analyser == null)
-        {
-            Debug.LogError("[SocialCLI] GraphAnalyser 实例不存在，无法初始化 VFS 喵~");
-            return;
-        }
-
-        // 尝试从 Resources 加载 VFS Pack
-        var pack = VFSLoader.LoadPackFromResources(VFSPackPath);
-        if (pack == null)
-        {
-            Debug.LogWarning($"[SocialCLI] 找不到 VFS Pack：{VFSPackPath}，创建默认社交文件树喵~");
-            pack = CreateDefaultSocialTree();
-        }
-
-        // 使用 GraphAnalyser 加载并初始化 VFS 实例
-        var instance = analyser.LoadVFSFromPack(pack, VFSInstanceID);
-        if (instance != null)
-        {
-            // 设置默认实例 ID
-            analyser.SetDefaultInstanceId(VFSInstanceID);
-
-            // 设置当前路径为根目录
-            if (instance.RootNodeIds.Count > 0)
-            {
-                CurrentPath = "/social/";
-                Debug.Log($"[SocialCLI] GraphVSF 初始化完成，当前路径：{CurrentPath}");
-                Debug.Log(analyser.GetDebugInfo());
-            }
-        }
-        else
-        {
-            Debug.LogError("[SocialCLI] VFS 实例加载失败");
-        }
-    }
-
-    /// <summary>
-    /// 创建默认的社交文件树喵~
-    /// </summary>
-    private VFSPackData CreateDefaultSocialTree()
-    {
-        var pack = new VFSPackData
-        {
-            PackID = "social_tree_default",
-            DisplayName = "社交文件树（默认）",
-            Description = "SocialCLI 默认文件树结构"
-        };
-
-        // 创建根节点 /social/
-        var rootNode = new RootNodeData
-        {
-            NodeID = "root_social",
-            Name = "social",
-        };
-        pack.AddRootNode(rootNode);
-
-        // 创建 friends 目录
-        var friendsFolder = CreateFolderNode("friends", "好友列表", rootNode, pack);
-
-        // 创建 requests 目录
-        var requestsFolder = CreateFolderNode("requests", "好友请求", rootNode, pack);
-
-        // 创建 blocks 目录
-        var blocksFolder = CreateFolderNode("blocks", "黑名单", rootNode, pack);
-
-        // 创建 groups 目录
-        var groupsFolder = CreateFolderNode("groups", "群组", rootNode, pack);
-
-        // 创建 messages 目录
-        var messagesFolder = CreateFolderNode("messages", "消息历史", rootNode, pack);
-
-        return pack;
-    }
-
-    /// <summary>
-    /// 创建目录节点喵~
-    /// </summary>
-    private VFSNodeData CreateFolderNode(string name, string desc, RootNodeData parent, VFSPackData pack)
-    {
-        var folder = new VFSNodeData
-        {
-            NodeID = "folder_" + name,
-            Name = name,
-            Extension = "", // 空扩展名 = 目录
-            Description = desc
-        };
-
-        // 添加到父节点的输出连线
-        parent.OutputConnections.Add(new ConnectionData(0, folder.NodeID, 0));
-        pack.Nodes.Add(folder);
-
-        return folder;
-    }
+    // OnDestroy 已上移至基类（负责 PostSystem.Unregister）喵~
+    // OnVFSSystemReady 已上移至基类（Subscribe VFS.IO_Ready）喵~
+    // VFS 初始化由 PersistentVFSManager.Initialize() 在挂盘时统一完成喵~
 
     // =========================================================
     //  调试方法喵~
@@ -489,8 +232,8 @@ public class SocialCLI : DeveloperConsole
         var analyser = GraphAnalyser.Instance;
         if (analyser == null) return "GraphAnalyser 实例不存在";
 
-        var instance = analyser.GetInstance(VFSInstanceID);
-        if (instance == null) return $"VFS 实例不存在：{VFSInstanceID}";
+        var instance = analyser.GetInstance(CurrentVFSPackID);
+        if (instance == null) return $"VFS 实例不存在：{CurrentVFSPackID}";
 
         return instance.GetDebugInfo();
     }

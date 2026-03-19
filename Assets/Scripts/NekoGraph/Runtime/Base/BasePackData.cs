@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Newtonsoft.Json;
 
 /// <summary>
 /// ═══════════════════════════════════════════════════════════════
@@ -62,6 +63,7 @@ public abstract class BasePackData
     /// <summary>
     /// 所有节点的集合（Newtonsoft.Json + TypeNameHandling.Auto 自动保存类型信息）喵~
     /// </summary>
+    [JsonProperty(ItemTypeNameHandling = TypeNameHandling.Auto)]
     [Tooltip("节点列表")]
     public List<BaseNodeData> Nodes = new List<BaseNodeData>();
 

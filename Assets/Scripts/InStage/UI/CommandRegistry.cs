@@ -381,40 +381,62 @@ public static partial class CommandRegistry
     // 📂 VFS 相关命令
     // =========================================================
 
-    [CommandInfo("vfs_load", "📂 加载 VFS", "System", new[] { "PackPath", "InstanceID" },
-        Tooltip = "加载 VFS 数据包喵~\n示例：vfs_load GraphVSF/Packs/social_tree Social_01",
+    [CommandInfo("vfs_mount", "📂 挂载 VFS", "System", new[] { "PackID" },
+        Tooltip = "从 MetaLib 强制挂载 VFS 包（覆盖同名盘）喵~\n示例：vfs_mount social_tree_default",
         Color = "0.3,0.5,0.7")]
-    public static CommandOutput VFSLoad(DeveloperConsole console, string[] args, object payload)
+    public static CommandOutput VFSMount(DeveloperConsole console, string[] args, object payload)
     {
-        if (args.Length < 1)
-        {
-            return CommandOutput.Fail("Usage: vfs_load <PackPath> [InstanceID]");
-        }
+        if (args.Length < 1) return CommandOutput.Fail("Usage: vfs_mount <PackID>");
 
-        string packPath = args[0];
-        string instanceID = args.Length > 1 ? args[1] : "default";
+        var pVFS = NekoGraph.PersistentVFSManager.Instance;
+        if (pVFS == null) return CommandOutput.Fail("PersistentVFSManager 未初始化喵~");
 
-        var analyser = GraphAnalyser.Instance;
-        if (analyser == null)
-        {
-            return CommandOutput.Fail("GraphAnalyser 实例不存在喵~");
-        }
+        var instance = pVFS.MountVFS(args[0]);
+        if (instance == null) return CommandOutput.Fail($"挂载失败：{args[0]}");
 
-        var pack = VFSLoader.LoadPackFromResources(packPath);
-        if (pack == null)
-        {
-            return CommandOutput.Fail($"加载 VFS Pack 失败：{packPath}");
-        }
+        console.SetCurrentPath("/");
+        return CommandOutput.Success($"VFS 已挂载：{args[0]}（节点数：{instance.NodeMap.Count}）");
+    }
 
-        var instance = analyser.LoadVFSFromPack(pack, instanceID);
-        if (instance == null)
-        {
-            return CommandOutput.Fail("加载 VFS 实例失败喵~");
-        }
+    [CommandInfo("vfs_unmount", "🗑️ 卸载 VFS", "System", new[] { "PackID" },
+        Tooltip = "从内存卸载指定 VFS 盘喵~\n示例：vfs_unmount social_tree_default",
+        Color = "0.5,0.3,0.3")]
+    public static CommandOutput VFSUnmount(DeveloperConsole console, string[] args, object payload)
+    {
+        if (args.Length < 1) return CommandOutput.Fail("Usage: vfs_unmount <PackID>");
 
-        analyser.SetDefaultInstanceId(instanceID);
+        var pVFS = NekoGraph.PersistentVFSManager.Instance;
+        if (pVFS == null) return CommandOutput.Fail("PersistentVFSManager 未初始化喵~");
 
-        return CommandOutput.Success($"VFS 已加载：{instanceID} (节点数：{instance.NodeMap.Count}, 路径索引：{instance.PathIndex.Count})");
+        pVFS.UnmountVFS(args[0]);
+        return CommandOutput.Success($"已卸载：{args[0]}");
+    }
+
+    [CommandInfo("vfs_unmount_all", "🗑️ 卸载所有 VFS", "System", null,
+        Tooltip = "从内存卸载全部 VFS 盘喵~",
+        Color = "0.5,0.2,0.2")]
+    public static CommandOutput VFSUnmountAll(DeveloperConsole console, string[] args, object payload)
+    {
+        var pVFS = NekoGraph.PersistentVFSManager.Instance;
+        if (pVFS == null) return CommandOutput.Fail("PersistentVFSManager 未初始化喵~");
+
+        pVFS.UnmountAll();
+        return CommandOutput.Success("已卸载全部 VFS 实例");
+    }
+
+    [CommandInfo("vfs_save", "💾 保存 VFS 到磁盘", "System", new[] { "PackID" },
+        Tooltip = "将 VFS 实例序列化到 StreamingAssets 并注册到 MetaLib 喵~\n示例：vfs_save social_tree_default",
+        Color = "0.3,0.6,0.4")]
+    public static CommandOutput VFSSave(DeveloperConsole console, string[] args, object payload)
+    {
+        if (args.Length < 1) return CommandOutput.Fail("Usage: vfs_save <PackID>");
+
+        var pVFS = NekoGraph.PersistentVFSManager.Instance;
+        if (pVFS == null) return CommandOutput.Fail("PersistentVFSManager 未初始化喵~");
+
+        return pVFS.SaveVFSToDisk(args[0])
+            ? CommandOutput.Success($"已保存：{args[0]}")
+            : CommandOutput.Fail($"保存失败：{args[0]}");
     }
 
 
@@ -426,12 +448,12 @@ public static partial class CommandRegistry
         var analyser = GraphAnalyser.Instance;
         if (analyser == null)
         {
-            return CommandOutput.Fail("GraphAnalyser 未初始化喵~\n请使用 vfs_load 命令加载 VFS 数据包");
+            return CommandOutput.Fail("GraphAnalyser 未初始化喵~\n请使用 vfs_mount 命令加载 VFS 数据包");
         }
 
         if (analyser.GetAllInstanceIds().Count == 0)
         {
-            return CommandOutput.Fail("未加载任何 VFS 实例喵~\n请使用 vfs_load 命令加载 VFS 数据包");
+            return CommandOutput.Fail("未加载任何 VFS 实例喵~\n请使用 vfs_mount 命令加载 VFS 数据包");
         }
 
         return CommandOutput.Success((GameObject.FindFirstObjectByType<SocialCLI>()).GetVFSDebugInfo());

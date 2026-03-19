@@ -32,9 +32,14 @@ namespace MineRTS.BigMap.UI.Panels
         //  抽象接口实现
         // =========================================================
 
+        protected override SocialCLI ConsoleLogic => _socialCLI;
+
         protected override string GetPrompt()
         {
-            return $"<color=#00FF00>{_socialCLI.CurrentPath}</color> ";
+            // 将 / 根路径缩写为 ~，类似 bash 的 home 目录缩写喵~
+            string p = _socialCLI.CurrentPath.TrimEnd('/');
+            string displayPath = string.IsNullOrEmpty(p) ? "~" : "~" + p;
+            return $"<color=#00FF88>SC</color> <color=#88AAFF>{displayPath}</color><color=#FFFFFF>></color> ";
         }
 
         public override void OnSubmitCommand(string input)
@@ -54,24 +59,16 @@ namespace MineRTS.BigMap.UI.Panels
         //  重写基类方法
         // =========================================================
 
+        protected override string UIID => "SocialPanel";
+
         protected override void Awake()
         {
-            _uiID = "SocialPanel";
             base.Awake();
-        }
-
-        protected override void OnEnable()
-        {
-            base.OnEnable();
-            Debug.Log($"[SocialPanelAnimator] OnEnable called，注册 PostSystem 标签订阅");
-            PostSystem.Instance.Register(this);
         }
 
         protected override void OnDisable()
         {
-            Debug.Log($"[SocialPanelAnimator] OnDisable called，注销 PostSystem 标签订阅");
-            if (PostSystem.Instance != null)
-                PostSystem.Instance.Unregister(this);
+            base.OnDisable();
         }
 
         protected override void Start()
@@ -123,6 +120,13 @@ namespace MineRTS.BigMap.UI.Panels
             {
                 Output(evt.message, evt.color);
             }
+        }
+
+        [Subscribe("SocialCLI.ScrollToTop")]
+        private void HandleScrollToTop(object data)
+        {
+            _scrollLineIndex = 0;
+            _isDirty = true;
         }
 
         // =========================================================

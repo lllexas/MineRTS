@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MineRTS.BigMap;
 using Newtonsoft.Json;
+using NekoGraph;
 
 public class SaveManager : SingletonMono<SaveManager>
 {
@@ -91,6 +92,9 @@ public class SaveManager : SingletonMono<SaveManager>
         // 5. 设置到 MainModel
         MainModel.Instance.SetCurrentUser(newUser);
 
+        PersistentVFSManager.Instance.InitForNewSave(newUser);
+
+
         // 6. 标记当前文件名
         CurrentSaveFileName = saveName;
 
@@ -167,6 +171,9 @@ public class SaveManager : SingletonMono<SaveManager>
 
             // 4. 设置到 MainModel
             MainModel.Instance.SetCurrentUser(loadedUser);
+
+            PersistentVFSManager.Instance.LoadFromSave(loadedUser);
+
 
             // 5. 更新当前文件名引用
             CurrentSaveFileName = saveName;
@@ -276,7 +283,11 @@ public class SaveManager : SingletonMono<SaveManager>
         // 2. 捕获图运行时状态（科技树、剧情图等长期有效的图）
         CaptureGraphRunnerState(currentUser);
 
-        // 3. 使用 Newtonsoft.Json 序列化
+
+        PersistentVFSManager.Instance.SyncAll();
+
+
+        // 4. 使用 Newtonsoft.Json 序列化
         string json = JsonConvert.SerializeObject(currentUser, JsonSettings);
         string fullPath = Path.Combine(SaveDirectory, CurrentSaveFileName + ".json");
 

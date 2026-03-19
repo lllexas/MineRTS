@@ -10,7 +10,7 @@ using NekoGraph;
 public class TriggerNodeData : BaseNodeData
 {
     [Tooltip("监听的全局事件枚举喵~")]
-    public GameEvent Event = GameEvent.GameStarted;
+    public TriggerEvent Event = TriggerEvent.GameStarted;
 
     [InPort(0, "激活", NekoPortCapacity.Multi)]
     public List<string> InputNodeIDs = new List<string>();

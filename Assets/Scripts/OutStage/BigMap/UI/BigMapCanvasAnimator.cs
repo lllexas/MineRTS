@@ -15,6 +15,11 @@ namespace MineRTS.BigMap.UI
     /// </summary>
     public class BigMapCanvasAnimator : SpaceUIAnimator
     {
+        protected override void CloseAction()
+        {
+            FadeOut();
+        }
+
         private void Start()
         {
             // 追加行为到委托链（子类决定行为内容）

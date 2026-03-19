@@ -5,25 +5,25 @@ using System.Linq;
 using UnityEngine;
 
 /// <summary>
-/// 事件监听注册表 - 基于 GameEvent 枚举的自动同步喵！
+/// 事件监听注册表 - 基于 TriggerEvent 枚举的自动同步喵！
 /// 职责：为编辑器提供分类显示和协议校验喵~
 /// </summary>
 public static class TriggerRegistry
 {
     public class TriggerMeta
     {
-        public GameEvent Event;
+        public TriggerEvent Event;
         public EventInfoAttribute Info;
     }
 
-    private static readonly Dictionary<GameEvent, TriggerMeta> _triggers = new Dictionary<GameEvent, TriggerMeta>();
+    private static readonly Dictionary<TriggerEvent, TriggerMeta> _triggers = new Dictionary<TriggerEvent, TriggerMeta>();
     private static bool _isInitialized = false;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     public static void Initialize()
     {
         _triggers.Clear();
-        var enumType = typeof(GameEvent);
+        var enumType = typeof(TriggerEvent);
         var fields = enumType.GetFields(BindingFlags.Public | BindingFlags.Static);
 
         foreach (var field in fields)
@@ -31,7 +31,7 @@ public static class TriggerRegistry
             var attr = field.GetCustomAttribute<EventInfoAttribute>();
             if (attr != null)
             {
-                var eventValue = (GameEvent)field.GetValue(null);
+                var eventValue = (TriggerEvent)field.GetValue(null);
                 _triggers[eventValue] = new TriggerMeta { Event = eventValue, Info = attr };
             }
         }
@@ -53,7 +53,7 @@ public static class TriggerRegistry
         return _triggers.Values;
     }
 
-    public static TriggerMeta GetMeta(GameEvent evt)
+    public static TriggerMeta GetMeta(TriggerEvent evt)
     {
         EnsureInitialized();
         return _triggers.TryGetValue(evt, out var meta) ? meta : null;
@@ -62,10 +62,10 @@ public static class TriggerRegistry
     /// <summary>
     /// 根据事件名找到对应的枚举喵~
     /// </summary>
-    public static GameEvent Parse(string eventName)
+    public static TriggerEvent Parse(string eventName)
     {
         EnsureInitialized();
-        if (Enum.TryParse<GameEvent>(eventName, out var result)) return result;
-        return GameEvent.GameStarted; // 默认
+        if (Enum.TryParse<TriggerEvent>(eventName, out var result)) return result;
+        return TriggerEvent.GameStarted; // 默认
     }
 }

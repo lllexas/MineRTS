@@ -9,9 +9,19 @@
 ### 1. 打开社交终端
 
 ```bash
-vfs_load GraphVSF/Packs/social_tree Social_01;
+vfs_mount social_tree_default;
 ui_show SocialPanel;
 social_isolation 0;
+social_send test_event_01;
+```
+
+---
+
+```bash
+ls;
+cd messages;
+ls;
+cat test_event_01.msg;
 ```
 
 ### 2. 确认 VFS 已加载

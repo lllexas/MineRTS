@@ -54,6 +54,12 @@ public class UserModel
     /// </summary>
     public SocialData Social = new SocialData();
 
+    /// <summary>
+    /// 虚拟文件系统持久化快照
+    /// Key: InstanceID, Value: VFS 数据包快照
+    /// </summary>
+    public Dictionary<string, VFSPackData> VFSSnapshots = new Dictionary<string, VFSPackData>();
+
     // ==================== 局外数据（大地图相关） ====================
 
     /// <summary>

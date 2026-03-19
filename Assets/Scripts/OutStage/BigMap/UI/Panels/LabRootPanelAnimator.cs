@@ -11,20 +11,38 @@ namespace MineRTS.BigMap.UI.Panels
     /// </summary>
     public class LabRootPanelAnimator : SpaceUIAnimator
     {
+        /// <summary>
+        /// UI ID - 由代码硬编码，Inspector 显示但不可改
+        /// </summary>
+        protected override string UIID => "LabRootPanel";
+
         protected override void Awake()
         {
             base.Awake();
-            _uiID = "LabRootPanel";
+        }
+
+        protected override void CloseAction()
+        {
+            FadeOut();
         }
 
         private void Start()
         {
             // 追加行为到委托链（子类决定行为内容）
+            进入根界面 += OnEnterRoot;
             期望显示面板 += OnShowPanel;
             期望隐藏面板 += OnHidePanel;
             鼠标滑入 += OnMouseEnterHandler;
             鼠标滑出 += OnMouseExitHandler;
             鼠标点击 += OnMouseClickHandler;
+        }
+
+        /// <summary>
+        /// 进入根界面时显示面板
+        /// </summary>
+        private void OnEnterRoot(object data)
+        {
+            FadeIn();
         }
 
         private void OnShowPanel(object data)
@@ -34,7 +52,7 @@ namespace MineRTS.BigMap.UI.Panels
 
         private void OnHidePanel(object data)
         {
-            // TODO: 隐藏面板逻辑
+            FadeOut();
         }
 
         private void OnMouseEnterHandler(PointerEventData eventData)
@@ -49,7 +67,9 @@ namespace MineRTS.BigMap.UI.Panels
 
         private void OnMouseClickHandler(PointerEventData eventData)
         {
-            // TODO: 鼠标点击逻辑
+            // 点击实验室根面板，打开实验室主面板
+            PostSystem.Instance.Send("期望显示面板", "LabPanel");
+            Debug.Log("<color=cyan>[LabRootPanel]</color> 点击打开 LabPanel");
         }
     }
 }

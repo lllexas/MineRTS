@@ -59,8 +59,13 @@ namespace MineRTS.BigMap.UI
         //  配置参数
         // =========================================================
         [Header("UI 标识")]
-        [Tooltip("UI 面板 ID（用于事件匹配）")]
-        [SerializeField] protected string _uiID;
+        [Tooltip("UI 面板 ID（由代码自动设置，请勿手动修改）")]
+        [SerializeField] private string _uiID;
+
+        /// <summary>
+        /// 子类重写此属性提供 UI ID，Inspector 会显示但由代码控制
+        /// </summary>
+        protected virtual string UIID => "";
 
         [Header("动画配置")]
         [Tooltip("淡入/淡出动画时长（秒）")]
@@ -104,6 +109,10 @@ namespace MineRTS.BigMap.UI
 
         [Header("组件引用")]
         [SerializeField] protected CanvasGroup _canvasGroup;
+
+        [Header("交互引用")]
+        [Tooltip("可选：关闭按钮（如果挂载了，基类会自动绑定点击事件）")]
+        [SerializeField] protected Button _closeButton;
 
         // =========================================================
         //  四层独立轨道（Track Independence）
@@ -163,6 +172,9 @@ namespace MineRTS.BigMap.UI
         // =========================================================
         protected virtual void Awake()
         {
+            // 从子类获取 UI ID（代码优先，防止 Inspector 误改）
+            _uiID = UIID;
+
             _canvasGroup = GetComponent<CanvasGroup>();
 
             // 缓存初始状态
@@ -180,7 +192,12 @@ namespace MineRTS.BigMap.UI
                 _canvasGroup.alpha = 0f;
                 _canvasGroup.blocksRaycasts = false;  // 初始为隐藏状态
             }
-            // gameObject.SetActive(false);  // 不再禁用 GameObject，否则收不到事件
+
+            // 绑定关闭按钮（如果存在）
+            if (_closeButton != null)
+            {
+                _closeButton.onClick.AddListener(OnCloseButtonClicked);
+            }
 
             // 标签订阅：注册内部中转站
             PostSystem.Instance.Register(this);
@@ -188,8 +205,24 @@ namespace MineRTS.BigMap.UI
             Debug.Log($"<color=cyan>[SpaceUIAnimator]</color> 初始化完成：{gameObject.name} (UI ID: {_uiID})");
         }
 
+#if UNITY_EDITOR
+        /// <summary>
+        /// 编辑器中强制同步 UI ID，防止误改
+        /// </summary>
+        protected virtual void OnValidate()
+        {
+            _uiID = UIID;
+        }
+#endif
+
         protected virtual void OnDestroy()
         {
+            // 清理关闭按钮绑定
+            if (_closeButton != null)
+            {
+                _closeButton.onClick.RemoveListener(OnCloseButtonClicked);
+            }
+
             // 清理所有轨道（独立 Kill）
             _stateTween?.Kill();
             _rotationTween?.Kill();
@@ -213,6 +246,26 @@ namespace MineRTS.BigMap.UI
         }
 
         // =========================================================
+        //  原子交互行为（Atomic Interactions）
+        // =========================================================
+
+        /// <summary>
+        /// 统一的关闭按钮点击入口
+        /// </summary>
+        protected virtual void OnCloseButtonClicked()
+        {
+            Debug.Log($"<color=cyan>[SpaceUIAnimator]</color> {gameObject.name} 通过按钮触发关闭流程");
+            // 这里以后可以统一接入 AudioManager.Instance.Play("UI_Close");
+            CloseAction();
+        }
+
+        /// <summary>
+        /// 【关闭行为协议】子类必须实现
+        /// <para>建议：在此方法中调用 FadeOut()、Hide() 或 PlayScaleAnimation() 等原子积木</para>
+        /// </summary>
+        protected abstract void CloseAction();
+
+        // =========================================================
         //  内部中转站（标签订阅 - 永远通电的排插）
         // =========================================================
 
@@ -232,16 +285,9 @@ namespace MineRTS.BigMap.UI
         [Subscribe("期望显示面板")]
         private void HandleShowPanel(object data)
         {
-            Debug.Log("!");
-            // 自动匹配 UI ID
-            // 自动匹配 UI ID
             if (MatchUIID(data))
             {
                 期望显示面板?.Invoke(data);
-            }
-            else
-            {
-                Debug.Log("?");
             }
         }
 

@@ -11,10 +11,19 @@ namespace MineRTS.BigMap.UI.Panels
     /// </summary>
     public class LabPanelAnimator : SpaceUIAnimator
     {
+        /// <summary>
+        /// UI ID - 由代码硬编码，Inspector 显示但不可改
+        /// </summary>
+        protected override string UIID => "LabPanel";
+
         protected override void Awake()
         {
             base.Awake();
-            _uiID = "LabPanel";
+        }
+
+        protected override void CloseAction()
+        {
+            FadeOut();
         }
 
         private void Start()
@@ -29,12 +38,14 @@ namespace MineRTS.BigMap.UI.Panels
 
         private void OnShowPanel(object data)
         {
-            // TODO: 显示面板逻辑
+            FadeIn();
+            StartBreathing();
         }
 
         private void OnHidePanel(object data)
         {
-            // TODO: 隐藏面板逻辑
+            StopBreathing();
+            FadeOut();
         }
 
         private void OnMouseEnterHandler(PointerEventData eventData)

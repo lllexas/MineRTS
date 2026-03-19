@@ -229,25 +229,13 @@ public static class VFSLoader
         if (pack == null) return false;
         if (string.IsNullOrEmpty(pack.PackID)) return false;
         if (pack.Nodes == null || pack.Nodes.Count == 0) return false;
-        if (pack.RootNodeIds == null || pack.RootNodeIds.Count == 0) return false;
+        if (string.IsNullOrEmpty(pack.RootNodeId)) return false;
 
         // 验证根节点是否存在
-        foreach (var rootId in pack.RootNodeIds)
+        if (!pack.Nodes.Exists(n => n.NodeID == pack.RootNodeId))
         {
-            bool found = false;
-            foreach (var node in pack.Nodes)
-            {
-                if (node.NodeID == rootId)
-                {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found)
-            {
-                Debug.LogError($"[VFSLoader] 根节点 {rootId} 不存在于 Nodes 列表中喵~");
-                return false;
-            }
+            Debug.LogError($"[VFSLoader] 根节点 {pack.RootNodeId} 不存在于 Nodes 列表中喵~");
+            return false;
         }
 
         return true;

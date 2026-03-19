@@ -24,10 +24,10 @@ using NekoGraph;
 public class VFSPackData : BasePackData
 {
     /// <summary>
-    /// 根节点 ID 列表（可能有多个根，如 /social/、/config/）
+    /// 根节点 ID（唯一）
     /// </summary>
-    [Tooltip("根节点 ID 列表")]
-    public List<string> RootNodeIds = new List<string>();
+    [Tooltip("根节点 ID")]
+    public string RootNodeId;
 
     /// <summary>
     /// 绑定的地图 ID（可选，用于关联特定关卡）
@@ -52,7 +52,7 @@ public class VFSPackData : BasePackData
     {
         if (rootNode == null) return;
         Nodes.Add(rootNode);
-        RootNodeIds.Add(rootNode.NodeID);
+        RootNodeId = rootNode.NodeID;
         Touch();
     }
 
@@ -74,7 +74,7 @@ public class VFSPackData : BasePackData
     {
         if (string.IsNullOrEmpty(PackID)) return false;
         if (Nodes == null || Nodes.Count == 0) return false;
-        if (RootNodeIds.Count == 0) return false;
+        if (string.IsNullOrEmpty(RootNodeId)) return false;
         return true;
     }
 }

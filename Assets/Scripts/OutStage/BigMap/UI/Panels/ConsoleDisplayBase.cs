@@ -1,0 +1,444 @@
+using System;
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace MineRTS.BigMap.UI.Panels
+{
+    /// <summary>
+    /// ═══════════════════════════════════════════════════════════════
+    /// ConsoleDisplayBase - 控制台显示基类（纯显示，无输入）
+    /// ═══════════════════════════════════════════════════════════════
+    ///
+    /// 设计理念：
+    /// 1. 纯显示层 - 只负责文本渲染，不处理输入
+    /// 2. TerminalBuffer 集成 - 自动换行、视口裁切
+    /// 3. 滚动控制 - 支持鼠标滚轮和滚动条
+    /// 4. 可作为父类被 ConsolePanelBase 继承
+    ///
+    /// 继承关系：
+    ///   SpaceUIAnimator
+    ///   ↑
+    ///   ConsoleDisplayBase（本类）
+    ///   ↑
+    ///   ConsolePanelBase（添加输入功能）
+    ///
+    /// ═══════════════════════════════════════════════════════════════
+    /// </summary>
+    public abstract class ConsoleDisplayBase : SpaceUIAnimator
+    {
+        // =========================================================
+        //  UI 组件引用（显示层）
+        // =========================================================
+        [Header("Console Display Components")]
+        [Tooltip("历史文本（TextMeshProUGUI，唯一历史输出口）")]
+        [SerializeField] protected TextMeshProUGUI historyText;
+
+        [Tooltip("滚动条（Scrollbar，用于可视化和拖拽滚动）")]
+        [SerializeField] protected Scrollbar scrollbar;
+
+        [Header("Display Settings")]
+        [Tooltip("最大日志行数")]
+        [SerializeField] protected int maxLogLines = 500;
+
+        [Tooltip("是否自动滚动到底部")]
+        [SerializeField] protected bool autoScrollToBottom = true;
+
+        [Tooltip("滚轮滚动速度")]
+        [SerializeField] protected float scrollSpeed = 3f;
+
+        [Tooltip("每行最大列数（视觉宽度单位，0=自动计算）")]
+        [SerializeField] protected int maxColumns = 0;
+
+        [Tooltip("行高（像素，用于计算）")]
+        [SerializeField] protected float lineHeight = 20f;
+
+        // =========================================================
+        //  核心组件（逻辑层）
+        // =========================================================
+        protected TerminalBuffer _buffer;
+
+        // =========================================================
+        //  滚动状态
+        // =========================================================
+        protected int _scrollLineIndex = 0; // 当前滚动行索引
+        protected int _visibleRows = 25; // 可见行数
+        protected bool _isDirty = false; // 是否需要刷新显示
+
+        // =========================================================
+        //  公开接口
+        // =========================================================
+        public int LineCount => _buffer?.LineCount ?? 0;
+        public int ScrollLineIndex => _scrollLineIndex;
+        public bool IsDirty => _isDirty;
+
+        // =========================================================
+        //  Unity 生命周期
+        // =========================================================
+
+        protected override void Awake()
+        {
+            base.Awake();
+            InitializeDisplay();
+        }
+
+        protected virtual void OnDisable()
+        {
+            // 注销滚动条事件
+            if (scrollbar != null)
+            {
+                scrollbar.onValueChanged.RemoveListener(OnScrollbarChanged);
+            }
+        }
+
+        protected virtual void Start()
+        {
+            // Layout 已完成，重新计算行数和列数
+            RecalculateVisibleRows();
+            if (_buffer != null)
+            {
+                _buffer.MaxColumns = CalculateMaxColumns();
+            }
+        }
+
+        protected new virtual void Update()
+        {
+            base.Update();
+
+            // 鼠标滚轮监听（当面板显示且鼠标在面板上时）
+            if (_canvasGroup != null && _canvasGroup.alpha > 0.5f)
+            {
+                float scroll = Input.mouseScrollDelta.y;
+                if (scroll != 0)
+                {
+                    ScrollByDelta(-Mathf.RoundToInt(scroll * scrollSpeed));
+                }
+            }
+
+            // 历史文本更新（仅当需要时）
+            if (_isDirty)
+            {
+                RefreshHistoryDisplay();
+                _isDirty = false;
+            }
+        }
+
+        // =========================================================
+        //  初始化
+        // =========================================================
+
+        /// <summary>
+        /// 初始化显示层
+        /// </summary>
+        protected virtual void InitializeDisplay()
+        {
+            // 创建缓冲区
+            _buffer = new TerminalBuffer();
+            _buffer.MaxLines = maxLogLines;
+
+            // 计算 MaxColumns
+            if (maxColumns <= 0)
+            {
+                maxColumns = CalculateMaxColumns();
+            }
+            _buffer.MaxColumns = maxColumns;
+
+            // 计算可见行数（延迟到 Start 中重新计算，确保 Layout 完成）
+            _visibleRows = 25; // 默认值
+
+            // 监听滚动条
+            if (scrollbar != null)
+            {
+                scrollbar.onValueChanged.AddListener(OnScrollbarChanged);
+                scrollbar.direction = Scrollbar.Direction.TopToBottom;
+            }
+
+            // 初始化历史文本
+            if (historyText != null)
+            {
+                historyText.richText = true;
+                historyText.enableWordWrapping = true;
+                historyText.alignment = TextAlignmentOptions.TopLeft;
+                historyText.overflowMode = TextOverflowModes.Truncate;
+            }
+        }
+
+        // =========================================================
+        //  输出协议（核心）
+        // =========================================================
+
+        /// <summary>
+        /// 输出一行文本（带颜色）
+        /// </summary>
+        public virtual void OutputLine(string message, Color color)
+        {
+            if (_buffer == null) return;
+
+            string colorHex = ColorUtility.ToHtmlStringRGB(color);
+            string formatted = $"<color=#{colorHex}>{message}</color>";
+            _buffer.AddLine(formatted);
+            _isDirty = true;
+
+            if (autoScrollToBottom)
+            {
+                ScrollToBottom();
+            }
+        }
+
+        /// <summary>
+        /// 输出原始文本（带颜色）
+        /// </summary>
+        public virtual void Output(string message, Color color)
+        {
+            OutputLine(message, color);
+        }
+
+        /// <summary>
+        /// 输出纯文本（默认白色）
+        /// </summary>
+        public virtual void OutputLine(string message)
+        {
+            OutputLine(message, Color.white);
+        }
+
+        /// <summary>
+        /// 清空日志
+        /// </summary>
+        public virtual void ClearLog()
+        {
+            _buffer?.Clear();
+            _scrollLineIndex = 0;
+            _isDirty = true;
+            UpdateScrollbar();
+        }
+
+        // =========================================================
+        //  滚动控制（公开接口）
+        // =========================================================
+
+        /// <summary>
+        /// 滚动到指定行
+        /// </summary>
+        public virtual void ScrollToLine(int lineIndex)
+        {
+            if (_buffer == null) return;
+
+            int maxScrollIndex = Mathf.Max(0, _buffer.LineCount - _visibleRows);
+            _scrollLineIndex = Mathf.Clamp(lineIndex, 0, maxScrollIndex);
+            _isDirty = true;
+            UpdateScrollbar();
+        }
+
+        /// <summary>
+        /// 相对滚动（正数向下，负数向上）
+        /// </summary>
+        public virtual void ScrollByDelta(int delta)
+        {
+            ScrollToLine(_scrollLineIndex + delta);
+        }
+
+        /// <summary>
+        /// 滚动到底部
+        /// </summary>
+        public virtual void ScrollToBottom()
+        {
+            if (_buffer == null) return;
+
+            int visibleRows = Mathf.Max(1, _visibleRows);
+            _scrollLineIndex = Mathf.Max(0, _buffer.LineCount - visibleRows);
+            UpdateScrollbar();
+        }
+
+        /// <summary>
+        /// 滚动到顶部
+        /// </summary>
+        public virtual void ScrollToTop()
+        {
+            _scrollLineIndex = 0;
+            _isDirty = true;
+            UpdateScrollbar();
+        }
+
+        // =========================================================
+        //  渲染刷新（核心）
+        // =========================================================
+
+        /// <summary>
+        /// 刷新历史显示（视口裁切）
+        /// </summary>
+        protected virtual void RefreshHistoryDisplay()
+        {
+            if (historyText == null || _buffer == null) return;
+
+            // 确保 _visibleRows 有效
+            if (_visibleRows <= 0)
+            {
+                _visibleRows = RecalculateVisibleRows();
+            }
+
+            int visibleRows = Mathf.Max(1, _visibleRows);
+            int maxScrollIndex = Mathf.Max(0, _buffer.LineCount - visibleRows);
+            _scrollLineIndex = Mathf.Clamp(_scrollLineIndex, 0, maxScrollIndex);
+
+            // 裁切可见行
+            var visibleLines = _buffer.GetVisibleLines(_scrollLineIndex, visibleRows);
+
+            // 处理颜色标签闭合
+            var closedLines = new List<string>();
+            foreach (var line in visibleLines)
+            {
+                closedLines.Add(CloseColorTags(line));
+            }
+
+            historyText.text = string.Join("\n", closedLines);
+        }
+
+        /// <summary>
+        /// 确保颜色标签正确闭合
+        /// </summary>
+        protected virtual string CloseColorTags(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+
+            int openTags = CountSubstring(text, "<color=");
+            int closeTags = CountSubstring(text, "</color>");
+
+            if (openTags > closeTags)
+            {
+                for (int i = 0; i < openTags - closeTags; i++)
+                {
+                    text += "</color>";
+                }
+            }
+
+            return text;
+        }
+
+        /// <summary>
+        /// 统计子字符串出现次数
+        /// </summary>
+        protected static int CountSubstring(string text, string substring)
+        {
+            if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(substring)) return 0;
+            int count = 0;
+            int index = 0;
+            while ((index = text.IndexOf(substring, index, System.StringComparison.Ordinal)) != -1)
+            {
+                count++;
+                index += substring.Length;
+            }
+            return count;
+        }
+
+        // =========================================================
+        //  滚动条控制
+        // =========================================================
+
+        /// <summary>
+        /// 更新滚动条位置
+        /// </summary>
+        protected virtual void UpdateScrollbar()
+        {
+            if (scrollbar == null || _buffer == null) return;
+
+            int totalLines = _buffer.LineCount;
+            int visibleRows = Mathf.Max(1, _visibleRows);
+
+            // 内容还没窗口多，不需要滚动条
+            if (totalLines <= visibleRows)
+            {
+                scrollbar.size = 1f;
+                scrollbar.value = 0;
+                return;
+            }
+
+            int maxScrollIndex = totalLines - visibleRows;
+            scrollbar.size = Mathf.Clamp01((float)visibleRows / totalLines);
+            scrollbar.value = Mathf.Clamp01((float)_scrollLineIndex / maxScrollIndex);
+        }
+
+        /// <summary>
+        /// 滚动条事件处理
+        /// </summary>
+        protected virtual void OnScrollbarChanged(float value)
+        {
+            if (_buffer == null) return;
+
+            int maxScrollIndex = Mathf.Max(0, _buffer.LineCount - _visibleRows);
+            int newScrollIndex = Mathf.RoundToInt(value * maxScrollIndex);
+            newScrollIndex = Mathf.Clamp(newScrollIndex, 0, maxScrollIndex);
+
+            if (newScrollIndex != _scrollLineIndex)
+            {
+                _scrollLineIndex = newScrollIndex;
+                _isDirty = true;
+            }
+        }
+
+        // =========================================================
+        //  工具方法
+        // =========================================================
+
+        /// <summary>
+        /// 计算每行最大列数（以 ASCII 半宽字符为单位）
+        /// </summary>
+        protected virtual int CalculateMaxColumns()
+        {
+            if (historyText == null || historyText.font == null) return 80;
+
+            float viewportWidth = historyText.rectTransform.rect.width;
+            float charWidth = GetCharacterWidth('M', historyText);
+
+            if (charWidth <= 0) return 80;
+
+            return Mathf.FloorToInt(viewportWidth / charWidth);
+        }
+
+        /// <summary>
+        /// 重新计算可见行数
+        /// </summary>
+        protected virtual int RecalculateVisibleRows()
+        {
+            if (historyText == null) return 25;
+
+            float viewportHeight = historyText.rectTransform.rect.height;
+            float fontSize = historyText.fontSize;
+
+            if (fontSize <= 0) return 25;
+
+            _visibleRows = Mathf.FloorToInt(viewportHeight / (fontSize * 1.2f));
+            return Mathf.Max(1, _visibleRows);
+        }
+
+        /// <summary>
+        /// 从 TMP 字体表取字符的实际推进宽度
+        /// </summary>
+        protected virtual float GetCharacterWidth(char c, TMP_Text tmpText)
+        {
+            if (tmpText?.font?.characterLookupTable == null) return 10f;
+
+            uint charCode = c;
+            if (!tmpText.font.characterLookupTable.TryGetValue(charCode, out TMP_Character character))
+            {
+                // 尝试用 'M' 作为回退
+                if (!tmpText.font.characterLookupTable.TryGetValue((uint)'M', out character))
+                {
+                    return 10f;
+                }
+            }
+
+            float pointSize = tmpText.fontSize;
+            float fontScale = pointSize / tmpText.font.faceInfo.pointSize;
+            return character.glyph.metrics.horizontalAdvance * fontScale;
+        }
+
+        /// <summary>
+        /// 标记需要刷新显示
+        /// </summary>
+        public virtual void MarkDirty()
+        {
+            _isDirty = true;
+        }
+    }
+}

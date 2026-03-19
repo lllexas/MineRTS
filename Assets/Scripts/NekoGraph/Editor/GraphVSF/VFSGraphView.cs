@@ -28,10 +28,8 @@ public class VFSGraphView : BaseGraphView<VFSPackData>
         // 顺手牵羊：在 Nodes 里把 RootNode 找出来，填进列表喵！
         if (pack.Nodes != null)
         {
-            pack.RootNodeIds = pack.Nodes
-                .Where(n => n is RootNodeData)
-                .Select(n => n.NodeID)
-                .ToList();
+            pack.RootNodeId = pack.Nodes
+                .FirstOrDefault(n => n is RootNodeData)?.NodeID;
         }
     }
 

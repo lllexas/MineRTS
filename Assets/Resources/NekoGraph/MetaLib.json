@@ -9,5 +9,16 @@
     "Version": "1.0.0",
     "Description": null,
     "CustomFields": {}
+  },
+  "social_tree_default": {
+    "PackID": "social_tree_default",
+    "Storage": 0,
+    "ResourcePath": "GraphVSF/social_tree_default",
+    "GraphType": "Generic",
+    "DisplayName": "New VFS Pack",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": null,
+    "CustomFields": {}
   }
 }

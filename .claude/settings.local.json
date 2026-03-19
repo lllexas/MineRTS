@@ -4,7 +4,17 @@
       "Bash(ls:*)",
       "Bash(git add:*)",
       "Bash(git pull:*)",
-      "Bash(find G:\\\\ProjectOfGame\\\\MineRTS\\\\Assets\\\\Scripts\\\\NekoGraph:*)"
+      "Bash(find G:\\\\ProjectOfGame\\\\MineRTS\\\\Assets\\\\Scripts\\\\NekoGraph:*)",
+      "Bash(xargs grep:*)",
+      "Bash(grep:*)",
+      "Bash(wc:*)",
+      "Bash(find /g/ProjectOfGame/MineRTS/Assets -name *Console*.prefab -o -name *SocialCLI*.prefab)",
+      "Bash(find /g/ProjectOfGame/MineRTS/Assets -name *.prefab -type f)",
+      "Bash(while read:*)",
+      "Bash(do grep:*)",
+      "Bash(echo $f)",
+      "Bash(done)",
+      "Bash(find G:ProjectOfGameMineRTS -name *MetaLib* -type f)"
     ]
   },
   "outputStyle": "neko-chan"

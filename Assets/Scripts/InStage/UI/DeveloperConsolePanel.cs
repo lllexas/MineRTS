@@ -52,6 +52,8 @@ public class DeveloperConsolePanel : ConsolePanelBase<DeveloperConsole>
         }
     }
 
+    protected override DeveloperConsole ConsoleLogic => _developerConsole;
+
     protected override string GetPrompt()
     {
         return "> ";
@@ -77,16 +79,11 @@ public class DeveloperConsolePanel : ConsolePanelBase<DeveloperConsole>
     protected override void OnEnable()
     {
         base.OnEnable();
-        Debug.Log($"[DeveloperConsolePanel] OnEnable called，注册 PostSystem 标签订阅");
-        PostSystem.Instance.Register(this);
     }
 
     protected override void OnDisable()
     {
         base.OnDisable();
-        Debug.Log($"[DeveloperConsolePanel] OnDisable called，注销 PostSystem 标签订阅");
-        if (PostSystem.Instance != null)
-            PostSystem.Instance.Unregister(this);
     }
 
     protected override void Update()

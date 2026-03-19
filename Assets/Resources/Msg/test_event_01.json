@@ -4,8 +4,8 @@
   "Description": "一个由 NekoGraph 驱动的交互式社交对话图喵~",
   "Author": "NekoTeam",
   "Version": "1.0.0",
-  "CreatedAt": 1773765408,
-  "ModifiedAt": 1773765408,
+  "CreatedAt": 1773839950,
+  "ModifiedAt": 1773839950,
   "Nodes": [
     {
       "$type": "RootNodeData, Assembly-CSharp",
@@ -28,7 +28,7 @@
     {
       "$type": "NekoGraph.SocialMsgContentNodeData, Assembly-CSharp",
       "Speaker": "指挥官",
-      "Body": "测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文。测试消息正文测\\n试\\n消\\n息正文测试消息正文文测试消息正文文测试消息正文文测试消息正文文测试消息正文文测试消息正文\n文\n。\n测\n试\t\t消息正文。测试消息正文测试消息正文。测试消息正文测\t\t             文测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文测试消息正文\\n测试消息正文测试消息正文测试消息正文",
+      "Body": "\t个人自述（精简誊抄版）\r\n\t本人在过去的一段时间里，无论是在思想上还是在实际行动中，都始终坚持积极向上的态度，力求在各个方面实现自我的完善。\r\n\t在政治思想方面，我始终保持着高度的自觉性。我坚持关注国家大事，通过报纸、网络等各种渠道学习先进的理论知识，不断提升自己的思想觉悟。在日常生活中，我严于律己，遵守各项法律法规和校规校纪，有着强烈的集体责任感。我深知作为一名新时代的青年，必须要有坚定的理想信念，做到心往一处想，劲往一处使，始终保持思想上的先进性，这不仅是我行事的准则，更是我前进的动力。\r\n\t在学习科研方面，我态度端正，目标明确。在专业课的学习中，我能够做到课前预习、课后复习，积极与老师和同学探讨学术问题，不断完善自己的知识体系。通过这一阶段的努力，我掌握了扎实的理论基础，还培养了独立思考和解决问题的能力。在科研实践中，我深知实践出真知的道理，经常钻研各种技术文档，面对复杂的逻辑和程序问题时，我能够沉下心来反复调试，这种持之以恒的钻研精神让我受益匪浅。\r\n\t在社会活动方面，我积极投身于各类实践。我参加过多次志愿者活动和社团组织的公益项目，在这些活动中，我不仅锻炼了自己的沟通能力，更学会了如何与团队成员高效协作。我觉得通过服务他人来回馈社会是一件非常有意义的事情，这些经历也让我的性格变得更加稳重。\r\n在能力特长方面，我具备较强的逻辑思维能力。我擅长发现问题并寻找解决方案，尤其在计算机应用和逻辑分析方面有一定专长。同时，我也有着广泛的兴趣爱好，这让我在高强度的学习之余能够保持良好的心态，抗压能力较强，能够适应快节奏的任务要求。\r\n\t在取得的成就以及存在的问题上，我过去获得过一些阶段性的荣誉，这些是对我努力的肯定。但我也清醒地认识到自己存在的不足，比如在任务繁多时容易产生焦虑情绪，时间管理能力还有待进一步提高，有时候过于关注细节而忽略了宏观把控。\r\n今后努力的方向，我将继续保持谦虚谨慎的态度。我会更加科学地规划时间，提高工作效率。\t\n\t我的行动指南是：实事求是，艰苦奋斗，在实践中磨炼意志，在学习中增长才干，不忘初心，砥砺前行，为实现目标而不懈努力。",
       "In": "41e89cac-cd03-4749-8004-25f3c2ec141a",
       "Out": [
         "eab67f7f-8fdd-44a8-af8b-c5a6b6a7856f",
@@ -75,7 +75,7 @@
     },
     {
       "$type": "NekoGraph.ChoiceTextNodeData, Assembly-CSharp",
-      "OptionIndex": 1,
+      "OptionIndex": 2,
       "Label": "选项b",
       "In": "ac23e0cd-881a-4509-9b90-6196beceeac8",
       "Out": [
@@ -96,44 +96,44 @@
     },
     {
       "$type": "TriggerNodeData, Assembly-CSharp",
-      "Event": 0,
+      "Event": 12,
       "InputNodeIDs": [
         "eab67f7f-8fdd-44a8-af8b-c5a6b6a7856f"
       ],
       "SignalOutputs": [
-        "1de5005c-6101-48f5-b7d2-26cf3b18969d"
+        "2dd71aae-f534-46ca-bab0-c5e776bfc80c"
       ],
       "NodeID": "0883eee0-335f-4180-8b40-1e192dc3dd85",
       "EditorPosition": {
-        "x": 1000.0,
-        "y": -26.4000015
+        "x": 1030.3999,
+        "y": -33.6
       },
       "OutputConnections": [
         {
           "FromPortIndex": 0,
-          "TargetNodeID": "1de5005c-6101-48f5-b7d2-26cf3b18969d",
+          "TargetNodeID": "2dd71aae-f534-46ca-bab0-c5e776bfc80c",
           "ToPortIndex": 0
         }
       ]
     },
     {
       "$type": "TriggerNodeData, Assembly-CSharp",
-      "Event": 0,
+      "Event": 13,
       "InputNodeIDs": [
         "33b98900-18d1-4175-920f-2c8a0a153bb2"
       ],
       "SignalOutputs": [
-        "0102929a-ebf7-4b84-b0ec-2e672f80c124"
+        "207ddc55-e3e5-4181-9048-f581e932567a"
       ],
       "NodeID": "eafcabee-d558-4473-8027-fa86db83edd6",
       "EditorPosition": {
-        "x": 990.4,
-        "y": 196.0
+        "x": 1026.3999,
+        "y": 200.0
       },
       "OutputConnections": [
         {
           "FromPortIndex": 0,
-          "TargetNodeID": "0102929a-ebf7-4b84-b0ec-2e672f80c124",
+          "TargetNodeID": "207ddc55-e3e5-4181-9048-f581e932567a",
           "ToPortIndex": 0
         }
       ]
@@ -150,15 +150,16 @@
         ]
       },
       "InputNodeIDs": [
-        "0883eee0-335f-4180-8b40-1e192dc3dd85"
+        "0883eee0-335f-4180-8b40-1e192dc3dd85",
+        "1de5005c-6101-48f5-b7d2-26cf3b18969d"
       ],
       "OutputNodeIDs": [
         "bc68bbe2-5ff6-4320-b263-80ad966d2d4f"
       ],
       "NodeID": "2dd71aae-f534-46ca-bab0-c5e776bfc80c",
       "EditorPosition": {
-        "x": 1740.0,
-        "y": -26.4000015
+        "x": 1716.0,
+        "y": -39.2
       },
       "OutputConnections": [
         {
@@ -176,7 +177,8 @@
         "Parameters": []
       },
       "InputNodeIDs": [
-        "eafcabee-d558-4473-8027-fa86db83edd6"
+        "eafcabee-d558-4473-8027-fa86db83edd6",
+        "0102929a-ebf7-4b84-b0ec-2e672f80c124"
       ],
       "OutputNodeIDs": [
         "bc68bbe2-5ff6-4320-b263-80ad966d2d4f"
@@ -203,50 +205,6 @@
         "y": 129.6
       },
       "OutputConnections": []
-    },
-    {
-      "$type": "ComparerNodeData, Assembly-CSharp",
-      "ComparerName": "",
-      "Parameters": [],
-      "InputNodeIDs": [],
-      "PassOutputs": [
-        "2dd71aae-f534-46ca-bab0-c5e776bfc80c"
-      ],
-      "FailOutputs": [],
-      "NodeID": "1de5005c-6101-48f5-b7d2-26cf3b18969d",
-      "EditorPosition": {
-        "x": 1331.2,
-        "y": -43.2
-      },
-      "OutputConnections": [
-        {
-          "FromPortIndex": 0,
-          "TargetNodeID": "2dd71aae-f534-46ca-bab0-c5e776bfc80c",
-          "ToPortIndex": 0
-        }
-      ]
-    },
-    {
-      "$type": "ComparerNodeData, Assembly-CSharp",
-      "ComparerName": "",
-      "Parameters": [],
-      "InputNodeIDs": [],
-      "PassOutputs": [
-        "207ddc55-e3e5-4181-9048-f581e932567a"
-      ],
-      "FailOutputs": [],
-      "NodeID": "0102929a-ebf7-4b84-b0ec-2e672f80c124",
-      "EditorPosition": {
-        "x": 1311.2,
-        "y": 196.8
-      },
-      "OutputConnections": [
-        {
-          "FromPortIndex": 0,
-          "TargetNodeID": "207ddc55-e3e5-4181-9048-f581e932567a",
-          "ToPortIndex": 0
-        }
-      ]
     }
   ]
 }

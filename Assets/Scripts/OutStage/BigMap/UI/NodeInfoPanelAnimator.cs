@@ -17,10 +17,23 @@ namespace MineRTS.BigMap.UI
     /// </summary>
     public class NodeInfoPanelAnimator : SpaceUIAnimator
     {
+        /// <summary>
+        /// UI ID - 由代码硬编码，Inspector 显示但不可改
+        /// </summary>
+        protected override string UIID => "NodeInfoPanel";
+
+        protected override void Awake()
+        {
+            base.Awake();
+        }
+
+        protected override void CloseAction()
+        {
+            FadeOut();
+        }
+
         private void Start()
         {
-            _uiID = "NodeInfoPanel";
-
             // 追加行为到委托链（子类决定行为内容）
             期望显示面板 += OnShowPanel;
             期望隐藏面板 += OnHidePanel;

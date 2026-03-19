@@ -147,7 +147,7 @@ namespace MineRTS.BigMap.UI.Panels
             for (int i = 0; i < plainText.Length; i++)
             {
                 char c = plainText[i];
-                int charWidth = (c <= 127) ? 1 : 2;
+                int charWidth = GetCharVisualWidth(c);
 
                 if (currentCol + charWidth > maxColumns)
                 {
@@ -171,6 +171,27 @@ namespace MineRTS.BigMap.UI.Panels
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// 返回字符的视觉列宽：CJK 及全角字符 = 2，其余（含 Box Drawing U+2500-U+257F 等）= 1
+        /// 注意：不能用 c > 127 一刀切，否则半宽的 Box Drawing 字符会被当成 2 列喵~
+        /// </summary>
+        private static int GetCharVisualWidth(char c)
+        {
+            // CJK 统一汉字
+            if (c >= 0x4E00 && c <= 0x9FFF) return 2;
+            // 平假名 + 片假名
+            if (c >= 0x3040 && c <= 0x30FF) return 2;
+            // 全角字符（！～ 等）
+            if (c >= 0xFF00 && c <= 0xFFEF) return 2;
+            // CJK 符号和标点
+            if (c >= 0x3000 && c <= 0x303F) return 2;
+            // CJK 扩展 A / B 区
+            if (c >= 0x3400 && c <= 0x4DBF) return 2;
+            if (c >= 0x20000 && c <= 0x2A6DF) return 2;
+            // 其余（包括 ASCII、Box Drawing U+2500-U+257F、Latin 扩展等）均视为半宽
+            return 1;
         }
 
         /// <summary>

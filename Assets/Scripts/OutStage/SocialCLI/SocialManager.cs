@@ -8,8 +8,8 @@ using NekoGraph;
 /// </summary>
 public class SocialManager : SingletonData<SocialManager>
 {
-    public const string MESSAGES_FOLDER = "/social/messages/";
-    public const string SOCIAL_VFS_ID = "Social_01";
+    public const string MESSAGES_FOLDER = "/messages/";
+    public const string SOCIAL_PACK_ID = "social_tree_default";
 
     /// <summary>
     /// 发送一条社交消息给玩家喵~
@@ -20,7 +20,14 @@ public class SocialManager : SingletonData<SocialManager>
     public void SendMessage(string packID, string sender = "系统", string vfsPath = null)
     {
         var analyser = GraphAnalyser.Instance;
-        if (analyser == null) return;
+        var vfsManager = PersistentVFSManager.Instance;
+        if (analyser == null || vfsManager == null) return;
+
+        if (analyser.GetInstance(SOCIAL_PACK_ID) == null)
+        {
+            Debug.LogError($"[SocialManager] VFS 未挂载：{SOCIAL_PACK_ID}，请检查存档加载流程喵！");
+            return;
+        }
 
         var meta = MetaLib.GetMeta(packID);
         if (meta == null)
@@ -29,21 +36,19 @@ public class SocialManager : SingletonData<SocialManager>
             return;
         }
 
-        // 1. 构造 VFS 路径（支持自定义路径喵~）
+        // 1. 构造 VFS 路径
         string fullVfsPath;
         if (!string.IsNullOrEmpty(vfsPath))
         {
-            // 用户指定了路径，直接使用
             fullVfsPath = vfsPath.StartsWith("/") ? vfsPath : VFSPathResolver.Combine(MESSAGES_FOLDER, vfsPath);
         }
         else
         {
-            // 使用默认路径：/social/messages/{packID}.msg
             string fileName = packID + ".msg";
             fullVfsPath = VFSPathResolver.Combine(MESSAGES_FOLDER, fileName);
         }
 
-        // 2. 构造肚子里的 JSON（存 PackID）
+        // 2. 构造数据
         var msgData = new SocialMessageVFSData
         {
             PackID = packID,
@@ -54,8 +59,11 @@ public class SocialManager : SingletonData<SocialManager>
         string json = JsonUtility.ToJson(msgData);
 
         // 3. 动态写入 VFS 喵！✨
-        if (analyser.WriteFile(SOCIAL_VFS_ID, fullVfsPath, json))
+        if (analyser.WriteFile(SOCIAL_PACK_ID, fullVfsPath, json))
         {
+            // 写入成功后，虽然 SyncAll 会在存档时做，但这里我们可以主动触发局部同步（可选）
+            // vfsManager.SyncToSave(SOCIAL_PACK_ID);
+            
             Debug.Log($"[SocialManager] 新消息已存入 VFS：{fullVfsPath} (PackID: {packID})");
             PostSystem.Instance.Send("Social.NewMessageNotification", sender);
         }
@@ -67,19 +75,17 @@ public class SocialManager : SingletonData<SocialManager>
     public void MarkAsRead(string vfsPath)
     {
         var analyser = GraphAnalyser.Instance;
-        var node = analyser?.GetNode(SOCIAL_VFS_ID, vfsPath);
+        if (analyser == null) return;
+
+        var node = analyser.GetNode(SOCIAL_PACK_ID, vfsPath);
         if (node is VFSNodeData vfs)
         {
             var data = JsonUtility.FromJson<SocialMessageVFSData>(vfs.DataJson);
             if (data != null && !data.IsRead)
             {
                 data.IsRead = true;
-                // 注意：这里我们不需要修改 vfs.DataJson，因为 IsRead 只是一个状态，
-                // 我们可以在别处（比如一个全局的已读列表）记录它，
-                // 或者如果确实要改，需要重新序列化并调用 WriteFile。
-                // 为了简单，我们先只在日志里体现。
-                vfs.DataJson = JsonUtility.ToJson(data); // 还是写回去吧，保持数据一致性
-                analyser.WriteFile(SOCIAL_VFS_ID, vfsPath, vfs.DataJson); // 确保写入
+                vfs.DataJson = JsonUtility.ToJson(data); 
+                analyser.WriteFile(SOCIAL_PACK_ID, vfsPath, vfs.DataJson); 
                 Debug.Log($"[SocialManager] 消息已标记为已读：{vfsPath}");
             }
         }
