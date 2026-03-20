@@ -15,7 +15,8 @@
       "Bash(echo $f)",
       "Bash(done)",
       "Bash(find G:ProjectOfGameMineRTS -name *MetaLib* -type f)",
-      "Bash(find G:ProjectOfGameMineRTS -type f -name *Social*)"
+      "Bash(find G:ProjectOfGameMineRTS -type f -name *Social*)",
+      "Bash(grep -E \"\\\\.\\(cs\\)$\")"
     ]
   },
   "outputStyle": "neko-chan"

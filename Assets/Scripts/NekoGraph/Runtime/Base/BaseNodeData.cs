@@ -21,6 +21,14 @@ public abstract class BaseNodeData
     public List<ConnectionData> OutputConnections = new List<ConnectionData>();
 
     /// <summary>
+    /// 运行时标记 - 是否已被信号经过喵~
+    /// 用于读档后恢复节点状态（如科技解锁）
+    /// 序列化保存，读档后自动恢复喵~
+    /// </summary>
+    [Tooltip("是否已被信号经过（用于读档恢复）")]
+    public bool IsPassed = false;
+
+    /// <summary>
     /// 从另一个节点数据复制基础字段喵~
     /// </summary>
     public virtual void CopyFrom(BaseNodeData other)
@@ -30,5 +38,6 @@ public abstract class BaseNodeData
         Name = other.Name;
         EditorPosition = other.EditorPosition;
         OutputConnections = new List<ConnectionData>(other.OutputConnections);
+        IsPassed = other.IsPassed;
     }
 }

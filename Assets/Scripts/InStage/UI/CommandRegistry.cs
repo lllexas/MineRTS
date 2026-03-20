@@ -511,30 +511,29 @@ public static partial class CommandRegistry
     // 🎮 Mission 任务相关命令
     // =========================================================
 
-    /*[CommandInfo("mission_load", "🎮 加载任务", "Mission", new[] { "MissionPackID" },
-        Tooltip = "加载任务包喵~\n示例：mission_load tutorial_missions",
+    [CommandInfo("pack_run", "📦 运行 Pack", "Mission", new[] { "PackID" },
+        Tooltip = "加载并运行 Pack 到 GraphRunner 喵~\n示例：pack_run tutorial_missions",
         Color = "0.6,0.4,0.2")]
-    public static CommandResult MissionLoad(DeveloperConsole console, string[] args)
+    public static CommandOutput PackRun(DeveloperConsole console, string[] args, object payload)
     {
-        if (args.Length < 1) return CommandResult.Failed;
+        if (args.Length < 1) return CommandOutput.Fail("Usage: pack_run <PackID>");
 
-        string path = args[0];
+        string packID = args[0];
 
-        // 使用新的 GraphRunner 系统加载任务包喵~
-        var pack = MetaLib.GetPack<MissionPackData>(path);
+        // 使用新的 GraphRunner 系统加载并运行 Pack 喵~
+        var pack = MetaLib.GetPack<BasePackData>(packID);
         if (pack != null)
         {
             if (GraphRunner.Instance != null)
             {
                 GraphRunner.Instance.SetPackDataDict(MainModel.Instance.CurrentUser.PackDataDict);
                 var instanceID = GraphRunner.Instance.LoadPack(pack);
-                Log(console, $"[新系统] 任务包已加载：{path} → InstanceID: {instanceID}", Color.green);
-                return CommandResult.Success;
+                GraphRunner.Instance.InjectSignalFromRoot(instanceID);
+                return CommandOutput.Success($"Pack 已加载并运行：{packID} → InstanceID: {instanceID}");
             }
         }
 
-        Log(console, $"[新系统] 任务包加载失败：{path}", Color.red);
-        return CommandResult.Failed;
+        return CommandOutput.Fail($"Pack 加载失败：{packID}");
     }
 
     [CommandInfo("mission_skip", "🎮 跳过任务", "Mission", new[] { "MissionID" },
@@ -547,7 +546,7 @@ public static partial class CommandRegistry
         return CommandResult.Failed;
     }
 
-    [CommandInfo("mission_info", "🎮 任务信息", "Mission", new[] { "MissionID" },
+    /*[CommandInfo("mission_info", "🎮 任务信息", "Mission", new[] { "MissionID" },
         Tooltip = "显示任务详细信息喵~\n示例：mission_info mission_01",
         Color = "0.6,0.5,0.2")]
     public static CommandResult MissionInfo(DeveloperConsole console, string[] args)

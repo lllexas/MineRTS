@@ -11,9 +11,16 @@ public abstract class NodeStrategy
 {
     /// <summary>
     /// 注入信号到指定节点喵~（O(1) 操作）
+    /// 同时标记当前节点为已通过喵~
     /// </summary>
     protected void EnqueueSignal(BasePackData pack, string targetNodeId, SignalContext context)
     {
+        // 标记当前节点已被信号通过喵~
+        if (pack.Nodes.TryGetValue(context.CurrentNodeId, out var currentNode))
+        {
+            currentNode.IsPassed = true;
+        }
+        
         var newSignal = context.Clone();
         newSignal.CurrentNodeId = targetNodeId;
         pack.ActiveSignals.Enqueue(newSignal);

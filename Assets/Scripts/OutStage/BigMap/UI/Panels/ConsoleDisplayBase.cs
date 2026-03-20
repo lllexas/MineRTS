@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -75,6 +76,11 @@ namespace MineRTS.BigMap.UI.Panels
         protected bool _isDirty = false; // 是否需要刷新显示
 
         // =========================================================
+        //  尺寸变化防抖
+        // =========================================================
+        private Coroutine _dimensionsDebounce;
+
+        // =========================================================
         //  公开接口
         // =========================================================
         public int LineCount => _buffer?.LineCount ?? 0;
@@ -103,6 +109,41 @@ namespace MineRTS.BigMap.UI.Panels
                 ConsoleLogic.OnClearRequested -= ClearLog;
         }
 
+        /// <summary>
+        /// historyText 的 RectTransform 随面板缩放而变化时触发（Layout 重排、窗口调整等）。
+        /// 加防抖避免 Layout 抖动帧中重复计算。
+        /// </summary>
+        protected virtual void OnRectTransformDimensionsChange()
+        {
+            // _buffer 为 null 说明 Awake 还没走完，忽略
+            if (_buffer == null) return;
+
+            // 立即清空旧内容——buffer 为空时 historyText.text 自动变成空字符串，
+            // 无需手动禁用/启用 historyText，也不会留下错误宽度的残影。
+            ClearLog();
+
+            if (_dimensionsDebounce != null) StopCoroutine(_dimensionsDebounce);
+            _dimensionsDebounce = StartCoroutine(DelayedDimensionsUpdate());
+        }
+
+        private IEnumerator DelayedDimensionsUpdate()
+        {
+            yield return new WaitForSeconds(0.1f);
+            _dimensionsDebounce = null;
+
+            int newColumns = CalculateMaxColumns();
+            RecalculateVisibleRows();
+            _buffer.MaxColumns = newColumns;
+
+            if (ConsoleLogic == null) yield break;
+
+            // 先注入高度，再注入宽度。
+            // 两个 setter 内部都有"值未变则不触发"的守卫，不会重复 Render。
+            // 若两者都变，宽度注入会打断高度注入启动的 Coroutine，净效果仍是一次 Render。
+            ConsoleLogic.ConsoleHeight = _visibleRows;
+            ConsoleLogic.ConsoleWidth  = newColumns;
+        }
+
         protected virtual void Start()
         {
             // Layout 已完成，重新计算行数和列数
@@ -119,6 +160,7 @@ namespace MineRTS.BigMap.UI.Panels
             if (ConsoleLogic != null)
             {
                 ConsoleLogic.OnClearRequested += ClearLog;           // ← 先订阅
+                ConsoleLogic.ConsoleHeight = _visibleRows;           // ← 注入行高
                 if (_buffer != null && _buffer.MaxColumns > 0)
                     ConsoleLogic.ConsoleWidth = _buffer.MaxColumns;  // ← 后注入（可能立即触发 Render）
             }
@@ -180,9 +222,9 @@ namespace MineRTS.BigMap.UI.Panels
             if (historyText != null)
             {
                 historyText.richText = true;
-                historyText.enableWordWrapping = true;
+                historyText.enableWordWrapping = false; // TUI 行宽由 TerminalBuffer 自行控制，TMP 不应折行
                 historyText.alignment = TextAlignmentOptions.TopLeft;
-                historyText.overflowMode = TextOverflowModes.Truncate;
+                historyText.overflowMode = TextOverflowModes.Overflow; // 超宽由父级 Mask 裁切，不截断后续行
             }
         }
 

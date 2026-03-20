@@ -111,50 +111,87 @@ public static partial class CommandRegistry
         // 获取子节点列表
         var children = analyser.GetChildren(console.CurrentVFSPackID, path);
 
-        StringBuilder sb = new StringBuilder();
-        sb.AppendLine($"目录：{path}");
-
-        if (children.Count == 0)
+        // 过滤启用的节点
+        var validChildren = new List<VFSNodeData>();
+        foreach (var child in children)
         {
-            sb.AppendLine("  (空)");
-        }
-        else
-        {
-            foreach (var child in children)
+            if (child is VFSNodeData vfsChild && vfsChild.IsEnabled)
             {
-                // 跳过未启用的节点
-                if (child is VFSNodeData vfsChild && !vfsChild.IsEnabled) continue;
-
-                // 判断是目录还是文件
-                bool isDir = child is VFSNodeData v && v.IsDirectory;
-                string icon = isDir ? "[DIR]" : "[FILE]";
-                
-                // --- 社交消息特化：检查 [NEW] 标签喵 ---
-                string prefix = "";
-                if (!isDir && child is VFSNodeData fileNode && fileNode.Extension == ".msg")
-                {
-                    try 
-                    {
-                        var msgData = JsonUtility.FromJson<SocialManager.SocialMessageVFSData>(fileNode.DataJson);
-                        if (msgData != null && !msgData.IsRead)
-                        {
-                            prefix = "<color=red>[NEW]</color> ";
-                        }
-                    } catch { /* 忽略损坏的消息喵 */ }
-                }
-
-                // 构建显示名称
-                string name = child.Name;
-                if (child is VFSNodeData vfsNode)
-                {
-                    if (vfsNode.IsDirectory)
-                        name += "/";
-                    else
-                        name += vfsNode.Extension;
-                }
-
-                sb.AppendLine($"  {prefix}{icon} {name}");
+                validChildren.Add(vfsChild);
             }
+        }
+
+        // 构建表格
+        var table = new TUITableBuilder()
+            .SetTitle($"📁 {path}")
+            .SetFooter($"共 {validChildren.Count} 项")
+            .UseBorder(true)
+            .SetBorderStyle(BorderStyle.Classic)
+            .SetStyle(new TSSStyle
+            {
+                borderColor = new Color(0.4f, 0.4f, 0.4f),
+                contentColor = Color.white,
+                titleColor = new Color(0.2f, 0.8f, 1f),
+                paddingX = 1,
+                paddingY = 0,
+                spacingX = 1,
+                alignment = TextAlignment.Left
+            })
+            // 列定义：类型 (0)、时间 (1)、大小 (2)、#(3)、名称 (4,自动宽)
+            .AddColumn("类型", 6, TextAlignment.Left)
+            .AddColumn("时间", 12, TextAlignment.Left)
+            .AddColumn("大小", 8, TextAlignment.Right)
+            .AddColumn("#", 4, TextAlignment.Center)
+            .AddColumn("名称", 0, TextAlignment.Left);
+            // .SetConnectorColumn(4, '─');  // 名称列 (4) 通过连接器指向 #(3) - 已禁用，保留方法
+
+        // 添加数据行
+        int index = 0;
+        foreach (var child in validChildren)
+        {
+            // 判断类型
+            string type = child.IsDirectory ? "[DIR]" : "[FILE]";
+
+            // 检查是否是新消息
+            bool isNew = false;
+            if (!child.IsDirectory && child.Extension == ".msg")
+            {
+                try
+                {
+                    var msgData = JsonUtility.FromJson<SocialManager.SocialMessageVFSData>(child.DataJson);
+                    if (msgData != null && !msgData.IsRead)
+                    {
+                        type = "[NEW]";
+                        isNew = true;
+                    }
+                } catch { }
+            }
+
+            // 时间（使用文件修改时间或默认时间）
+            string time = "3/19 12:00"; // TODO: 从 VFSNodeData 读取实际时间
+
+            // 大小（目录显示 -，文件用 DataJson 字节数）
+            string size = child.IsDirectory ? "-" : (child.DataJson?.Length.ToString() ?? "0") + "B";
+
+            // 名称（目录加/，文件加扩展名，扩展名前需要加点）
+            string name = child.Name + (child.IsDirectory ? "/" : (string.IsNullOrEmpty(child.Extension) ? "" : "." + child.Extension));
+
+            // 序号
+            string num = index.ToString();
+
+            table.AddRow(type, time, size, num, name);
+            index++;
+        }
+
+        // 渲染表格
+        int consoleWidth = console.ConsoleWidth;
+        string[] lines = table.Render(consoleWidth);
+
+        // 输出
+        var sb = new StringBuilder();
+        foreach (var line in lines)
+        {
+            sb.AppendLine(line);
         }
 
         return CommandOutput.Success(sb.ToString());

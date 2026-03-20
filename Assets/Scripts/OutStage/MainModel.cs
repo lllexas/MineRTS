@@ -7,8 +7,8 @@ using UnityEngine;
 /// </summary>
 public class MainModel : SingletonData<MainModel>
 {
-    // 当前内存中的用户数据
-    public UserModel CurrentUser { get; private set; }
+    // 当前内存中的用户数据（始终保证非 null，调试时跳过存档逻辑也能正常工作）
+    public UserModel CurrentUser { get; private set; } = new UserModel();
 
     // 当前正在活跃的关卡 ID（用于判断 SaveNow 该存哪一关）
     public string CurrentActiveStageID { get; private set; }
@@ -46,7 +46,7 @@ public class MainModel : SingletonData<MainModel>
     /// </summary>
     public void ClearCurrentUser()
     {
-        CurrentUser = null;
+        CurrentUser = new UserModel();
         CurrentActiveStageID = null;
         Debug.Log("<color=red>[MainModel]</color> 当前用户数据已清空");
     }

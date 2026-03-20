@@ -22,6 +22,17 @@ public static class MetaLib
     private static bool _isInitialized = false;
     private const string METALIB_PATH = "NekoGraph/MetaLib";
 
+    /// <summary>
+    /// 全局 JSON 序列化设置喵~
+    /// TypeNameHandling.Objects 强制保存类型信息，反序列化时自动识别类型喵！
+    /// </summary>
+    public static readonly JsonSerializerSettings JsonSettings = new JsonSerializerSettings
+    {
+        TypeNameHandling = TypeNameHandling.Objects,
+        NullValueHandling = NullValueHandling.Ignore,
+        Formatting = Formatting.Indented
+    };
+
     [Serializable]
     public class MetaEntry
     {
@@ -116,14 +127,8 @@ public static class MetaLib
 
         try
         {
-            // JSON 序列化设置喵~
-            var jsonSettings = new JsonSerializerSettings
-            {
-                TypeNameHandling = TypeNameHandling.Auto,
-                NullValueHandling = NullValueHandling.Ignore
-            };
-            
-            return JsonConvert.DeserializeObject<T>(jsonContent, jsonSettings);
+            // 使用全局 JSON 序列化设置喵~
+            return JsonConvert.DeserializeObject<T>(jsonContent, MetaLib.JsonSettings);
         }
         catch (Exception e)
         {
@@ -137,6 +142,50 @@ public static class MetaLib
         if (!_isInitialized) Initialize();
         _metadata.TryGetValue(packID, out var entry);
         return entry;
+    }
+
+    /// <summary>
+    /// 【便捷方法】根据 PackID 获取原始 JSON 字符串喵~
+    /// 用于直接写入 VFS 等场景，无需反序列化喵！
+    /// </summary>
+    public static string GetMetaString(string packID)
+    {
+        if (!_isInitialized) Initialize();
+
+        if (!_metadata.TryGetValue(packID, out var meta))
+        {
+            Debug.LogError($"[MetaLib] 找不到 PackID 为 '{packID}' 的元数据喵~");
+            return null;
+        }
+
+        switch (meta.Storage)
+        {
+            case StorageType.Resources:
+                var textAsset = Resources.Load<TextAsset>(meta.ResourcePath);
+                if (textAsset != null)
+                {
+                    return textAsset.text;
+                }
+                else
+                {
+                    Debug.LogError($"[MetaLib] 在 Resources 中找不到资源：{meta.ResourcePath}");
+                    return null;
+                }
+
+            case StorageType.StreamingAssets:
+                try
+                {
+                    string fullPath = System.IO.Path.Combine(Application.streamingAssetsPath, meta.ResourcePath);
+                    return System.IO.File.ReadAllText(fullPath);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"[MetaLib] 从 StreamingAssets 读取文件失败：{meta.ResourcePath} | {e.Message}");
+                    return null;
+                }
+        }
+
+        return null;
     }
 
     /// <summary>

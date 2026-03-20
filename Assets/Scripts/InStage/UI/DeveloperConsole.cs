@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using NekoGraph;
 using CatStrategies;
 using UnityEngine;
@@ -298,7 +299,7 @@ public class DeveloperConsole : TUIManager
             return;
         }
 
-        // 执行命令获取 CommandOutput
+        // 执行命令获取 CommandOutput（管道中的参数也要替换索引）
         CommandOutput output;
         if (execLine.Contains('|'))
         {
@@ -310,6 +311,8 @@ public class DeveloperConsole : TUIManager
             if (parts.Length == 0) return;
             string cmdName = parts[0].ToLower();
             string[] args = parts.Skip(1).ToArray();
+            // 【索引替换】执行命令前替换参数中的索引喵~
+            args = ResolveIndexArguments(args);
             output = CommandRegistry.Execute(cmdName, args, null, this);
         }
 
@@ -320,7 +323,35 @@ public class DeveloperConsole : TUIManager
         }
 
         string content = output.Payload?.ToString() ?? output.Message ?? "";
-        string fullPath = redirectPath.StartsWith("/") ? redirectPath : VFSPathResolver.Combine(_currentPath, redirectPath);
+
+        // 【索引替换】重定向路径也要替换索引喵~
+        string resolvedRedirectPath = redirectPath;
+        if (Regex.IsMatch(redirectPath, @"^\.\d+$"))
+        {
+            var analyserRedirect = GraphAnalyser.Instance;
+            if (analyserRedirect != null)
+            {
+                var children = analyserRedirect.GetChildren(CurrentVFSPackID, CurrentPath);
+                var validChildren = children.Where(c => c is VFSNodeData vfs && vfs.IsEnabled)
+                                            .Cast<VFSNodeData>()
+                                            .ToList();
+
+                int index = int.Parse(redirectPath.Substring(1));
+                if (index >= 0 && index < validChildren.Count)
+                {
+                    // 使用 Name + Extension 作为路径喵~（目录的 Extension 为空，不影响）
+                    var node = validChildren[index];
+                    resolvedRedirectPath = node.Name + node.Extension;
+                }
+                else
+                {
+                    Log($"重定向索引 {index} 超出范围 (0-{validChildren.Count - 1}) 喵~", Color.red);
+                    return;
+                }
+            }
+        }
+
+        string fullPath = resolvedRedirectPath.StartsWith("/") ? resolvedRedirectPath : VFSPathResolver.Combine(_currentPath, resolvedRedirectPath);
 
         var analyser = GraphAnalyser.Instance;
         if (analyser == null) { Log("GraphAnalyser 未初始化喵！", Color.red); return; }
@@ -358,6 +389,9 @@ public class DeveloperConsole : TUIManager
             string commandName = tokens[0].ToLower();
             string[] args = tokens.Skip(1).ToArray();
 
+            // 【索引替换】管道中也要替换索引喵~
+            args = ResolveIndexArguments(args);
+
             lastOutput = CommandRegistry.Execute(commandName, args, payload, this);
             payload = lastOutput.Payload;
 
@@ -375,6 +409,56 @@ public class DeveloperConsole : TUIManager
     //  命令执行内部方法
     // =========================================================
 
+    // =========================================================
+    //  索引解析支持喵~
+    // =========================================================
+
+    /// <summary>
+    /// 替换参数中的索引为实际路径喵~
+    /// 只有独立参数且完全匹配 ^\.\d+$ 才替换（如 .0, .1）
+    /// 小数 (1.5)、后缀 (file.1)、路径 (/path/.1) 不会被替换喵~
+    /// </summary>
+    private string[] ResolveIndexArguments(string[] args)
+    {
+        if (string.IsNullOrEmpty(CurrentVFSPackID)) return args;
+
+        var analyser = GraphAnalyser.Instance;
+        if (analyser == null) return args;
+
+        // 获取当前目录的子节点列表
+        var children = analyser.GetChildren(CurrentVFSPackID, CurrentPath);
+        var validChildren = children.Where(c => c is VFSNodeData vfs && vfs.IsEnabled)
+                                    .Cast<VFSNodeData>()
+                                    .ToList();
+
+        for (int i = 0; i < args.Length; i++)
+        {
+            // 只有独立参数且完全匹配 ^\.\d+$ 才替换
+            if (Regex.IsMatch(args[i], @"^\.\d+$"))
+            {
+                int index = int.Parse(args[i].Substring(1));
+
+                if (index >= 0 && index < validChildren.Count)
+                {
+                    // 使用 Name + Extension 作为路径喵~（目录的 Extension 为空，不影响）
+                    var node = validChildren[index];
+                    args[i] = node.Name + node.Extension;
+                }
+                else
+                {
+                    Log($"索引 {index} 超出范围 (0-{validChildren.Count - 1}) 喵~", Color.red);
+                }
+            }
+            // 不匹配的保持原样：1.5, file.txt, /path/.1 等
+        }
+
+        return args;
+    }
+
+    // =========================================================
+    //  命令执行内部方法
+    // =========================================================
+
     /// <summary>
     /// 执行单个命令
     /// </summary>
@@ -386,6 +470,9 @@ public class DeveloperConsole : TUIManager
 
         string commandKey = parts[0].ToLower();
         string[] args = parts.Skip(1).ToArray();
+
+        // 【索引替换】在执行前替换所有参数中的索引喵~
+        args = ResolveIndexArguments(args);
 
         if (_commands.TryGetValue(commandKey, out var commandAction))
         {
@@ -425,6 +512,9 @@ public class DeveloperConsole : TUIManager
 
             string commandName = tokens[0].ToLower();
             string[] args = tokens.Skip(1).ToArray();
+
+            // 【索引替换】在管道中也要替换索引喵~
+            args = ResolveIndexArguments(args);
 
             // 执行命令，传入上游的 payload
             var output = CommandRegistry.Execute(commandName, args, payload, this);

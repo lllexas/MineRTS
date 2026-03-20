@@ -1,210 +1,173 @@
 {
+  "$type": "NekoGraph.MsgPackData, Assembly-CSharp",
   "PackID": "test_event_01",
   "DisplayName": "新社交消息",
   "Description": "一个由 NekoGraph 驱动的交互式社交对话图喵~",
   "Author": "NekoTeam",
   "Version": "1.0.0",
-  "CreatedAt": 1773839950,
-  "ModifiedAt": 1773839950,
-  "Nodes": [
-    {
+  "CreatedAt": 1773980270,
+  "ModifiedAt": 1773980270,
+  "Nodes": {
+    "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[BaseNodeData, Assembly-CSharp]], mscorlib",
+    "083b62ff-1222-49cf-b6e9-efada0047ebf": {
       "$type": "RootNodeData, Assembly-CSharp",
       "_": [
-        "ac23e0cd-881a-4509-9b90-6196beceeac8"
+        "b6bd0ce5-5998-4e13-85d7-58c932e760ed"
       ],
-      "NodeID": "41e89cac-cd03-4749-8004-25f3c2ec141a",
+      "NodeID": "083b62ff-1222-49cf-b6e9-efada0047ebf",
       "EditorPosition": {
-        "x": 137.599991,
-        "y": 66.3999939
+        "$type": "SerializableVector2, Assembly-CSharp",
+        "x": 36.0,
+        "y": 164.0
       },
       "OutputConnections": [
         {
+          "$type": "ConnectionData, Assembly-CSharp",
           "FromPortIndex": 0,
-          "TargetNodeID": "ac23e0cd-881a-4509-9b90-6196beceeac8",
+          "TargetNodeID": "b6bd0ce5-5998-4e13-85d7-58c932e760ed",
           "ToPortIndex": 0
         }
       ]
     },
-    {
+    "b6bd0ce5-5998-4e13-85d7-58c932e760ed": {
       "$type": "NekoGraph.SocialMsgContentNodeData, Assembly-CSharp",
       "Speaker": "指挥官",
-      "Body": "\t个人自述（精简誊抄版）\r\n\t本人在过去的一段时间里，无论是在思想上还是在实际行动中，都始终坚持积极向上的态度，力求在各个方面实现自我的完善。\r\n\t在政治思想方面，我始终保持着高度的自觉性。我坚持关注国家大事，通过报纸、网络等各种渠道学习先进的理论知识，不断提升自己的思想觉悟。在日常生活中，我严于律己，遵守各项法律法规和校规校纪，有着强烈的集体责任感。我深知作为一名新时代的青年，必须要有坚定的理想信念，做到心往一处想，劲往一处使，始终保持思想上的先进性，这不仅是我行事的准则，更是我前进的动力。\r\n\t在学习科研方面，我态度端正，目标明确。在专业课的学习中，我能够做到课前预习、课后复习，积极与老师和同学探讨学术问题，不断完善自己的知识体系。通过这一阶段的努力，我掌握了扎实的理论基础，还培养了独立思考和解决问题的能力。在科研实践中，我深知实践出真知的道理，经常钻研各种技术文档，面对复杂的逻辑和程序问题时，我能够沉下心来反复调试，这种持之以恒的钻研精神让我受益匪浅。\r\n\t在社会活动方面，我积极投身于各类实践。我参加过多次志愿者活动和社团组织的公益项目，在这些活动中，我不仅锻炼了自己的沟通能力，更学会了如何与团队成员高效协作。我觉得通过服务他人来回馈社会是一件非常有意义的事情，这些经历也让我的性格变得更加稳重。\r\n在能力特长方面，我具备较强的逻辑思维能力。我擅长发现问题并寻找解决方案，尤其在计算机应用和逻辑分析方面有一定专长。同时，我也有着广泛的兴趣爱好，这让我在高强度的学习之余能够保持良好的心态，抗压能力较强，能够适应快节奏的任务要求。\r\n\t在取得的成就以及存在的问题上，我过去获得过一些阶段性的荣誉，这些是对我努力的肯定。但我也清醒地认识到自己存在的不足，比如在任务繁多时容易产生焦虑情绪，时间管理能力还有待进一步提高，有时候过于关注细节而忽略了宏观把控。\r\n今后努力的方向，我将继续保持谦虚谨慎的态度。我会更加科学地规划时间，提高工作效率。\t\n\t我的行动指南是：实事求是，艰苦奋斗，在实践中磨炼意志，在学习中增长才干，不忘初心，砥砺前行，为实现目标而不懈努力。",
-      "In": "41e89cac-cd03-4749-8004-25f3c2ec141a",
+      "Body": "这是一段测试对话内容，用于验证社交消息系统是否正常工作喵~\n请选择你的回应方式。",
+      "In": "083b62ff-1222-49cf-b6e9-efada0047ebf",
       "Out": [
-        "eab67f7f-8fdd-44a8-af8b-c5a6b6a7856f",
-        "33b98900-18d1-4175-920f-2c8a0a153bb2"
+        "a5ef80f9-ee2f-46f3-96d9-abc4657394f4",
+        "9633e13e-9695-46ef-aa46-26e8381c7f7f"
       ],
-      "NodeID": "ac23e0cd-881a-4509-9b90-6196beceeac8",
+      "NodeID": "b6bd0ce5-5998-4e13-85d7-58c932e760ed",
       "EditorPosition": {
-        "x": 358.400024,
-        "y": 66.3999939
+        "$type": "SerializableVector2, Assembly-CSharp",
+        "x": 264.800018,
+        "y": 162.400009
       },
       "OutputConnections": [
         {
+          "$type": "ConnectionData, Assembly-CSharp",
           "FromPortIndex": 0,
-          "TargetNodeID": "eab67f7f-8fdd-44a8-af8b-c5a6b6a7856f",
+          "TargetNodeID": "a5ef80f9-ee2f-46f3-96d9-abc4657394f4",
           "ToPortIndex": 0
         },
         {
+          "$type": "ConnectionData, Assembly-CSharp",
           "FromPortIndex": 0,
-          "TargetNodeID": "33b98900-18d1-4175-920f-2c8a0a153bb2",
+          "TargetNodeID": "9633e13e-9695-46ef-aa46-26e8381c7f7f",
           "ToPortIndex": 0
         }
       ]
     },
-    {
+    "85339b97-af6e-4a1c-ba43-2ce05a5fc9d8": {
+      "$type": "NekoGraph.SocialMsgEndNodeData, Assembly-CSharp",
+      "In": "f9a3e68d-e780-41d1-ac5c-c137e7760578",
+      "NodeID": "85339b97-af6e-4a1c-ba43-2ce05a5fc9d8",
+      "EditorPosition": {
+        "$type": "SerializableVector2, Assembly-CSharp",
+        "x": 1191.2,
+        "y": 208.8
+      },
+      "OutputConnections": []
+    },
+    "a5ef80f9-ee2f-46f3-96d9-abc4657394f4": {
       "$type": "NekoGraph.ChoiceTextNodeData, Assembly-CSharp",
       "OptionIndex": 1,
-      "Label": "选项a",
-      "In": "ac23e0cd-881a-4509-9b90-6196beceeac8",
+      "Label": "继续",
+      "In": "b6bd0ce5-5998-4e13-85d7-58c932e760ed",
       "Out": [
-        "0883eee0-335f-4180-8b40-1e192dc3dd85"
+        "9039c382-6ea4-44da-ad97-2c5d166886e7"
       ],
-      "NodeID": "eab67f7f-8fdd-44a8-af8b-c5a6b6a7856f",
+      "NodeID": "a5ef80f9-ee2f-46f3-96d9-abc4657394f4",
       "EditorPosition": {
-        "x": 733.600037,
-        "y": -27.2
+        "$type": "SerializableVector2, Assembly-CSharp",
+        "x": 607.2,
+        "y": 78.3999939
       },
       "OutputConnections": [
         {
+          "$type": "ConnectionData, Assembly-CSharp",
           "FromPortIndex": 0,
-          "TargetNodeID": "0883eee0-335f-4180-8b40-1e192dc3dd85",
+          "TargetNodeID": "9039c382-6ea4-44da-ad97-2c5d166886e7",
           "ToPortIndex": 0
         }
       ]
     },
-    {
+    "9633e13e-9695-46ef-aa46-26e8381c7f7f": {
       "$type": "NekoGraph.ChoiceTextNodeData, Assembly-CSharp",
       "OptionIndex": 2,
-      "Label": "选项b",
-      "In": "ac23e0cd-881a-4509-9b90-6196beceeac8",
+      "Label": "继续",
+      "In": "b6bd0ce5-5998-4e13-85d7-58c932e760ed",
       "Out": [
-        "eafcabee-d558-4473-8027-fa86db83edd6"
+        "f9a3e68d-e780-41d1-ac5c-c137e7760578"
       ],
-      "NodeID": "33b98900-18d1-4175-920f-2c8a0a153bb2",
+      "NodeID": "9633e13e-9695-46ef-aa46-26e8381c7f7f",
       "EditorPosition": {
-        "x": 720.8,
-        "y": 199.2
+        "$type": "SerializableVector2, Assembly-CSharp",
+        "x": 599.2,
+        "y": 283.199982
       },
       "OutputConnections": [
         {
+          "$type": "ConnectionData, Assembly-CSharp",
           "FromPortIndex": 0,
-          "TargetNodeID": "eafcabee-d558-4473-8027-fa86db83edd6",
+          "TargetNodeID": "f9a3e68d-e780-41d1-ac5c-c137e7760578",
           "ToPortIndex": 0
         }
       ]
     },
-    {
+    "9039c382-6ea4-44da-ad97-2c5d166886e7": {
       "$type": "TriggerNodeData, Assembly-CSharp",
       "Event": 12,
       "InputNodeIDs": [
-        "eab67f7f-8fdd-44a8-af8b-c5a6b6a7856f"
+        "a5ef80f9-ee2f-46f3-96d9-abc4657394f4"
       ],
       "SignalOutputs": [
-        "2dd71aae-f534-46ca-bab0-c5e776bfc80c"
+        "85339b97-af6e-4a1c-ba43-2ce05a5fc9d8"
       ],
-      "NodeID": "0883eee0-335f-4180-8b40-1e192dc3dd85",
+      "NodeID": "9039c382-6ea4-44da-ad97-2c5d166886e7",
       "EditorPosition": {
-        "x": 1030.3999,
-        "y": -33.6
+        "$type": "SerializableVector2, Assembly-CSharp",
+        "x": 871.2,
+        "y": 63.9999962
       },
       "OutputConnections": [
         {
+          "$type": "ConnectionData, Assembly-CSharp",
           "FromPortIndex": 0,
-          "TargetNodeID": "2dd71aae-f534-46ca-bab0-c5e776bfc80c",
+          "TargetNodeID": "85339b97-af6e-4a1c-ba43-2ce05a5fc9d8",
           "ToPortIndex": 0
         }
       ]
     },
-    {
+    "f9a3e68d-e780-41d1-ac5c-c137e7760578": {
       "$type": "TriggerNodeData, Assembly-CSharp",
       "Event": 13,
       "InputNodeIDs": [
-        "33b98900-18d1-4175-920f-2c8a0a153bb2"
+        "9633e13e-9695-46ef-aa46-26e8381c7f7f"
       ],
       "SignalOutputs": [
-        "207ddc55-e3e5-4181-9048-f581e932567a"
+        "85339b97-af6e-4a1c-ba43-2ce05a5fc9d8"
       ],
-      "NodeID": "eafcabee-d558-4473-8027-fa86db83edd6",
+      "NodeID": "f9a3e68d-e780-41d1-ac5c-c137e7760578",
       "EditorPosition": {
-        "x": 1026.3999,
-        "y": 200.0
+        "$type": "SerializableVector2, Assembly-CSharp",
+        "x": 866.4,
+        "y": 283.199982
       },
       "OutputConnections": [
         {
+          "$type": "ConnectionData, Assembly-CSharp",
           "FromPortIndex": 0,
-          "TargetNodeID": "207ddc55-e3e5-4181-9048-f581e932567a",
+          "TargetNodeID": "85339b97-af6e-4a1c-ba43-2ce05a5fc9d8",
           "ToPortIndex": 0
         }
       ]
-    },
-    {
-      "$type": "CommandNodeData, Assembly-CSharp",
-      "Command": {
-        "CommandName": "ai_wave",
-        "Parameter": "",
-        "Parameters": [
-          "",
-          "",
-          ""
-        ]
-      },
-      "InputNodeIDs": [
-        "0883eee0-335f-4180-8b40-1e192dc3dd85",
-        "1de5005c-6101-48f5-b7d2-26cf3b18969d"
-      ],
-      "OutputNodeIDs": [
-        "bc68bbe2-5ff6-4320-b263-80ad966d2d4f"
-      ],
-      "NodeID": "2dd71aae-f534-46ca-bab0-c5e776bfc80c",
-      "EditorPosition": {
-        "x": 1716.0,
-        "y": -39.2
-      },
-      "OutputConnections": [
-        {
-          "FromPortIndex": 0,
-          "TargetNodeID": "bc68bbe2-5ff6-4320-b263-80ad966d2d4f",
-          "ToPortIndex": 0
-        }
-      ]
-    },
-    {
-      "$type": "CommandNodeData, Assembly-CSharp",
-      "Command": {
-        "CommandName": "",
-        "Parameter": "",
-        "Parameters": []
-      },
-      "InputNodeIDs": [
-        "eafcabee-d558-4473-8027-fa86db83edd6",
-        "0102929a-ebf7-4b84-b0ec-2e672f80c124"
-      ],
-      "OutputNodeIDs": [
-        "bc68bbe2-5ff6-4320-b263-80ad966d2d4f"
-      ],
-      "NodeID": "207ddc55-e3e5-4181-9048-f581e932567a",
-      "EditorPosition": {
-        "x": 1720.0,
-        "y": 244.000015
-      },
-      "OutputConnections": [
-        {
-          "FromPortIndex": 0,
-          "TargetNodeID": "bc68bbe2-5ff6-4320-b263-80ad966d2d4f",
-          "ToPortIndex": 0
-        }
-      ]
-    },
-    {
-      "$type": "NekoGraph.SocialMsgEndNodeData, Assembly-CSharp",
-      "In": "207ddc55-e3e5-4181-9048-f581e932567a",
-      "NodeID": "bc68bbe2-5ff6-4320-b263-80ad966d2d4f",
-      "EditorPosition": {
-        "x": 2159.2,
-        "y": 129.6
-      },
-      "OutputConnections": []
     }
-  ]
+  },
+  "RootNodeId": "083b62ff-1222-49cf-b6e9-efada0047ebf",
+  "ActiveSignals": {
+    "$type": "System.Collections.Generic.Queue`1[[SignalContext, Assembly-CSharp]], mscorlib",
+    "$values": []
+  }
 }

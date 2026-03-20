@@ -18,17 +18,23 @@ public struct TSSStyle
     
     /// <summary>左右页边距（边框到内容的间距）</summary>
     public int paddingX;
-    
+
     /// <summary>上下页边距（边框到内容的空行数）</summary>
     public int paddingY;
+
+    /// <summary>列间距（表格列与列之间的空格数）</summary>
+    public int spacingX;
     
     // ── 边框样式 ─────────────────────────────────────────────────
     /// <summary>边框颜色</summary>
     public Color borderColor;
-    
+
     /// <summary>内容颜色</summary>
     public Color contentColor;
-    
+
+    /// <summary>标题颜色（用于顶栏标题、表头等）</summary>
+    public Color titleColor;
+
     /// <summary>背景颜色（可选，用于填充）</summary>
     public Color? backgroundColor;
     
@@ -46,8 +52,10 @@ public struct TSSStyle
         bleedY = 0,
         paddingX = 1,
         paddingY = 0,
+        spacingX = 1,
         borderColor = Color.gray,
         contentColor = Color.white,
+        titleColor = Color.cyan,
         backgroundColor = null,
         alignment = TextAlignment.Center,
         expandArtSpaces = false

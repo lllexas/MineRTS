@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using NekoGraph;
+using Newtonsoft.Json;
 
 namespace CatStrategies
 {
@@ -10,6 +11,20 @@ namespace CatStrategies
     /// 社交消息 (.msg) 特化处理策略喵~
     /// 充当 SocialCLI (前端) 与 GraphRunner (后端) 之间的适配器
     /// 支持 ASCII TUI 文本框 + ↑↓ 导航 + Enter 确认 + 数字直选
+    ///
+    /// ── 运行约定 ────────────────────────────────────────────────────
+    /// 【单实例约定】
+    ///   当前设计假设同一时刻只有一个 MsgStrategy 处于活跃状态。
+    ///   Social.ShowBody / Social.RegisterOption / Social.MsgFinished
+    ///   均为全局广播事件（无实例隔离），多实例并行会导致 UI 互相覆写。
+    ///   如需支持对话栈，需在事件名中携带 _instanceID 后缀以隔离。
+    ///
+    /// 【PackID vs InstanceID】
+    ///   _packID    = MsgPackData.PackID，来自 JSON 元数据（如 "msg_intro_01"）。
+    ///                用于业务标识：MsgFinished 事件的过滤、失败日志。
+    ///   _instanceID = GraphRunner.LoadPack() 返回的运行时 GUID。
+    ///                用于引擎驱动：InjectSignalFromRoot / UnloadPack。
+    ///   两者不可混用：MsgFinished 比对用 _packID，引擎操作用 _instanceID。
     /// </summary>
     public class MsgStrategy : CatStrategyBase
     {
@@ -32,24 +47,38 @@ namespace CatStrategies
         // 居中左边距 = (ConsoleWidth - BoxWidth) / 2，自然地板除
         private int LeftPad => (_cli.ConsoleWidth - BoxWidth) / 2;
 
-        // │(1) + " "(1) + "  "(2) + content + "  "(2) + " "(1) + │(1) = BoxWidth  →  content ≤ BoxWidth-8 喵~
-        private int InnerWidth => BoxWidth - 8;
+        // ── TSSStyle 定义 ──────────────────────────────────────────
+        // 消息框样式：bleedY=0（出血由外部手动处理），paddingY=1（边框内各留一行空行）
+        // contentColor 同时作用于 GenerateTopBorder 标题 和 FormatBoxLine 正文
+        private static TSSStyle MsgBoxStyle => new TSSStyle
+        {
+            bleedX = 0, bleedY = 0,
+            paddingX = 1, paddingY = 1,
+            borderColor  = new Color(0.5f, 0.5f, 0.5f),
+            contentColor = Color.white,
+            alignment    = TextAlignment.Left,
+            expandArtSpaces = false
+        };
 
-        // ── 颜色定义 ───────────────────────────────────────────────
-        private static readonly Color ColorBorder  = new Color(0.5f, 0.5f, 0.5f);   // 灰色边框
-        private static readonly Color ColorSpeaker = new Color(0f, 1f, 1f);          // 青色发言人
-        private static readonly Color ColorBody    = Color.white;                    // 正文白色
-        private static readonly Color ColorOption  = new Color(0.6f, 0.6f, 0.6f);   // 普通选项灰
-        private static readonly Color ColorHighlight = new Color(0.4f, 1f, 0.4f);   // 高亮绿
-        private static readonly Color ColorHelpLine = new Color(0.35f, 0.35f, 0.35f); // 提示行深灰
+        // 选项行样式（纯文本着色，不加边框）
+        private static TSSStyle OptionStyle(bool highlighted) => new TSSStyle
+        {
+            contentColor = highlighted ? new Color(0.4f, 1f, 0.4f) : new Color(0.6f, 0.6f, 0.6f),
+        };
+
+        // 帮助行样式（深灰色提示文字）
+        private static TSSStyle HelpStyle => new TSSStyle
+        {
+            contentColor = new Color(0.35f, 0.35f, 0.35f),
+        };
 
         // ── 核心引用 ──────────────────────────────────────────────
         private readonly DeveloperConsole _cli;
 
         // ── 图实例信息 ────────────────────────────────────────────
-        private string _vfsPath;
-        private string _packID;
-        private string _instanceID;
+        private string _vfsPath;      // VFS 路径，用于 MarkAsRead
+        private string _packID;       // 业务 ID（= MsgPackData.PackID），用于 MsgFinished 过滤
+        private string _instanceID;   // 引擎运行时 GUID（由 GraphRunner.LoadPack 返回），用于驱动/卸载
 
         // ── 当前消息状态 ──────────────────────────────────────────
         private string _currentSpeaker = "???";
@@ -72,32 +101,45 @@ namespace CatStrategies
             _vfsPath = vfsPath;
             _packID  = packID;
 
-            var pack = MetaLib.GetPack<MsgPackData>(_packID);
-            if (pack == null)
+            // 直接从 VFS 读取并反序列化喵！✨
+            var analyser = GraphAnalyser.Instance;
+            if (analyser == null)
             {
-                _cli.Log($"错误：加载图包失败 (PackID: {_packID})", Color.red);
+                _cli.Log("错误：GraphAnalyser 实例为空喵~", Color.red);
                 _cli.CloseActiveStrategy();
                 return;
             }
 
-            _instanceID = "TUI_" + Guid.NewGuid().ToString("N").Substring(0, 4);
-            
-            // 使用新的 GraphRunner API 加载喵~
-            GraphRunner.Instance.SetPackDataDict(MainModel.Instance.CurrentUser.PackDataDict);
-            _instanceID = GraphRunner.Instance.LoadPack(pack);
-
-            if (_instanceID != null)
+            var node = analyser.GetNode(SocialManager.SOCIAL_PACK_ID, vfsPath);
+            if (node is VFSNodeData vfs && !string.IsNullOrEmpty(vfs.DataJson))
             {
-                PostSystem.Instance.Register(this);
-                GraphRunner.Instance.InjectSignalFromRoot(_instanceID);
+                var pack = JsonConvert.DeserializeObject<MsgPackData>(vfs.DataJson, MetaLib.JsonSettings);
+                if (pack != null)
+                {
+                    // 使用新的 GraphRunner API 加载喵~
+                    if (GraphRunner.Instance == null)
+                    {
+                        _cli.Log("错误：GraphRunner 未就绪喵~", Color.red);
+                        _cli.CloseActiveStrategy();
+                        return;
+                    }
+                    GraphRunner.Instance.SetPackDataDict(MainModel.Instance.CurrentUser.PackDataDict);
+                    _instanceID = GraphRunner.Instance.LoadPack(pack);
 
-                _cli.Log($"[系统] 正在建立加密连接以读取：{VFSPathResolver.GetFileName(vfsPath)}...", Color.gray);
+                    if (_instanceID != null)
+                    {
+                        PostSystem.Instance.Register(this);
+                        GraphRunner.Instance.InjectSignalFromRoot(_instanceID);
+
+                        _cli.Log($"[系统] 正在建立加密连接以读取：{VFSPathResolver.GetFileName(vfsPath)}...", Color.gray);
+                        return;
+                    }
+                }
             }
-            else
-            {
-                _cli.Log($"错误：实例化图失败 (PackID: {_packID})", Color.red);
-                _cli.CloseActiveStrategy();
-            }
+
+            // 失败处理喵~
+            _cli.Log($"错误：加载图包失败 (PackID: {_packID})", Color.red);
+            _cli.CloseActiveStrategy();
         }
 
         public override void OnInput(string input)
@@ -132,7 +174,7 @@ namespace CatStrategies
                 SocialManager.Instance.MarkAsRead(_vfsPath);
 
             // 使用 GraphRunner 卸载 Pack 喵~
-            if (!string.IsNullOrEmpty(_instanceID))
+            if (!string.IsNullOrEmpty(_instanceID) && GraphRunner.Instance != null)
                 GraphRunner.Instance.UnloadPack(_instanceID);
 
             PostSystem.Instance.Unregister(this);
@@ -228,7 +270,7 @@ namespace CatStrategies
         private void OnMsgFinished(object data)
         {
             string finishedID = data as string;
-            if (finishedID == _instanceID)
+            if (finishedID == _packID)
             {
                 _cli.CloseActiveStrategy();
             }
@@ -282,109 +324,82 @@ namespace CatStrategies
         }
 
         /// <summary>
-        /// 渲染 ASCII 消息文本框
-        /// ┌─[ Speaker ]──────────────────────────┐
-        /// │                                      │
-        /// │  正文内容（自动换行）                  │
-        /// │                                      │
-        /// └──────────────────────────────────────┘
+        /// 渲染 ASCII 消息文本框（使用 TUITool.GenerateTextBoxWithTitle 一次性生成）
+        /// ┌─[Speaker]──────────────────────────┐
+        /// │                                    │
+        /// │  正文内容（自动换行）                │
+        /// │                                    │
+        /// └────────────────────────────────────┘
         /// </summary>
         private void RenderMessageBox(string speaker, string body)
         {
-            int innerWidth = InnerWidth;
+            var style = MsgBoxStyle;
+            int bw = BoxWidth;
 
-            // ── 上方出血空行（用空格占位，避免 TMP 折叠纯空字符串行）
+            // 上方出血空行（Color.clear 避免 TMP 折叠纯空字符串行）
             for (int i = 0; i < BleedY; i++) _cli.Log(" ", Color.clear);
 
-            // ── 顶部边框：┌─[ Speaker ]─────────────────┐
-            // Box Drawing 字符宽=2：┌(2)+─(2)+label+─(2)+─×fill(各2)+┐(2) = BoxWidth 喵~
-            // 当 remaining 为奇数时，追加1个ASCII空格（1列）补齐，保证与底线等宽喵~
-            string speakerLabel = $"[ {speaker} ]";
-            int labelWidth = GetVisualWidth(speakerLabel);   // CJK/BoxDrawing=2, 其余=1
-            int remaining = Mathf.Max(0, BoxWidth - 8 - labelWidth);
-            int fillLen   = remaining / 2;
-            string extra  = (remaining % 2 == 1) ? " " : "";
-            string topLine = "┌─" + speakerLabel + "─" + new string('─', fillLen) + extra + "┐";
-            LogBoxLine(topLine, ColorBorder);
+            // 计算正文内容宽度（减去边框+padding，再减2给"  "缩进）
+            int contentWidth = TUITool.CalcContentWidth(bw, style) - 2;
+            var wrapped = WrapText(body, contentWidth);
 
-            // ── 空行
-            LogBoxLine(BorderLine(""), ColorBorder);
+            string[] contentLines = new string[wrapped.Count];
+            for (int i = 0; i < wrapped.Count; i++)
+                contentLines[i] = "  " + wrapped[i];
 
-            // ── 正文（自动换行）
-            var lines = WrapText(body, innerWidth);
-            foreach (var line in lines)
-            {
-                LogBoxLine(BorderLine("  " + line), ColorBody);
-            }
+            // GenerateTextBoxWithTitle 处理顶栏/paddingY空行/内容/底栏
+            foreach (var line in TUITool.GenerateTextBoxWithTitle(contentLines, speaker, bw, style))
+                LogBoxLine(line);
 
-            // ── 空行
-            LogBoxLine(BorderLine(""), ColorBorder);
-
-            // ── 底部边框：└─────────────────────────────┘
-            // BoxWidth 已保证偶数 → (BoxWidth-4) 必然为偶数 → 永远整除喵~
-            // └(2) + ─×n(各2) + ┘(2) = BoxWidth  →  n = (BoxWidth-4)/2
-            string bottomLine = "└" + new string('─', (BoxWidth - 4) / 2) + "┘";
-            LogBoxLine(bottomLine, ColorBorder);
-
-            // ── 下方出血空行（用空格占位，避免 TMP 折叠纯空字符串行）
+            // 下方出血空行
             for (int i = 0; i < BleedY; i++) _cli.Log(" ", Color.clear);
-        }
-
-        /// <summary>
-        /// │(2) + content + spaces + │(2) = BoxWidth 喵~
-        /// Box Drawing 字符宽=2，所以两侧竖线共占4列喵~
-        /// </summary>
-        private string BorderLine(string content)
-        {
-            int padLen = BoxWidth - 4 - GetVisualWidth(content);
-            if (padLen < 0) padLen = 0;
-            return "│" + content + new string(' ', padLen) + "│";
         }
 
         /// <summary>
         /// 输出带居中左边距的一行，保证 TUI 框在终端内水平居中喵~
+        /// （颜色已通过 RichText 标签嵌入字符串）
         /// </summary>
-        private void LogBoxLine(string line, Color color)
+        private void LogBoxLine(string line)
         {
             string prefix = LeftPad > 0 ? new string(' ', LeftPad) : "";
-            _cli.Log(prefix + line, color);
+            _cli.Log(prefix + line, Color.white);
         }
 
         /// <summary>
-        /// 渲染选项列表
+        /// 渲染选项列表（纯彩色文本行，无边框，与消息框风格分离）
         /// </summary>
         private void RenderOptions()
         {
-            LogBoxLine("", Color.clear);
+            LogBoxLine(""); // 分隔空行
 
             foreach (int key in _sortedOptionKeys)
             {
                 if (!_currentOptions.TryGetValue(key, out string label)) continue;
-
-                bool isHighlighted = (key == _selectedIndex);
-                string prefix = isHighlighted ? "▶ " : "  ";
-                string line = $"{prefix}[ {key} ]  {label}";
-
-                LogBoxLine(line, isHighlighted ? ColorHighlight : ColorOption);
+                bool highlighted = (key == _selectedIndex);
+                string prefix = highlighted ? "▶ " : "  ";
+                string raw = $"{prefix}[ {key} ]  {label}";
+                string hex = ColorUtility.ToHtmlStringRGB(OptionStyle(highlighted).contentColor);
+                LogBoxLine($"<color=#{hex}>{raw}</color>");
             }
         }
 
         /// <summary>
-        /// 渲染帮助提示行
+        /// 渲染帮助提示行（纯彩色文本行）
         /// </summary>
         private void RenderHelpLine()
         {
-            LogBoxLine("", Color.clear);
-            LogBoxLine("  ↑↓ 切换   Enter 确认   数字直选", ColorHelpLine);
+            string hex = ColorUtility.ToHtmlStringRGB(HelpStyle.contentColor);
+            LogBoxLine("");
+            LogBoxLine($"<color=#{hex}>  ↑↓ 切换   Enter 确认   数字直选</color>");
         }
 
         // =========================================================
-        //  工具：文本换行 & 视觉宽度
+        //  工具：文本换行
         // =========================================================
 
         /// <summary>
         /// 按视觉宽度对文本进行换行喵~
-        /// ASCII 字符宽度 = 1，CJK 字符宽度 = 2
+        /// ASCII 字符宽度 = 1，CJK/BoxDrawing 字符宽度 = 2
         /// </summary>
         private static List<string> WrapText(string text, int maxVisualWidth)
         {
@@ -419,7 +434,7 @@ namespace CatStrategies
                     if (c == '>') { inTag = false; sb.Append(c); continue; }
                     if (inTag)    { sb.Append(c); continue; }
 
-                    int cw = IsCJK(c) ? 2 : 1;
+                    int cw = TUITool.IsWideChar(c) ? 2 : 1;
                     if (width + cw > maxVisualWidth)
                     {
                         result.Add(sb.ToString());
@@ -435,60 +450,6 @@ namespace CatStrategies
             }
 
             return result;
-        }
-
-        /// <summary>
-        /// 计算字符串的视觉宽度（CJK=2，Box Drawing=2，其余=1），自动跳过富文本标签喵~
-        /// </summary>
-        private static int GetVisualWidth(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return 0;
-            int w = 0;
-            bool inTag = false;
-            foreach (char c in s)
-            {
-                if (c == '<') { inTag = true; continue; }
-                if (c == '>') { inTag = false; continue; }
-                if (inTag) continue;
-                w += (IsCJK(c) || IsBoxDrawing(c)) ? 2 : 1;
-            }
-            return w;
-        }
-
-        /// <summary>
-        /// 剥离富文本标签，返回纯可见字符串喵~
-        /// </summary>
-        private static string StripTags(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return s;
-            var sb = new StringBuilder();
-            bool inTag = false;
-            foreach (char c in s)
-            {
-                if (c == '<') { inTag = true; continue; }
-                if (c == '>') { inTag = false; continue; }
-                if (!inTag) sb.Append(c);
-            }
-            return sb.ToString();
-        }
-
-        /// <summary>
-        /// 判断是否为 CJK 字符（包含常用汉字、全角标点、日文假名）
-        /// </summary>
-        private static bool IsCJK(char c)
-        {
-            return (c >= 0x4E00 && c <= 0x9FFF)   // CJK 统一汉字
-                || (c >= 0x3040 && c <= 0x30FF)   // 平假名 + 片假名
-                || (c >= 0xFF00 && c <= 0xFFEF)   // 全角字符
-                || (c >= 0x3000 && c <= 0x303F);  // CJK 符号和标点
-        }
-
-        /// <summary>
-        /// 判断是否为 Box Drawing 字符（U+2500-U+257F），字体里这些字符 advance=2× 喵~
-        /// </summary>
-        private static bool IsBoxDrawing(char c)
-        {
-            return c >= 0x2500 && c <= 0x257F;
         }
     }
 }

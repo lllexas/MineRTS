@@ -48,22 +48,20 @@ public class SocialManager : SingletonData<SocialManager>
             fullVfsPath = VFSPathResolver.Combine(MESSAGES_FOLDER, fileName);
         }
 
-        // 2. 构造数据
-        var msgData = new SocialMessageVFSData
+        // 2. 直接从 MetaLib 获取原始 JSON 字符串喵！✨
+        string json = MetaLib.GetMetaString(packID);
+        if (string.IsNullOrEmpty(json))
         {
-            PackID = packID,
-            Sender = sender,
-            IsRead = false,
-            Timestamp = DateTimeOffset.Now.ToUnixTimeSeconds()
-        };
-        string json = JsonUtility.ToJson(msgData);
+            Debug.LogError($"[SocialManager] 获取 Pack JSON 失败：{packID}");
+            return;
+        }
 
         // 3. 动态写入 VFS 喵！✨
         if (analyser.WriteFile(SOCIAL_PACK_ID, fullVfsPath, json))
         {
             // 写入成功后，虽然 SyncAll 会在存档时做，但这里我们可以主动触发局部同步（可选）
-            // vfsManager.SyncToSave(SOCIAL_PACK_ID);
-            
+            // vfsManager.SyncAll(SOCIAL_PACK_ID);
+
             Debug.Log($"[SocialManager] 新消息已存入 VFS：{fullVfsPath} (PackID: {packID})");
             PostSystem.Instance.Send("Social.NewMessageNotification", sender);
         }

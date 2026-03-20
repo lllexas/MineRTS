@@ -85,12 +85,12 @@ public abstract class BaseGraphView<TPack> : GraphView, INekoGraphNodeFactory, I
 
     /// <summary>
     /// Newtonsoft.Json 序列化设置 - 局部配置，不影响全局喵~
-    /// TypeNameHandling.Auto 自动保存类型信息，无需手动定义字段喵！
+    /// TypeNameHandling.Objects 强制保存类型信息，反序列化时自动识别类型喵！
     /// </summary>
     public static readonly JsonSerializerSettings GraphJsonSettings = new JsonSerializerSettings
     {
         Formatting = Formatting.Indented,
-        TypeNameHandling = TypeNameHandling.Auto, // 自动保存类型信息喵~！
+        TypeNameHandling = TypeNameHandling.Objects, // 强制保存类型信息喵~！
         NullValueHandling = NullValueHandling.Ignore
     };
 

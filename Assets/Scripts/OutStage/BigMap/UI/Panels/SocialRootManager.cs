@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 namespace MineRTS.BigMap.UI.Panels
@@ -12,6 +13,9 @@ namespace MineRTS.BigMap.UI.Panels
     public class SocialRootManager : TUIManager
     {
         [Header("显示设置")]
+        [Tooltip("块状拆入动画的块间延迟（秒）")]
+        [SerializeField] private float blockDelay = 0.04f;
+
         [Tooltip("标题颜色")]
         [SerializeField] private Color titleColor = new Color(0.2f, 0.8f, 1f);
 
@@ -25,6 +29,7 @@ namespace MineRTS.BigMap.UI.Panels
         [SerializeField] private Color notificationColor = new Color(1f, 0.6f, 0.2f);
 
         private int _unreadCount = 0;
+        private Coroutine _renderCoroutine;
 
         // ─────────────────────────────────────────────────────────────
         //  艺术字模板（每元素为一行纯内容，不含边框）
@@ -106,42 +111,60 @@ namespace MineRTS.BigMap.UI.Panels
         /// <summary>ConsoleWidth 被注入新值时自动重新渲染</summary>
         protected override void OnConsoleWidthChanged(int newWidth) => Render();
 
+        /// <summary>ConsoleHeight 被注入新值时自动重新渲染</summary>
+        protected override void OnConsoleHeightChanged(int newHeight) => Render();
+
         // ─────────────────────────────────────────────────────────────
         //  渲染（使用 TUITool）
         // ─────────────────────────────────────────────────────────────
 
-        /// <summary>向面板层推送完整渲染内容（先清屏，再逐行推送）</summary>
+        /// <summary>向面板层推送完整渲染内容（块状拆入动画）</summary>
         public void Render()
+        {
+            if (_renderCoroutine != null) StopCoroutine(_renderCoroutine);
+            _renderCoroutine = StartCoroutine(RenderCoroutine());
+        }
+
+        private IEnumerator RenderCoroutine()
         {
             InvokeClearRequested();
 
             int w = ConsoleWidth;
-            var artStyle = ArtStyle;
+            // 强制偶数宽（与 TUITable.Render 保持一致）
+            if (w % 2 != 0) w--;
+
+            var artStyle   = ArtStyle;
             var notifStyle = NotificationStyle;
+            var border     = BorderStyle.Classic;
+            string[] art   = SelectTemplate(w, ConsoleHeight);
 
-            // ── 顶栏 ──────────────────────────────────────────────────
-            SendLine(TUITool.GenerateTopBorder("◉ SocialCLI", w, artStyle));
+            // Block 1：顶栏（即刻）
+            SendLine(TUITool.GenerateTopBorder("◉ SocialCLI", w, artStyle, border));
 
-            // ── 艺术字内容区 ─────────────────────────────────────────
-            string[] art = SelectTemplate(w);
+            // Block 2：艺术字逐行拆入
             if (art != null)
             {
-                string[] lines = TUITool.GenerateTextBox(art, w, artStyle);
-                foreach (var line in lines)
+                yield return new WaitForSeconds(blockDelay);
+                foreach (var artLine in art)
                 {
-                    SendLine(line);
+                    SendLine(TUITool.FormatBoxLine(artLine, w, artStyle, border));
+                    yield return new WaitForSeconds(blockDelay);
                 }
             }
 
-            // ── 通知区（条件显示）────────────────────────────────────
+            // Block 3：通知区（可选）
             if (_unreadCount > 0)
             {
                 string notifText = $"✉ 【{_unreadCount}条新消息】";
-                SendLine(TUITool.GenerateDivider(w, notifStyle, '·', notifText));
+                yield return new WaitForSeconds(blockDelay);
+                SendLine(TUITool.GenerateDivider(w, notifStyle, notifText, border));
             }
 
-            // ── 底栏 ──────────────────────────────────────────────────
-            SendLine(TUITool.GenerateBottomBorder(w, artStyle));
+            // Block 4：底栏
+            yield return new WaitForSeconds(blockDelay);
+            SendLine(TUITool.GenerateBottomBorder(w, artStyle, border));
+
+            _renderCoroutine = null;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -168,15 +191,19 @@ namespace MineRTS.BigMap.UI.Panels
         //  私有辅助
         // ─────────────────────────────────────────────────────────────
 
-        /// <summary>根据内容宽度选择艺术字模板；返回 null 表示 Small 模式（不显示艺术字）</summary>
-        private static string[] SelectTemplate(int totalWidth)
+        /// <summary>根据内容宽度和可见行高选择艺术字模板；返回 null 表示 Small 模式（不显示艺术字）</summary>
+        private static string[] SelectTemplate(int totalWidth, int visibleRows)
         {
             // 估算内容宽度：totalWidth - 2*paddingX - 2(边框)
             int contentW = totalWidth - 4;
-            
-            if (contentW >= 44) return _artLarge;
-            if (contentW >= 22) return _artMedium;
-            return null;
+
+            // Large 模板 13 行内容 + top + bottom = 15 行总计
+            if (contentW >= 44 && visibleRows >= 15) return _artLarge;
+
+            // Medium 模板 3 行内容 + top + bottom = 5 行总计
+            if (contentW >= 22 && visibleRows >= 5) return _artMedium;
+
+            return null; // Small：不显示艺术字
         }
 
         private void SendLine(string richText)

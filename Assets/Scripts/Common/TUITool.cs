@@ -31,36 +31,45 @@ public static class TUITool
     // ─────────────────────────────────────────────────────────────
     
     /// <summary>
+    /// 获取单个字符的视觉宽度
+    /// <para>ASCII = 1, CJK/BoxDrawing = 2</para>
+    /// </summary>
+    public static int GetCharVisualWidth(char c)
+    {
+        return IsWideChar(c) ? 2 : 1;
+    }
+
+    /// <summary>
     /// 计算字符串的视觉宽度
     /// <para>ASCII = 1, CJK/BoxDrawing = 2</para>
     /// </summary>
     public static int GetVisualWidth(string text)
     {
         if (string.IsNullOrEmpty(text)) return 0;
-        
+
         int width = 0;
         bool inTag = false;
-        
+
         foreach (char c in text)
         {
             // 跳过 RichText 标签
             if (c == '<') { inTag = true; continue; }
             if (c == '>') { inTag = false; continue; }
             if (inTag) continue;
-            
-            width += IsWideChar(c) ? 2 : 1;
+
+            width += GetCharVisualWidth(c);
         }
-        
+
         return width;
     }
-    
+
     /// <summary>
     /// 判断字符是否为双宽字符（CJK / BoxDrawing / 全角等）
     /// </summary>
     public static bool IsWideChar(char c)
     {
         return (c >= 0x1100 && c <= 0x115F)  // Hangul Jamo
-            || (c >= 0x2500 && c <= 0x257F)  // Box Drawing（制表符）
+            || (c >= 0x2500 && c <= 0x25FF)  // Box Drawing + Geometric Shapes（制表符 + 几何图形）
             || (c >= 0x2E80 && c <= 0x303F)  // CJK 部首 / 符号
             || (c >= 0x3040 && c <= 0x33FF)  // 日文假名 / CJK 扩展
             || (c >= 0x3400 && c <= 0x4DBF)  // CJK Extension A
@@ -70,6 +79,16 @@ public static class TUITool
             || (c >= 0xFE10 && c <= 0xFE6F)  // 竖排 / 小写形式
             || (c >= 0xFF00 && c <= 0xFF60)  // 全角 ASCII
             || (c >= 0xFFE0 && c <= 0xFFE6); // 全角符号
+    }
+
+    /// <summary>
+    /// 计算填充字符的数量（用于边框等）
+    /// <para>例如：需要填充视觉宽度 10，字符是'─'(宽 2)，返回 5</para>
+    /// </summary>
+    public static int CalcFillCharCount(char fillChar, int targetVisualWidth)
+    {
+        int charWidth = GetCharVisualWidth(fillChar);
+        return Mathf.Max(0, targetVisualWidth / charWidth);
     }
     
     /// <summary>
@@ -116,88 +135,53 @@ public static class TUITool
     // ─────────────────────────────────────────────────────────────
     //  单行格式化
     // ─────────────────────────────────────────────────────────────
-    
+
     /// <summary>
     /// 格式化一行内容为带边框的 RichText 行
     /// <para>格式：│[padding][content][padding]│</para>
     /// </summary>
-    public static string FormatBoxLine(string content, int totalWidth, TSSStyle style)
+    public static string FormatBoxLine(string content, int totalWidth, TSSStyle style, BorderStyle? border = null)
     {
+        var b = border ?? BorderStyle.Classic;
         string borderHex = ColorUtility.ToHtmlStringRGB(style.borderColor);
         string contentHex = ColorUtility.ToHtmlStringRGB(style.contentColor);
-        
+
         // 处理艺术字空格扩展
         if (style.expandArtSpaces && !string.IsNullOrEmpty(content))
         {
             content = ExpandArtSpaces(content);
         }
-        
-        // 计算内容区宽度
-        int contentWidth = CalcContentWidth(totalWidth, style);
-        
-        // 根据对齐方式计算 padding
-        string leftPad = "";
-        string rightPad = "";
-        
-        if (!string.IsNullOrEmpty(content))
-        {
-            int padLen = style.alignment switch
-            {
-                TextAlignment.Left => 0,
-                TextAlignment.Center => CalcCenterPadding(content, contentWidth),
-                TextAlignment.Right => CalcRightPadding(content, contentWidth),
-                _ => 0
-            };
-            leftPad = new string(' ', padLen);
-            rightPad = new string(' ', Mathf.Max(0, contentWidth - GetVisualWidth(content) - padLen));
-        }
-        else
-        {
-            // 空行：全填充空格
-            leftPad = new string(' ', contentWidth);
-        }
-        
-        // 构建 RichText
-        return $"<color=#{borderHex}>│</color> <color=#{contentHex}>{leftPad}{content}{rightPad}</color> <color=#{borderHex}>│</color>";
+
+        // 使用 BorderStyle 生成内容行（边框色与内容色分离）
+        return b.GenerateContentLine(content, totalWidth, style.paddingX, style.alignment, contentHex, borderHex);
     }
     
     /// <summary>
-    /// 生成顶栏：┌─[title]───────────┐
+    /// 生成顶栏：┌─[title]───────────┐（传统 ASCII 框风格）
+    /// <para>公式：totalWidth = topLeft + h×n1 + titleLeft + title + titleRight + h×n2 + topRight</para>
     /// </summary>
-    public static string GenerateTopBorder(string title, int totalWidth, TSSStyle style)
+    public static string GenerateTopBorder(string title, int totalWidth, TSSStyle style, BorderStyle? border = null)
     {
-        string borderHex = ColorUtility.ToHtmlStringRGB(style.borderColor);
-        string titleHex = ColorUtility.ToHtmlStringRGB(style.contentColor);
-        
-        // 计算 title 占据的视觉宽度
-        int titleVisWidth = GetVisualWidth(title);
-        
-        // ┌─[title] 的视觉宽度 = 2(┌─) + titleVisWidth + 2([ 和 ])
-        int fixedPartWidth = 4 + titleVisWidth + 2;
-        int fillLen = Mathf.Max(0, totalWidth - fixedPartWidth - 1); // 1 = ┐
-        
-        string fill = new string(BOX_HORIZONTAL, fillLen);
-        
-        return $"<color=#{borderHex}>┌─[</color><color=#{titleHex}>{title}</color><color=#{borderHex}>]{fill}┐</color>";
+        var b = border ?? BorderStyle.Classic;
+        return b.GenerateTop(title, totalWidth);
     }
-    
+
     /// <summary>
-    /// 生成底栏：└───────────────────┘
+    /// 生成底栏：└───────────────────┘（传统 ASCII 框风格）
+    /// <para>公式：totalWidth = bottomLeft + h×n + bottomRight</para>
     /// </summary>
-    public static string GenerateBottomBorder(int totalWidth, TSSStyle style)
+    public static string GenerateBottomBorder(int totalWidth, TSSStyle style, BorderStyle? border = null)
     {
-        string borderHex = ColorUtility.ToHtmlStringRGB(style.borderColor);
-        int fillLen = Mathf.Max(0, totalWidth - 2); // 2 = └┘
-        string fill = new string(BOX_HORIZONTAL, fillLen);
-        return $"<color=#{borderHex}>└{fill}┘</color>";
+        var b = border ?? BorderStyle.Classic;
+        return b.GenerateBottom(totalWidth);
     }
     
     /// <summary>
     /// 生成空行（纯边框 + 空格填充）
     /// </summary>
-    public static string GenerateEmptyLine(int totalWidth, TSSStyle style)
+    public static string GenerateEmptyLine(int totalWidth, TSSStyle style, BorderStyle? border = null)
     {
-        return FormatBoxLine("", totalWidth, style);
+        return FormatBoxLine("", totalWidth, style, border);
     }
     
     // ─────────────────────────────────────────────────────────────
@@ -208,124 +192,107 @@ public static class TUITool
     /// 生成一个完整的文本框组件
     /// <para>结构：[bleedY 空行] + 顶栏 + [paddingY 空行] + 内容行 + [paddingY 空行] + 底栏 + [bleedY 空行]</para>
     /// </summary>
-    public static string[] GenerateTextBox(string[] contentLines, int totalWidth, TSSStyle style)
+    public static string[] GenerateTextBox(string[] contentLines, int totalWidth, TSSStyle style, BorderStyle? border = null)
     {
         var result = new List<string>();
-        
+
         // 上方出血空行
         for (int i = 0; i < style.bleedY; i++)
         {
             result.Add(new string(' ', totalWidth));
         }
-        
+
         // 顶栏
-        result.Add(GenerateTopBorder("", totalWidth, style));
-        
+        result.Add(GenerateTopBorder("", totalWidth, style, border));
+
         // 上方页边距空行
         for (int i = 0; i < style.paddingY; i++)
         {
-            result.Add(GenerateEmptyLine(totalWidth, style));
+            result.Add(GenerateEmptyLine(totalWidth, style, border));
         }
-        
+
         // 内容行
         if (contentLines != null)
         {
             foreach (var line in contentLines)
             {
-                result.Add(FormatBoxLine(line, totalWidth, style));
+                result.Add(FormatBoxLine(line, totalWidth, style, border));
             }
         }
-        
+
         // 下方页边距空行
         for (int i = 0; i < style.paddingY; i++)
         {
-            result.Add(GenerateEmptyLine(totalWidth, style));
+            result.Add(GenerateEmptyLine(totalWidth, style, border));
         }
-        
+
         // 底栏
-        result.Add(GenerateBottomBorder(totalWidth, style));
-        
+        result.Add(GenerateBottomBorder(totalWidth, style, border));
+
         // 下方出血空行
         for (int i = 0; i < style.bleedY; i++)
         {
             result.Add(new string(' ', totalWidth));
         }
-        
+
         return result.ToArray();
     }
-    
+
     /// <summary>
     /// 生成带标题的文本框组件
     /// </summary>
-    public static string[] GenerateTextBoxWithTitle(string[] contentLines, string title, int totalWidth, TSSStyle style)
+    public static string[] GenerateTextBoxWithTitle(string[] contentLines, string title, int totalWidth, TSSStyle style, BorderStyle? border = null)
     {
         var result = new List<string>();
-        
+
         // 上方出血空行
         for (int i = 0; i < style.bleedY; i++)
         {
             result.Add(new string(' ', totalWidth));
         }
-        
+
         // 顶栏（带标题）
-        result.Add(GenerateTopBorder(title, totalWidth, style));
-        
+        result.Add(GenerateTopBorder(title, totalWidth, style, border));
+
         // 上方页边距空行
         for (int i = 0; i < style.paddingY; i++)
         {
-            result.Add(GenerateEmptyLine(totalWidth, style));
+            result.Add(GenerateEmptyLine(totalWidth, style, border));
         }
-        
+
         // 内容行
         if (contentLines != null)
         {
             foreach (var line in contentLines)
             {
-                result.Add(FormatBoxLine(line, totalWidth, style));
+                result.Add(FormatBoxLine(line, totalWidth, style, border));
             }
         }
-        
+
         // 下方页边距空行
         for (int i = 0; i < style.paddingY; i++)
         {
-            result.Add(GenerateEmptyLine(totalWidth, style));
+            result.Add(GenerateEmptyLine(totalWidth, style, border));
         }
-        
+
         // 底栏
-        result.Add(GenerateBottomBorder(totalWidth, style));
-        
+        result.Add(GenerateBottomBorder(totalWidth, style, border));
+
         // 下方出血空行
         for (int i = 0; i < style.bleedY; i++)
         {
             result.Add(new string(' ', totalWidth));
         }
-        
+
         return result.ToArray();
     }
     
     /// <summary>
     /// 生成通知分隔线：├······················┤
     /// </summary>
-    public static string GenerateDivider(int totalWidth, TSSStyle style, char dividerChar = '·', string text = null)
+    public static string GenerateDivider(int totalWidth, TSSStyle style, string text = null, BorderStyle? border = null)
     {
-        string borderHex = ColorUtility.ToHtmlStringRGB(style.borderColor);
-        string textHex = text != null ? ColorUtility.ToHtmlStringRGB(style.contentColor) : borderHex;
-        
-        if (string.IsNullOrEmpty(text))
-        {
-            int fillLen = Mathf.Max(0, totalWidth - 2); // 2 = ├┤
-            string fill = new string(dividerChar, fillLen);
-            return $"<color=#{borderHex}>├{fill}┤</color>";
-        }
-        else
-        {
-            // 带文本的通知：├···【3 条新消息】···┤
-            int contentWidth = CalcContentWidth(totalWidth, style);
-            int textVisWidth = GetVisualWidth(text);
-            int fillEachSide = Mathf.Max(0, (contentWidth - textVisWidth) / 2);
-            
-            string fill = new string(dividerChar, fillEachSide);
-            return $"<color=#{borderHex}>├</color><color=#{borderHex}>{fill}</color><color=#{textHex}>{text}</color><color=#{borderHex}>{fill}</color><color=#{borderHex}>┤</color>";
-        }
+        var b = border ?? BorderStyle.Classic;
+        return b.GenerateDivider(totalWidth, text);
     }
 }
