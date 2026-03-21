@@ -507,8 +507,8 @@ namespace MineRTS.BigMap.UI.Panels
         {
             if (inputField == null || !inputField.isFocused) return;
 
-            // 策略激活时：数字键（1-9）直接选择选项，不需要 Enter
-            if (ConsoleLogic != null && ConsoleLogic.HasActiveStrategy)
+            // 输入处理器激活时：数字键（1-9）直接走提交通道
+            if (ConsoleLogic != null && ConsoleLogic.HasInputHandler)
             {
                 for (int i = 1; i <= 9; i++)
                 {
@@ -522,20 +522,36 @@ namespace MineRTS.BigMap.UI.Panels
                 }
             }
 
-            // 上下箭头：有活跃策略时转发给策略，否则正常导航
-            if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.DownArrow))
+            if (Input.GetKeyDown(KeyCode.Escape))
             {
-                bool isUp = Input.GetKeyDown(KeyCode.UpArrow);
-                if (ConsoleLogic != null && ConsoleLogic.HasActiveStrategy)
-                    ConsoleLogic.SendArrowKeyToStrategy(isUp);
-                else
-                    HandleVerticalNavigation(isUp);
+                if (ConsoleLogic != null && ConsoleLogic.TryHandleCancel())
+                    return;
+            }
+
+            if (Input.GetKeyDown(KeyCode.UpArrow))
+            {
+                if (ConsoleLogic != null && ConsoleLogic.TryHandleNavigation(ConsoleNavKey.Up))
+                    return;
+
+                HandleVerticalNavigation(true);
+                return;
+            }
+
+            if (Input.GetKeyDown(KeyCode.DownArrow))
+            {
+                if (ConsoleLogic != null && ConsoleLogic.TryHandleNavigation(ConsoleNavKey.Down))
+                    return;
+
+                HandleVerticalNavigation(false);
                 return;
             }
 
             // Home 键：移到行首
             if (Input.GetKeyDown(KeyCode.Home))
             {
+                if (ConsoleLogic != null && ConsoleLogic.TryHandleNavigation(ConsoleNavKey.Home))
+                    return;
+
                 MoveToLineStart();
                 return;
             }
@@ -543,13 +559,27 @@ namespace MineRTS.BigMap.UI.Panels
             // End 键：移到行尾
             if (Input.GetKeyDown(KeyCode.End))
             {
+                if (ConsoleLogic != null && ConsoleLogic.TryHandleNavigation(ConsoleNavKey.End))
+                    return;
+
                 MoveToLineEnd();
                 return;
             }
 
             // 左右移动时重置目标列
-            if (Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.RightArrow))
+            if (Input.GetKeyDown(KeyCode.LeftArrow))
             {
+                if (ConsoleLogic != null && ConsoleLogic.TryHandleNavigation(ConsoleNavKey.Left))
+                    return;
+
+                _targetColumn = -1;
+            }
+
+            if (Input.GetKeyDown(KeyCode.RightArrow))
+            {
+                if (ConsoleLogic != null && ConsoleLogic.TryHandleNavigation(ConsoleNavKey.Right))
+                    return;
+
                 _targetColumn = -1;
             }
 
@@ -562,17 +592,27 @@ namespace MineRTS.BigMap.UI.Panels
                     return;
                 }
 
-                // 有活跃策略且输入为空时，转发 Confirm（↑↓ 导航后 Enter 确认）
-                if (ConsoleLogic != null && ConsoleLogic.HasActiveStrategy && string.IsNullOrWhiteSpace(inputField.text))
+                if (string.IsNullOrWhiteSpace(inputField.text))
                 {
-                    ConsoleLogic.ConfirmStrategySelection();
-                    inputField.text = "";
-                    _lastInputText = "";
-                    return;
+                    if (ConsoleLogic != null && ConsoleLogic.TryHandleConfirm())
+                    {
+                        inputField.text = "";
+                        _lastInputText = "";
+                        UpdateInputLine("", 0);
+                        return;
+                    }
                 }
 
                 // 提交时移除所有换行符（防止自动换行或手动换行截断指令）
                 string input = System.Text.RegularExpressions.Regex.Replace(inputField.text, @"\s*\n\s*", " ");
+
+                if (ConsoleLogic != null && ConsoleLogic.TryHandleSubmit(input))
+                {
+                    inputField.text = "";
+                    _lastInputText = "";
+                    UpdateInputLine("", 0);
+                    return;
+                }
 
                 // 提交处理后的内容
                 OnSubmitCommand(input);

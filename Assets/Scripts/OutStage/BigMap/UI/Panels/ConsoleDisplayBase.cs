@@ -241,13 +241,7 @@ namespace MineRTS.BigMap.UI.Panels
 
             string colorHex = ColorUtility.ToHtmlStringRGB(color);
             string formatted = $"<color=#{colorHex}>{message}</color>";
-            _buffer.AddLine(formatted);
-            _isDirty = true;
-
-            if (autoScrollToBottom)
-            {
-                ScrollToBottom();
-            }
+            AppendLine(formatted);
         }
 
         /// <summary>
@@ -273,8 +267,122 @@ namespace MineRTS.BigMap.UI.Panels
         {
             _buffer?.Clear();
             _scrollLineIndex = 0;
-            _isDirty = true;
-            UpdateScrollbar();
+            InvalidateDisplay();
+        }
+
+        /// <summary>
+        /// 获取指定行内容，越界返回空字符串
+        /// </summary>
+        public virtual string GetLine(int index)
+        {
+            return _buffer?.GetLine(index) ?? string.Empty;
+        }
+
+        /// <summary>
+        /// 追加一行原始文本
+        /// </summary>
+        public virtual void AppendLine(string message)
+        {
+            if (_buffer == null) return;
+
+            _buffer.AddLine(message);
+            InvalidateDisplay(preserveScrollWhenNotPinned: true);
+        }
+
+        /// <summary>
+        /// 追加多行原始文本
+        /// </summary>
+        public virtual void AppendLines(IEnumerable<string> lines)
+        {
+            if (_buffer == null || lines == null) return;
+
+            _buffer.AppendLines(lines);
+            InvalidateDisplay(preserveScrollWhenNotPinned: true);
+        }
+
+        /// <summary>
+        /// 追加多行内容（AppendLines 的语义别名）
+        /// </summary>
+        public virtual void AppendRange(IEnumerable<string> lines)
+        {
+            AppendLines(lines);
+        }
+
+        /// <summary>
+        /// 覆盖指定行内容
+        /// </summary>
+        public virtual void SetLine(int index, string message)
+        {
+            if (_buffer == null) return;
+
+            _buffer.SetLine(index, message);
+            InvalidateDisplay();
+        }
+
+        /// <summary>
+        /// 插入一行内容
+        /// </summary>
+        public virtual void InsertLine(int index, string message)
+        {
+            if (_buffer == null) return;
+
+            _buffer.InsertLine(index, message);
+            InvalidateDisplay();
+        }
+
+        /// <summary>
+        /// 在指定位置插入多行内容
+        /// </summary>
+        public virtual void InsertRange(int index, IEnumerable<string> lines)
+        {
+            if (_buffer == null || lines == null) return;
+
+            _buffer.InsertRange(index, lines);
+            InvalidateDisplay();
+        }
+
+        /// <summary>
+        /// 删除指定行
+        /// </summary>
+        public virtual void RemoveLine(int index)
+        {
+            if (_buffer == null) return;
+
+            _buffer.RemoveLine(index);
+            ClampScrollAndInvalidate();
+        }
+
+        /// <summary>
+        /// 删除连续行
+        /// </summary>
+        public virtual void RemoveRange(int index, int count)
+        {
+            if (_buffer == null) return;
+
+            _buffer.RemoveRange(index, count);
+            ClampScrollAndInvalidate();
+        }
+
+        /// <summary>
+        /// 清空连续行内容但保留行结构
+        /// </summary>
+        public virtual void ClearRange(int index, int count)
+        {
+            if (_buffer == null) return;
+
+            _buffer.ClearRange(index, count);
+            InvalidateDisplay();
+        }
+
+        /// <summary>
+        /// 用新的内容替换一段连续行
+        /// </summary>
+        public virtual void ReplaceRange(int index, int count, IEnumerable<string> lines)
+        {
+            if (_buffer == null) return;
+
+            _buffer.ReplaceRange(index, count, lines);
+            ClampScrollAndInvalidate();
         }
 
         // =========================================================
@@ -503,6 +611,40 @@ namespace MineRTS.BigMap.UI.Panels
         public virtual void MarkDirty()
         {
             _isDirty = true;
+        }
+
+        protected virtual void InvalidateDisplay(bool preserveScrollWhenNotPinned = false)
+        {
+            _isDirty = true;
+
+            if (autoScrollToBottom)
+            {
+                ScrollToBottom();
+                return;
+            }
+
+            if (!preserveScrollWhenNotPinned)
+            {
+                ClampScrollAndInvalidate();
+                return;
+            }
+
+            UpdateScrollbar();
+        }
+
+        protected virtual void ClampScrollAndInvalidate()
+        {
+            if (_buffer == null)
+            {
+                _isDirty = true;
+                return;
+            }
+
+            int visibleRows = Mathf.Max(1, _visibleRows);
+            int maxScrollIndex = Mathf.Max(0, _buffer.LineCount - visibleRows);
+            _scrollLineIndex = Mathf.Clamp(_scrollLineIndex, 0, maxScrollIndex);
+            _isDirty = true;
+            UpdateScrollbar();
         }
     }
 }

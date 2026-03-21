@@ -78,6 +78,14 @@ namespace MineRTS.BigMap.UI.Panels
             return _history[_history.Count - 1];
         }
 
+        /// <summary>
+        /// 获取指定行内容，越界返回空字符串
+        /// </summary>
+        public string GetLine(int index)
+        {
+            return index >= 0 && index < _history.Count ? _history[index] : string.Empty;
+        }
+
         // =========================================================
         //  添加行
         // =========================================================
@@ -108,6 +116,119 @@ namespace MineRTS.BigMap.UI.Panels
         }
 
         /// <summary>
+        /// 追加多行文本
+        /// </summary>
+        public void AppendLines(IEnumerable<string> lines)
+        {
+            if (lines == null) return;
+
+            foreach (var line in lines)
+            {
+                AddLine(line);
+            }
+        }
+
+        /// <summary>
+        /// 追加多行内容（AppendLines 的语义别名）
+        /// </summary>
+        public void AppendRange(IEnumerable<string> lines)
+        {
+            AppendLines(lines);
+        }
+
+        /// <summary>
+        /// 覆盖指定行内容，不存在则自动补空行后写入
+        /// </summary>
+        public void SetLine(int index, string text)
+        {
+            if (index < 0) return;
+
+            EnsureLineExists(index);
+            _history[index] = text ?? string.Empty;
+            TrimLines();
+        }
+
+        /// <summary>
+        /// 在指定行插入一行内容
+        /// </summary>
+        public void InsertLine(int index, string text)
+        {
+            if (index < 0) return;
+
+            EnsureLineExists(index);
+            _history.Insert(index, text ?? string.Empty);
+            TrimLines();
+        }
+
+        /// <summary>
+        /// 在指定行插入多行内容
+        /// </summary>
+        public void InsertRange(int index, IEnumerable<string> lines)
+        {
+            if (index < 0 || lines == null) return;
+
+            EnsureLineExists(index);
+            _history.InsertRange(index, lines);
+            TrimLines();
+        }
+
+        /// <summary>
+        /// 删除指定行
+        /// </summary>
+        public void RemoveLine(int index)
+        {
+            if (index < 0 || index >= _history.Count) return;
+            _history.RemoveAt(index);
+        }
+
+        /// <summary>
+        /// 删除连续行
+        /// </summary>
+        public void RemoveRange(int index, int count)
+        {
+            if (count <= 0 || index < 0 || index >= _history.Count) return;
+
+            int actualCount = Mathf.Min(count, _history.Count - index);
+            _history.RemoveRange(index, actualCount);
+        }
+
+        /// <summary>
+        /// 清空连续行内容但保留行结构
+        /// </summary>
+        public void ClearRange(int index, int count)
+        {
+            if (count <= 0 || index < 0) return;
+
+            EnsureLineExists(index + count - 1);
+            for (int i = 0; i < count; i++)
+            {
+                _history[index + i] = string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// 用新的行集合替换指定范围
+        /// </summary>
+        public void ReplaceRange(int index, int count, IEnumerable<string> lines)
+        {
+            int clampedIndex = Mathf.Clamp(index, 0, _history.Count);
+            int safeCount = Mathf.Max(0, count);
+
+            if (safeCount > 0 && clampedIndex < _history.Count)
+            {
+                int actualCount = Mathf.Min(safeCount, _history.Count - clampedIndex);
+                _history.RemoveRange(clampedIndex, actualCount);
+            }
+
+            if (lines != null)
+            {
+                _history.InsertRange(clampedIndex, lines);
+            }
+
+            TrimLines();
+        }
+
+        /// <summary>
         /// 清空所有行
         /// </summary>
         public void Clear()
@@ -124,6 +245,14 @@ namespace MineRTS.BigMap.UI.Panels
             while (_history.Count > _maxLines)
             {
                 _history.RemoveAt(0);
+            }
+        }
+
+        private void EnsureLineExists(int index)
+        {
+            while (_history.Count <= index)
+            {
+                _history.Add(string.Empty);
             }
         }
 
