@@ -1,4 +1,5 @@
 {
+  "$type": "MissionPackData, Assembly-CSharp",
   "MissionNodes_A": [],
   "Triggers": [],
   "MapNodes": [],

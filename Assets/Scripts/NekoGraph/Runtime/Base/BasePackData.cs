@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Newtonsoft.Json;
 using System.Linq;
+using NekoGraph;
 
 /// <summary>
 /// ═══════════════════════════════════════════════════════════════
@@ -77,6 +78,13 @@ public abstract class BasePackData
     public string RootNodeId;
 
     /// <summary>
+    /// Pack 级快捷元数据 - 序列化时由 SideParaRegistry 自动从节点提取喵~
+    /// 消费方：先查此字典，miss 时再扫 Nodes 喵~
+    /// </summary>
+    [Tooltip("Pack 级快捷元数据（自动生成）")]
+    public Dictionary<string, string> SidePara = new Dictionary<string, string>();
+
+    /// <summary>
     /// 构建 RootNodeId（运行时调用，序列化后自动填充）喵~
     /// </summary>
     public void BuildRootNodeId()
@@ -102,11 +110,53 @@ public abstract class BasePackData
     [Tooltip("活跃信号队列（运行时状态）")]
     public Queue<SignalContext> ActiveSignals = new Queue<SignalContext>();
 
+    private static readonly JsonSerializerSettings JsonSettings = new JsonSerializerSettings
+    {
+        Formatting = Formatting.Indented,
+        TypeNameHandling = TypeNameHandling.Objects,
+        NullValueHandling = NullValueHandling.Ignore
+    };
+
     protected BasePackData()
     {
         CreatedAt = DateTimeOffset.Now.ToUnixTimeSeconds();
         ModifiedAt = CreatedAt;
     }
+
+    /// <summary>
+    /// 序列化为 JSON 字符串喵~
+    /// </summary>
+    public string ToJson()
+    {
+        OnBeforeSerialize();
+        Touch();
+        return JsonConvert.SerializeObject(this, JsonSettings);
+    }
+
+    /// <summary>
+    /// 从 JSON 字符串反序列化，自动识别具体类型喵~
+    /// </summary>
+    public static BasePackData FromJson(string json)
+    {
+        var pack = JsonConvert.DeserializeObject<BasePackData>(json, JsonSettings);
+        pack?.OnAfterDeserialize();
+        return pack;
+    }
+
+    /// <summary>
+    /// 序列化前钩子，子类可重写喵~
+    /// 默认行为：从节点提取 [SideParaKey] 标记的字段到 SidePara 喵~
+    /// </summary>
+    protected virtual void OnBeforeSerialize()
+    {
+        BuildRootNodeId();
+        SidePara = SideParaRegistry.Extract(Nodes.Values);
+    }
+
+    /// <summary>
+    /// 反序列化后钩子，子类可重写，用于整理节点数据为便捷字段喵~
+    /// </summary>
+    protected virtual void OnAfterDeserialize() { }
 
     /// <summary>
     /// 更新修改时间戳喵~
@@ -115,6 +165,11 @@ public abstract class BasePackData
     {
         ModifiedAt = DateTimeOffset.Now.ToUnixTimeSeconds();
     }
+
+    /// <summary>
+    /// 返回本 Pack 所属的节点系统喵~（用于 SearchWindow 过滤）
+    /// </summary>
+    public abstract NodeSystem GetNodeSystem();
 
     /// <summary>
     /// 验证数据包是否有效喵~
@@ -128,4 +183,5 @@ public abstract class BasePackData
 [Serializable]
 public abstract class BasePackData<T> : BasePackData where T : BaseNodeData
 {
+    public override NodeSystem GetNodeSystem() => NodeSystem.Common;
 }

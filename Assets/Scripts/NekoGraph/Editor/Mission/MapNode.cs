@@ -20,7 +20,7 @@ public class MapNode : BaseNode<MapNodeData>
     private TextField _positionNameField;
     private Vector2IntField _positionField;
 
-    private MissionGraphView _graphView;
+    private BaseGraphView _graphView;
 
     /// <summary>
     /// 无参构造函数 - 用于从菜单创建节点喵~

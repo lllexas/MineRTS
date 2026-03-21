@@ -1,4 +1,5 @@
 {
+    "$type": "StoryPackData, Assembly-CSharp",
     "StoryID": "",
     "BoundStageID": "",
     "Sequences": [],

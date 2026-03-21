@@ -84,17 +84,11 @@ public class BoundMapNode : BaseNode<BoundMapNodeData>
     /// <param name="mapId">要同步的地图 ID</param>
     public static void SyncAllMapNodes(string mapId)
     {
-        // 查找当前打开的 MissionGraphWindow
-        var graphWindow = EditorWindow.GetWindow<MissionGraphWindow>();
+        var graphWindow = EditorWindow.GetWindow<PackWindow>();
         if (graphWindow == null) return;
 
-        // 获取 GraphView 并同步所有地图节点
-        var graphView = graphWindow.GetGraphView();
-        if (graphView != null)
-        {
-            graphView.SetCurrentMapId(mapId);
-            Debug.Log($"[BoundMapNode] 已同步所有地图节点到地图：{mapId}");
-        }
+        graphWindow.GetGraphView()?.SetCurrentMapId(mapId);
+        Debug.Log($"[BoundMapNode] 已同步所有地图节点到地图：{mapId}");
     }
 
     /// <summary>

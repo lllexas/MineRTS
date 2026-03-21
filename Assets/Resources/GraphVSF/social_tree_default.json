@@ -4,8 +4,8 @@
   "Description": "虚拟文件系统包",
   "Author": "NekoTeam",
   "Version": "1.0.0",
-  "CreatedAt": 1773940454,
-  "ModifiedAt": 1773940454,
+  "CreatedAt": 1774068445,
+  "ModifiedAt": 1774068445,
   "Nodes": {
     "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[BaseNodeData, Assembly-CSharp]], mscorlib",
     "f3cde239-1963-4ca2-adc0-a7b63a3c99e3": {
@@ -16,7 +16,7 @@
       "NodeID": "f3cde239-1963-4ca2-adc0-a7b63a3c99e3",
       "EditorPosition": {
         "x": 32.0,
-        "y": 220.8
+        "y": 220.799988
       },
       "OutputConnections": [
         {
@@ -24,10 +24,12 @@
           "TargetNodeID": "d5a50c62-8c4c-4b2d-bbdc-e1d6f79fdaaf",
           "ToPortIndex": 0
         }
-      ]
+      ],
+      "IsChecked": false
     },
     "d5a50c62-8c4c-4b2d-bbdc-e1d6f79fdaaf": {
       "$type": "VFSNodeData, Assembly-CSharp",
+      "ParentNodeID": "f3cde239-1963-4ca2-adc0-a7b63a3c99e3",
       "ChildNodeIDs": [
         "ac5a84ed-e971-41df-8827-7466c0440021",
         "3c10e4bd-cad7-4e2a-a53b-d79e76bcbe0e"
@@ -51,11 +53,13 @@
           "ToPortIndex": 0
         }
       ],
+      "IsChecked": false,
       "IsDirectory": true,
       "IsFile": false
     },
     "3c10e4bd-cad7-4e2a-a53b-d79e76bcbe0e": {
       "$type": "VFSNodeData, Assembly-CSharp",
+      "ParentNodeID": "d5a50c62-8c4c-4b2d-bbdc-e1d6f79fdaaf",
       "ChildNodeIDs": [],
       "Extension": "txt",
       "IsEnabled": true,
@@ -63,14 +67,16 @@
       "Name": "qq",
       "EditorPosition": {
         "x": 558.4,
-        "y": 313.599976
+        "y": 313.6
       },
       "OutputConnections": [],
+      "IsChecked": false,
       "IsDirectory": false,
       "IsFile": true
     },
     "ac5a84ed-e971-41df-8827-7466c0440021": {
       "$type": "VFSNodeData, Assembly-CSharp",
+      "ParentNodeID": "d5a50c62-8c4c-4b2d-bbdc-e1d6f79fdaaf",
       "ChildNodeIDs": [],
       "IsEnabled": true,
       "NodeID": "ac5a84ed-e971-41df-8827-7466c0440021",
@@ -80,6 +86,7 @@
         "y": 95.2
       },
       "OutputConnections": [],
+      "IsChecked": false,
       "IsDirectory": true,
       "IsFile": false
     }

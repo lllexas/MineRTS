@@ -228,6 +228,7 @@ public class MapNodeData : BaseNodeData
 [Serializable]
 public class BoundMapNodeData : BaseNodeData
 {
+    [SideParaKey("BoundMapID")]
     public string MapID;                     // 地图 ID（关卡 ID）
     public Vector2Int SelectedPosition;      // 选中的地图坐标
     public string PositionName;              // 位置别名（可选）
@@ -249,6 +250,8 @@ public class BoundMapNodeData : BaseNodeData
 [System.Serializable]
 public class MissionPackData : BasePackData
 {
+    public override NodeSystem GetNodeSystem() => NodeSystem.Mission;
+
     public BoundMapNodeData BoundMap; // 绑定地图节点（由基类反射自动填充喵~）
 
     // 任务节点列表

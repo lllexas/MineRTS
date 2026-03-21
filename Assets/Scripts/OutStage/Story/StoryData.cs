@@ -134,6 +134,8 @@ public class CommandData
 [Serializable]
 public class StoryPackData : BasePackData
 {
+    public override NodeSystem GetNodeSystem() => NodeSystem.Story;
+
     [Tooltip("剧情包 ID（已废弃，使用 PackID）")]
     public string StoryID;
 

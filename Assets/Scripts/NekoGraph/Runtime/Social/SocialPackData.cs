@@ -12,6 +12,8 @@ namespace NekoGraph
     [Serializable]
     public class MsgPackData : BasePackData
     {
+        public override NodeSystem GetNodeSystem() => NodeSystem.Social;
+
         public MsgPackData() : base()
         {
             DisplayName = "新社交消息";

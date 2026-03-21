@@ -23,6 +23,8 @@ using NekoGraph;
 [Serializable]
 public class VFSPackData : BasePackData
 {
+    public override NodeSystem GetNodeSystem() => NodeSystem.VFS;
+
     /// <summary>
     /// 绑定的地图 ID（可选，用于关联特定关卡）
     /// </summary>

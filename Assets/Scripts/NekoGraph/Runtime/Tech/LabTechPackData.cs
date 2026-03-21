@@ -28,6 +28,8 @@ using NekoGraph;
 [Serializable]
 public class LabTechPackData : BasePackData
 {
+    public override NodeSystem GetNodeSystem() => NodeSystem.Lab;
+
     [Tooltip("科技包名称")]
     public string PackName;
 

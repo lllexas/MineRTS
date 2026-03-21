@@ -1,12 +1,11 @@
 {
-  "$type": "NekoGraph.MsgPackData, Assembly-CSharp",
   "PackID": "test_event_01",
   "DisplayName": "新社交消息",
   "Description": "一个由 NekoGraph 驱动的交互式社交对话图喵~",
   "Author": "NekoTeam",
   "Version": "1.0.0",
-  "CreatedAt": 1773980270,
-  "ModifiedAt": 1773980270,
+  "CreatedAt": 1774068459,
+  "ModifiedAt": 1774068459,
   "Nodes": {
     "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[BaseNodeData, Assembly-CSharp]], mscorlib",
     "083b62ff-1222-49cf-b6e9-efada0047ebf": {
@@ -16,18 +15,17 @@
       ],
       "NodeID": "083b62ff-1222-49cf-b6e9-efada0047ebf",
       "EditorPosition": {
-        "$type": "SerializableVector2, Assembly-CSharp",
         "x": 36.0,
         "y": 164.0
       },
       "OutputConnections": [
         {
-          "$type": "ConnectionData, Assembly-CSharp",
           "FromPortIndex": 0,
           "TargetNodeID": "b6bd0ce5-5998-4e13-85d7-58c932e760ed",
           "ToPortIndex": 0
         }
-      ]
+      ],
+      "IsChecked": false
     },
     "b6bd0ce5-5998-4e13-85d7-58c932e760ed": {
       "$type": "NekoGraph.SocialMsgContentNodeData, Assembly-CSharp",
@@ -40,35 +38,33 @@
       ],
       "NodeID": "b6bd0ce5-5998-4e13-85d7-58c932e760ed",
       "EditorPosition": {
-        "$type": "SerializableVector2, Assembly-CSharp",
         "x": 264.800018,
-        "y": 162.400009
+        "y": 162.4
       },
       "OutputConnections": [
         {
-          "$type": "ConnectionData, Assembly-CSharp",
           "FromPortIndex": 0,
           "TargetNodeID": "a5ef80f9-ee2f-46f3-96d9-abc4657394f4",
           "ToPortIndex": 0
         },
         {
-          "$type": "ConnectionData, Assembly-CSharp",
           "FromPortIndex": 0,
           "TargetNodeID": "9633e13e-9695-46ef-aa46-26e8381c7f7f",
           "ToPortIndex": 0
         }
-      ]
+      ],
+      "IsChecked": false
     },
     "85339b97-af6e-4a1c-ba43-2ce05a5fc9d8": {
       "$type": "NekoGraph.SocialMsgEndNodeData, Assembly-CSharp",
       "In": "f9a3e68d-e780-41d1-ac5c-c137e7760578",
       "NodeID": "85339b97-af6e-4a1c-ba43-2ce05a5fc9d8",
       "EditorPosition": {
-        "$type": "SerializableVector2, Assembly-CSharp",
         "x": 1191.2,
         "y": 208.8
       },
-      "OutputConnections": []
+      "OutputConnections": [],
+      "IsChecked": false
     },
     "a5ef80f9-ee2f-46f3-96d9-abc4657394f4": {
       "$type": "NekoGraph.ChoiceTextNodeData, Assembly-CSharp",
@@ -80,18 +76,17 @@
       ],
       "NodeID": "a5ef80f9-ee2f-46f3-96d9-abc4657394f4",
       "EditorPosition": {
-        "$type": "SerializableVector2, Assembly-CSharp",
         "x": 607.2,
-        "y": 78.3999939
+        "y": 78.4
       },
       "OutputConnections": [
         {
-          "$type": "ConnectionData, Assembly-CSharp",
           "FromPortIndex": 0,
           "TargetNodeID": "9039c382-6ea4-44da-ad97-2c5d166886e7",
           "ToPortIndex": 0
         }
-      ]
+      ],
+      "IsChecked": false
     },
     "9633e13e-9695-46ef-aa46-26e8381c7f7f": {
       "$type": "NekoGraph.ChoiceTextNodeData, Assembly-CSharp",
@@ -103,18 +98,17 @@
       ],
       "NodeID": "9633e13e-9695-46ef-aa46-26e8381c7f7f",
       "EditorPosition": {
-        "$type": "SerializableVector2, Assembly-CSharp",
         "x": 599.2,
-        "y": 283.199982
+        "y": 283.2
       },
       "OutputConnections": [
         {
-          "$type": "ConnectionData, Assembly-CSharp",
           "FromPortIndex": 0,
           "TargetNodeID": "f9a3e68d-e780-41d1-ac5c-c137e7760578",
           "ToPortIndex": 0
         }
-      ]
+      ],
+      "IsChecked": false
     },
     "9039c382-6ea4-44da-ad97-2c5d166886e7": {
       "$type": "TriggerNodeData, Assembly-CSharp",
@@ -127,18 +121,17 @@
       ],
       "NodeID": "9039c382-6ea4-44da-ad97-2c5d166886e7",
       "EditorPosition": {
-        "$type": "SerializableVector2, Assembly-CSharp",
         "x": 871.2,
-        "y": 63.9999962
+        "y": 64.0
       },
       "OutputConnections": [
         {
-          "$type": "ConnectionData, Assembly-CSharp",
           "FromPortIndex": 0,
           "TargetNodeID": "85339b97-af6e-4a1c-ba43-2ce05a5fc9d8",
           "ToPortIndex": 0
         }
-      ]
+      ],
+      "IsChecked": false
     },
     "f9a3e68d-e780-41d1-ac5c-c137e7760578": {
       "$type": "TriggerNodeData, Assembly-CSharp",
@@ -151,18 +144,17 @@
       ],
       "NodeID": "f9a3e68d-e780-41d1-ac5c-c137e7760578",
       "EditorPosition": {
-        "$type": "SerializableVector2, Assembly-CSharp",
         "x": 866.4,
-        "y": 283.199982
+        "y": 283.2
       },
       "OutputConnections": [
         {
-          "$type": "ConnectionData, Assembly-CSharp",
           "FromPortIndex": 0,
           "TargetNodeID": "85339b97-af6e-4a1c-ba43-2ce05a5fc9d8",
           "ToPortIndex": 0
         }
-      ]
+      ],
+      "IsChecked": false
     }
   },
   "RootNodeId": "083b62ff-1222-49cf-b6e9-efada0047ebf",

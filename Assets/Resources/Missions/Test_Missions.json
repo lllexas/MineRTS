@@ -1,4 +1,5 @@
 {
+    "$type": "MissionPackData, Assembly-CSharp",
     "PackID": "871f656a-5a12-469a-bf22-4a0ec50b803a",
     "BoundMap": {
         "NodeID": "50e8e08e-19cc-4a1e-9fd3-b1f8b06d1661",
