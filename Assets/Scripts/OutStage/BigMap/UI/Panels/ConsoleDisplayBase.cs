@@ -87,6 +87,22 @@ namespace MineRTS.BigMap.UI.Panels
         public int ScrollLineIndex => _scrollLineIndex;
         public bool IsDirty => _isDirty;
 
+        protected virtual int GetReservedBottomRows()
+        {
+            return 0;
+        }
+
+        protected virtual int GetHistoryViewportRows()
+        {
+            int visibleRows = Mathf.Max(1, _visibleRows);
+            return Mathf.Max(0, visibleRows - Mathf.Max(0, GetReservedBottomRows()));
+        }
+
+        protected virtual int GetScrollableHistoryRows()
+        {
+            return Mathf.Max(1, GetHistoryViewportRows());
+        }
+
         // =========================================================
         //  Unity 生命周期
         // =========================================================
@@ -396,7 +412,7 @@ namespace MineRTS.BigMap.UI.Panels
         {
             if (_buffer == null) return;
 
-            int maxScrollIndex = Mathf.Max(0, _buffer.LineCount - _visibleRows);
+            int maxScrollIndex = Mathf.Max(0, _buffer.LineCount - GetScrollableHistoryRows());
             _scrollLineIndex = Mathf.Clamp(lineIndex, 0, maxScrollIndex);
             _isDirty = true;
             UpdateScrollbar();
@@ -417,7 +433,7 @@ namespace MineRTS.BigMap.UI.Panels
         {
             if (_buffer == null) return;
 
-            int visibleRows = Mathf.Max(1, _visibleRows);
+            int visibleRows = GetScrollableHistoryRows();
             _scrollLineIndex = Mathf.Max(0, _buffer.LineCount - visibleRows);
             UpdateScrollbar();
         }
@@ -449,12 +465,14 @@ namespace MineRTS.BigMap.UI.Panels
                 _visibleRows = RecalculateVisibleRows();
             }
 
-            int visibleRows = Mathf.Max(1, _visibleRows);
-            int maxScrollIndex = Mathf.Max(0, _buffer.LineCount - visibleRows);
+            int visibleRows = GetHistoryViewportRows();
+            int maxScrollIndex = Mathf.Max(0, _buffer.LineCount - GetScrollableHistoryRows());
             _scrollLineIndex = Mathf.Clamp(_scrollLineIndex, 0, maxScrollIndex);
 
             // 裁切可见行
-            var visibleLines = _buffer.GetVisibleLines(_scrollLineIndex, visibleRows);
+            var visibleLines = visibleRows > 0
+                ? _buffer.GetVisibleLines(_scrollLineIndex, visibleRows)
+                : new List<string>();
 
             // 处理颜色标签闭合
             var closedLines = new List<string>();
@@ -515,7 +533,7 @@ namespace MineRTS.BigMap.UI.Panels
             if (scrollbar == null || _buffer == null) return;
 
             int totalLines = _buffer.LineCount;
-            int visibleRows = Mathf.Max(1, _visibleRows);
+            int visibleRows = GetScrollableHistoryRows();
 
             // 内容还没窗口多，不需要滚动条
             if (totalLines <= visibleRows)
@@ -537,7 +555,7 @@ namespace MineRTS.BigMap.UI.Panels
         {
             if (_buffer == null) return;
 
-            int maxScrollIndex = Mathf.Max(0, _buffer.LineCount - _visibleRows);
+            int maxScrollIndex = Mathf.Max(0, _buffer.LineCount - GetScrollableHistoryRows());
             int newScrollIndex = Mathf.RoundToInt(value * maxScrollIndex);
             newScrollIndex = Mathf.Clamp(newScrollIndex, 0, maxScrollIndex);
 
@@ -640,7 +658,7 @@ namespace MineRTS.BigMap.UI.Panels
                 return;
             }
 
-            int visibleRows = Mathf.Max(1, _visibleRows);
+            int visibleRows = GetScrollableHistoryRows();
             int maxScrollIndex = Mathf.Max(0, _buffer.LineCount - visibleRows);
             _scrollLineIndex = Mathf.Clamp(_scrollLineIndex, 0, maxScrollIndex);
             _isDirty = true;

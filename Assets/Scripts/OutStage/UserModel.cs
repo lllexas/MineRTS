@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using MineRTS.BigMap;
@@ -54,12 +54,6 @@ public class UserModel
     /// </summary>
     public SocialData Social = new SocialData();
 
-    /// <summary>
-    /// 虚拟文件系统持久化快照
-    /// Key: InstanceID, Value: VFS 数据包快照
-    /// </summary>
-    public Dictionary<string, VFSPackData> VFSSnapshots = new Dictionary<string, VFSPackData>();
-
     // ==================== 局外数据（大地图相关） ====================
 
     /// <summary>
@@ -85,11 +79,20 @@ public class UserModel
     // ==================== 图数据包数据 ====================
 
     /// <summary>
-    /// 图数据包字典（科技树、剧情图等）
-    /// Key: InstanceID
-    /// Value: BasePackData 本体（支持多态序列化：StoryPackData, LabTechPackData 等）
+    /// 图数据包字典（科技树、剧情图、VFS 等）
+    /// Key: GUID
+    /// Value: BasePackData 本体（支持多态序列化，System 字段区分类型）
     /// </summary>
     public Dictionary<string, BasePackData> PackDataDict = new Dictionary<string, BasePackData>();
+
+    /// <summary>
+    /// 实体持有的图数据包字典
+    /// 外层 Key: 实体/AI/进程实体 ID
+    /// 内层 Key: GUID
+    /// 内层 Value: BasePackData 本体
+    /// </summary>
+    public Dictionary<string, Dictionary<string, BasePackData>> EntityPackDataDict =
+        new Dictionary<string, Dictionary<string, BasePackData>>();
 
     // ==================== 经济数据 管理方法 ====================
 
@@ -216,5 +219,126 @@ public class UserModel
     public bool HasStageData(string stageID)
     {
         return StageDict.ContainsKey(stageID);
+    }
+
+    // ==================== 实体 Pack 数据 管理方法 ====================
+
+    /// <summary>
+    /// 获取指定实体的 Pack 字典
+    /// </summary>
+    public Dictionary<string, BasePackData> GetEntityPackDict(string entityID, bool createIfMissing = false)
+    {
+        if (string.IsNullOrEmpty(entityID))
+        {
+            return null;
+        }
+
+        EntityPackDataDict ??= new Dictionary<string, Dictionary<string, BasePackData>>();
+
+        if (EntityPackDataDict.TryGetValue(entityID, out var packDict))
+        {
+            return packDict;
+        }
+
+        if (!createIfMissing)
+        {
+            return null;
+        }
+
+        packDict = new Dictionary<string, BasePackData>();
+        EntityPackDataDict[entityID] = packDict;
+        return packDict;
+    }
+
+    public Dictionary<string, BasePackData> GetEntityPackDict(GraphInstanceSlot slot, bool createIfMissing = false)
+    {
+        return GetEntityPackDict(slot.ToString(), createIfMissing);
+    }
+
+    /// <summary>
+    /// 设置或更新指定实体持有的 Pack
+    /// </summary>
+    public void SetEntityPack(string entityID, string guid, BasePackData packData)
+    {
+        if (string.IsNullOrEmpty(entityID) || string.IsNullOrEmpty(guid) || packData == null)
+        {
+            return;
+        }
+
+        var packDict = GetEntityPackDict(entityID, createIfMissing: true);
+        packDict[guid] = packData;
+    }
+
+    public void SetEntityPack(GraphInstanceSlot slot, string guid, BasePackData packData)
+    {
+        SetEntityPack(slot.ToString(), guid, packData);
+    }
+
+    /// <summary>
+    /// 移除指定实体持有的 Pack
+    /// </summary>
+    public void RemoveEntityPack(string entityID, string guid)
+    {
+        if (string.IsNullOrEmpty(entityID) || string.IsNullOrEmpty(guid))
+        {
+            return;
+        }
+
+        if (EntityPackDataDict == null)
+        {
+            return;
+        }
+
+        if (EntityPackDataDict.TryGetValue(entityID, out var packDict))
+        {
+            packDict.Remove(guid);
+            if (packDict.Count == 0)
+            {
+                EntityPackDataDict.Remove(entityID);
+            }
+        }
+    }
+
+    public void RemoveEntityPack(GraphInstanceSlot slot, string guid)
+    {
+        RemoveEntityPack(slot.ToString(), guid);
+    }
+
+    /// <summary>
+    /// 移除指定实体的全部 Pack
+    /// </summary>
+    public void RemoveEntityPackDict(string entityID)
+    {
+        if (string.IsNullOrEmpty(entityID))
+        {
+            return;
+        }
+
+        if (EntityPackDataDict == null)
+        {
+            return;
+        }
+
+        EntityPackDataDict.Remove(entityID);
+    }
+
+    public void RemoveEntityPackDict(GraphInstanceSlot slot)
+    {
+        RemoveEntityPackDict(slot.ToString());
+    }
+
+    /// <summary>
+    /// 检查指定实体是否存在 Pack 字典
+    /// </summary>
+    public bool HasEntityPackDict(string entityID)
+    {
+        return !string.IsNullOrEmpty(entityID)
+            && EntityPackDataDict != null
+            && EntityPackDataDict.ContainsKey(entityID);
+    }
+
+    public bool HasEntityPackDict(GraphInstanceSlot slot)
+    {
+        return HasEntityPackDict(slot.ToString());
     }
 }

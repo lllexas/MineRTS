@@ -10,47 +10,187 @@ using NekoGraph;
 ///
 /// 设计理念：
 /// 1. 与 GraphRunner 形成"双子星"架构 - Runner 管动态生命，Analyser 管静态空间
-/// 2. 作为 VFS 管理总包，负责从"死数据"到"活对象"的觉醒
-/// 3. 提供路径索引查询，快如闪电喵~
+/// 2. 直接持有 BasePackData，零冗余副本，pack.Nodes 就是唯一真相喵~
+/// 3. 路径查询通过按需 BFS 完成，不预建索引喵~
 ///
 /// 职责：
-/// 1. 管理所有 VFS 实例（InstanceID → VFSInstance）
-/// 2. 加载并初始化 VFS 实例（拓扑扫描、路径注入、索引构建）
-/// 3. 提供通用节点查询接口
+/// 1. 管理所有已挂载的 Pack（PackID → BasePackData）
+/// 2. 提供 Unix 风格路径 IO 接口（读/写/删/mkdir）
+/// 3. 通过 Resolve() 统一权限校验
 ///
 /// 类比：
 /// - GraphRunner: 💓 心脏（泵出信号，Update 驱动）
 /// - GraphAnalyser: 🧠 大脑（存储地图，按需查询）
 /// ═══════════════════════════════════════════════════════════════
 /// </summary>
-public class GraphAnalyser : SingletonMono<GraphAnalyser>
+public class GraphAnalyser
 {
+    public static GraphAnalyser Instance => GraphHub.Instance?.DefaultAnalyser;
     // =========================================================
-    //  实例管理字典喵~
+    //  Pack 注册表喵~
     // =========================================================
 
     /// <summary>
-    /// 所有的 VFS 实例都在这里排队喵~
-    /// PackID → VFSInstance
+    /// 直接引用 UserModel.PackDataDict，零副本，读档后自动切换到新存档喵~
     /// </summary>
-    private Dictionary<string, VFSInstance> _vfsInstances = new Dictionary<string, VFSInstance>();
+    private Dictionary<string, BasePackData> _packs;
+
+    private Dictionary<string, BasePackData> Packs => _packs;
 
     /// <summary>
     /// 默认 Pack ID（用于单实例模式）
     /// </summary>
     private string _defaultPackId = "default";
 
+    public GraphAnalyser(Dictionary<string, BasePackData> packs = null)
+    {
+        SetPackDataDict(packs);
+    }
+
+    public void SetPackDataDict(Dictionary<string, BasePackData> packs)
+    {
+        _packs = packs ?? new Dictionary<string, BasePackData>();
+        _packIDToGuid.Clear();
+    }
+
     // =========================================================
-    //  入口：加载并初始化 VFS 实例喵~
+    //  PackID → GUID 二级索引（O(1) 查询）喵~
+    //  PackDataDict key = GUID，外部 API 全用 PackID，靠索引桥接
+    // =========================================================
+
+    /// <summary>PackID → GUID key，随挂载/卸载实时维护，VFS.IO_Ready 时整体重建喵~</summary>
+    private readonly Dictionary<string, string> _packIDToGuid = new Dictionary<string, string>();
+
+    public void RebuildIndex()
+    {
+        _packIDToGuid.Clear();
+        var packs = Packs;
+        if (packs == null) return;
+        foreach (var kvp in packs)
+            _packIDToGuid[kvp.Value.PackID] = kvp.Key;
+    }
+
+    private BasePackData FindPackByPackID(string packID)
+    {
+        if (!_packIDToGuid.TryGetValue(packID, out var guid)) return null;
+        var packs = Packs;
+        if (packs == null) return null;
+        packs.TryGetValue(guid, out var pack);
+        return pack;
+    }
+
+    private string FindGuidByPackID(string packID)
+    {
+        _packIDToGuid.TryGetValue(packID, out var guid);
+        return guid;
+    }
+
+    // =========================================================
+    //  BFS 核心算法（静态，无状态）喵~
     // =========================================================
 
     /// <summary>
-    /// 加载并初始化一个 VFS 实例喵~
-    /// 【数据的觉醒祭坛】
+    /// 获取节点在路径中的分量名喵~
+    /// 目录：node.Name；文件：node.Name + node.Extension；兜底：node.NodeID
     /// </summary>
-    /// <param name="packID">资源包 ID（用于从 Resources 加载）</param>
-    /// <returns>初始化完成的 VFS 实例</returns>
-    public VFSInstance LoadVFS(string packID)
+    private static string GetSegmentName(BaseNodeData node)
+    {
+        string name = node.Name;
+        if (node is VFSNodeData vfs && vfs.IsFile)
+            name += vfs.Extension;
+        return string.IsNullOrEmpty(name) ? node.NodeID : name;
+    }
+
+    /// <summary>
+    /// 从 Pack 根节点出发，按路径 BFS 查找目标节点喵~
+    /// </summary>
+    private static BaseNodeData BfsGetNode(BasePackData pack, string path)
+    {
+        if (string.IsNullOrEmpty(pack.RootNodeId) ||
+            !pack.Nodes.TryGetValue(pack.RootNodeId, out var root))
+            return null;
+
+        path = VFSPathResolver.Normalize(path);
+        if (path == "/") return root;
+
+        var segments = path.Trim('/').Split('/');
+        var current = root;
+
+        foreach (var segment in segments)
+        {
+            if (current.OutputConnections == null) return null;
+            BaseNodeData next = null;
+            foreach (var conn in current.OutputConnections)
+            {
+                if (pack.Nodes.TryGetValue(conn.TargetNodeID, out var child) &&
+                    GetSegmentName(child) == segment)
+                {
+                    next = child;
+                    break;
+                }
+            }
+            if (next == null) return null;
+            current = next;
+        }
+        return current;
+    }
+
+    /// <summary>
+    /// 获取路径对应节点的直接子节点列表喵~
+    /// </summary>
+    private static List<BaseNodeData> BfsGetChildren(BasePackData pack, string path)
+    {
+        var parent = BfsGetNode(pack, path);
+        if (parent?.OutputConnections == null) return new List<BaseNodeData>();
+
+        var result = new List<BaseNodeData>();
+        foreach (var conn in parent.OutputConnections)
+        {
+            if (!pack.Nodes.TryGetValue(conn.TargetNodeID, out var child)) continue;
+            if (child is VFSNodeData vfs && !vfs.IsEnabled) continue;
+            result.Add(child);
+        }
+        return result;
+    }
+
+    // =========================================================
+    //  权限网关 - 所有公开 IO 操作的统一入口喵~
+    // =========================================================
+
+    /// <summary>
+    /// 解析 Pack 并校验权限喵~
+    /// Hidden 始终拒绝；write=true 时 ReadOnly 也拒绝。
+    /// 返回 null 表示无权限或 Pack 不存在。
+    /// </summary>
+    private BasePackData Resolve(string packID, bool write = false)
+    {
+        var pack = FindPackByPackID(packID);
+        if (pack == null)
+        {
+            Debug.LogWarning($"[GraphAnalyser] Pack 不存在：{packID} 喵~");
+            return null;
+        }
+        if (pack.AccessLevel == PackAccessLevel.Hidden)
+        {
+            Debug.LogWarning($"[GraphAnalyser] 拒绝访问：{packID} 已隐藏喵~");
+            return null;
+        }
+        if (write && pack.AccessLevel != PackAccessLevel.ReadWrite)
+        {
+            Debug.LogWarning($"[GraphAnalyser] 拒绝写入：{packID} 权限为 {pack.AccessLevel} 喵~");
+            return null;
+        }
+        return pack;
+    }
+
+    // =========================================================
+    //  挂载 / 卸载喵~
+    // =========================================================
+
+    /// <summary>
+    /// 从 MetaLib 加载并挂载 Pack 喵~
+    /// </summary>
+    public BasePackData LoadVFS(string packID)
     {
         if (string.IsNullOrEmpty(packID))
         {
@@ -58,53 +198,26 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
             return null;
         }
 
-        // 1. 调用 MetaLib 加载（沉睡状态）- 彻底拥抱 PackID 体系喵~
-        var pack = MetaLib.GetPack<VFSPackData>(packID);
+        var pack = MetaLib.GetPack<BasePackData>(packID);
         if (pack == null)
         {
-            Debug.LogError($"[GraphAnalyser] 加载 VFS Pack 失败：{packID}，请检查 MetaLib.json 配置喵！");
+            Debug.LogError($"[GraphAnalyser] 加载 Pack 失败：{packID}，请检查 MetaLib.json 配置喵！");
             return null;
         }
 
-        // 2. 转换为运行时实例 (PackID 作为唯一标识)
-        var instance = new VFSInstance(packID, "VFS");
-
-        // 3. 从 PackData 填充 NodeMap（所有节点类型）
-        foreach (var kvp in pack.Nodes)
-        {
-            var node = kvp.Value;
-            
-            // 添加到 NodeMap（所有节点类型，包括 RootNodeData 和 VFSNodeData）
-            instance.NodeMap[node.NodeID] = node;
-
-            // 如果是根节点，添加到根节点列表
-            if (node is RootNodeData)
-            {
-                instance.RootNodeId = node.NodeID;
-            }
-        }
-
-        // 4. 【总包核心动作】赋予灵魂！
-        // 调用递归算法，填满 ParentNodeID 和 FullPath
-        InternalRebuildTree(instance);
-
-        // 5. 注册到总包字典
-        if (_vfsInstances.ContainsKey(packID))
-            _vfsInstances[packID] = instance;
-        else
-            _vfsInstances.Add(packID, instance);
-
-        Debug.Log($"[GraphAnalyser] VFS 实例加载完成：{packID} (节点数：{instance.NodeMap.Count}, 路径索引：{instance.PathIndex.Count})");
-
-        return instance;
+        var packs = Packs;
+        if (packs == null) { Debug.LogWarning("[GraphAnalyser] 无当前用户，无法挂载 Pack 喵~"); return null; }
+        string guid = FindGuidByPackID(packID) ?? Guid.NewGuid().ToString("N");
+        packs[guid] = pack;
+        _packIDToGuid[packID] = guid;
+        Debug.Log($"[GraphAnalyser] Pack 已加载：{packID}（节点数：{pack.Nodes.Count}）");
+        return pack;
     }
 
     /// <summary>
-    /// 从已有的 VFSPackData 创建实例喵~
+    /// 直接挂载已有的 BasePackData 喵~
     /// </summary>
-    /// <param name="pack">VFS 数据包</param>
-    /// <returns>初始化完成的 VFS 实例</returns>
-    public VFSInstance LoadVFSFromPack(VFSPackData pack)
+    public BasePackData LoadVFSFromPack(BasePackData pack)
     {
         if (pack == null)
         {
@@ -112,409 +225,225 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
             return null;
         }
 
-        string packID = pack.PackID;
-
-        // 1. 创建运行时实例
-        var instance = new VFSInstance(packID, "VFS");
-
-        // 2. 从 PackData 填充 NodeMap（所有节点类型）
-        foreach (var kvp in pack.Nodes)
-        {
-            var node = kvp.Value;
-            
-            // 添加到 NodeMap（所有节点类型，包括 RootNodeData 和 VFSNodeData）
-            instance.NodeMap[node.NodeID] = node;
-
-            // 如果是根节点，添加到根节点列表
-            if (node is RootNodeData)
-            {
-                instance.RootNodeId = node.NodeID;
-            }
-        }
-
-        // 3. 赋予灵魂 - 构建树形结构
-        InternalRebuildTree(instance);
-
-        // 4. 注册到总包字典
-        if (_vfsInstances.ContainsKey(packID))
-            _vfsInstances[packID] = instance;
-        else
-            _vfsInstances.Add(packID, instance);
-
-        Debug.Log($"[GraphAnalyser] VFS 实例创建完成：{packID} (节点数：{instance.NodeMap.Count}, 路径索引：{instance.PathIndex.Count})");
-
-        return instance;
+        var packs = Packs;
+        if (packs == null) { Debug.LogWarning("[GraphAnalyser] 无当前用户，无法挂载 Pack 喵~"); return null; }
+        string guid = FindGuidByPackID(pack.PackID) ?? Guid.NewGuid().ToString("N");
+        packs[guid] = pack;
+        _packIDToGuid[pack.PackID] = guid;
+        Debug.Log($"[GraphAnalyser] Pack 已挂载：{pack.PackID}（节点数：{pack.Nodes.Count}）");
+        return pack;
     }
 
     // =========================================================
-    //  运行时动态操作 API (Unix 风格) 喵~
+    //  运行时动态操作 API（Unix 风格）喵~
     // =========================================================
 
     /// <summary>
-    /// 在 VFS 中创建或写入文件喵~
-    /// 【echo "xxx" > path】的底层实现喵！
+    /// 写入或创建文件喵~【echo "xxx" > path】
     /// </summary>
-    /// <param name="packID">Pack ID</param>
-    /// <param name="path">目标完整路径（如 /social/messages/m1.json）</param>
-    /// <param name="content">文件内容</param>
-    /// <returns>是否操作成功</returns>
     public bool WriteFile(string packID, string path, string content)
     {
-        var instance = GetInstance(packID);
-        if (instance == null) return false;
+        var pack = Resolve(packID, write: true);
+        if (pack == null) return false;
 
         path = VFSPathResolver.Normalize(path);
-        var existingNode = instance.GetNodeByPath(path);
+        var existing = BfsGetNode(pack, path);
 
-        if (existingNode != null)
+        if (existing is VFSNodeData existingVfs)
         {
-            // 1. 文件已存在，直接更新内容喵~
-            if (existingNode is VFSNodeData vfs)
-            {
-                vfs.DataJson = content;
-                return true;
-            }
-            return false; // 可能是目录，不能直接写
-        }
-        else
-        {
-            // 2. 文件不存在，需要新建喵~
-            string parentPath = VFSPathResolver.GetParentPath(path);
-            
-            // 递归创建父目录喵~（如果不存在）
-            if (!EnsureDirectoryExists(packID, parentPath))
-            {
-                Debug.LogError($"[GraphAnalyser] 创建父目录失败：{parentPath}");
-                return false;
-            }
-            
-            var parentNode = instance.GetNodeByPath(parentPath);
-            if (parentNode == null)
-            {
-                Debug.LogError($"[GraphAnalyser] 父目录不存在：{parentPath}");
-                return false;
-            }
-
-            string fileName = VFSPathResolver.GetFileName(path);
-            string nameWithoutExt = fileName;
-            string ext = "";
-
-            // 拆分文件名和扩展名
-            int dotIndex = fileName.LastIndexOf('.');
-            if (dotIndex > 0)
-            {
-                nameWithoutExt = fileName.Substring(0, dotIndex);
-                ext = fileName.Substring(dotIndex);
-            }
-
-            var newNode = new VFSNodeData
-            {
-                NodeID = "vfs_" + Guid.NewGuid().ToString("N").Substring(0, 8),
-                Name = nameWithoutExt,
-                Extension = ext,
-                DataJson = content,
-                IsEnabled = true
-            };
-
-            if (instance.AddNodeRuntime(newNode, parentNode.NodeID))
-            {
-                // ✅ 局部更新已完成，不需要全量重建树
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// 确保目录存在喵~（递归创建）
-    /// 【mkdir -p path】的底层实现喵！
-    /// </summary>
-    private bool EnsureDirectoryExists(string packID, string path)
-    {
-        var instance = GetInstance(packID);
-        if (instance == null) return false;
-
-        path = VFSPathResolver.Normalize(path);
-        
-        // 如果目录已存在，直接返回成功喵~
-        if (instance.PathExists(path))
-        {
-            var node = instance.GetNodeByPath(path);
-            return node is VFSNodeData vfs && vfs.IsDirectory;
-        }
-
-        // 如果是根目录，认为已存在喵~
-        if (string.IsNullOrEmpty(path) || path == "/")
-        {
+            existingVfs.DataJson = content;
             return true;
         }
+        if (existing != null) return false; // 目录，不能直接写
 
-        // 递归创建父目录喵~
         string parentPath = VFSPathResolver.GetParentPath(path);
-        if (!string.IsNullOrEmpty(parentPath) && parentPath != "/")
+        if (!EnsureDirectory(pack, parentPath))
         {
-            if (!EnsureDirectoryExists(packID, parentPath))
-            {
-                return false;
-            }
+            Debug.LogError($"[GraphAnalyser] 创建父目录失败：{parentPath}");
+            return false;
         }
 
-        // 创建当前目录喵~
-        return CreateDirectoryInternal(packID, path);
-    }
-
-    /// <summary>
-    /// 创建目录的内部方法（不检查父目录）喵~
-    /// </summary>
-    private bool CreateDirectoryInternal(string packID, string path)
-    {
-        var instance = GetInstance(packID);
-        if (instance == null) return false;
-
-        path = VFSPathResolver.Normalize(path);
-        if (instance.PathExists(path)) return true;
-
-        string parentPath = VFSPathResolver.GetParentPath(path);
-        var parentNode = instance.GetNodeByPath(parentPath);
-        if (parentNode == null) return false;
-
-        var newDir = new VFSNodeData
+        var parent = BfsGetNode(pack, parentPath);
+        if (parent == null)
         {
-            NodeID = "dir_" + Guid.NewGuid().ToString("N").Substring(0, 8),
-            Name = VFSPathResolver.GetFileName(path),
-            Extension = "", // 空扩展名代表目录
+            Debug.LogError($"[GraphAnalyser] 父目录不存在：{parentPath}");
+            return false;
+        }
+
+        string fileName = VFSPathResolver.GetFileName(path);
+        int dot = fileName.LastIndexOf('.');
+        var newNode = new VFSNodeData
+        {
+            NodeID = "vfs_" + Guid.NewGuid().ToString("N").Substring(0, 8),
+            Name = dot > 0 ? fileName.Substring(0, dot) : fileName,
+            Extension = dot > 0 ? fileName.Substring(dot) : "",
+            DataJson = content,
             IsEnabled = true
         };
 
-        if (instance.AddNodeRuntime(newDir, parentNode.NodeID))
-        {
-            // ✅ 局部更新已完成，不需要全量重建树
-            return true;
-        }
-
-        return false;
+        return AddNode(pack, newNode, parent.NodeID);
     }
 
     /// <summary>
-    /// 在 VFS 中创建目录喵~
-    /// 【mkdir path】的底层实现喵！
+    /// 创建目录喵~【mkdir -p path】
     /// </summary>
     public bool CreateDirectory(string packID, string path)
     {
-        return EnsureDirectoryExists(packID, path);
+        var pack = Resolve(packID, write: true);
+        return pack != null && EnsureDirectory(pack, VFSPathResolver.Normalize(path));
     }
 
     /// <summary>
-    /// 删除路径对应的节点喵~
-    /// 【rm -rf path】喵！
+    /// 删除节点喵~【rm -rf path】
     /// </summary>
     public bool Delete(string packID, string path)
     {
-        var instance = GetInstance(packID);
-        if (instance == null) return false;
+        var pack = Resolve(packID, write: true);
+        if (pack == null) return false;
 
-        var node = instance.GetNodeByPath(path);
+        var node = BfsGetNode(pack, path);
         if (node == null) return false;
 
-        if (instance.RemoveNodeRuntime(node.NodeID))
-        {
-            InternalRebuildTree(instance);
-            return true;
-        }
-        return false;
+        return RemoveNode(pack, node.NodeID);
     }
 
     // =========================================================
-    //  核心：内部树构建喵~（通用版本，不依赖 VFSNodeData）
+    //  内部节点增删（直接操作 pack.Nodes）喵~
     // =========================================================
 
-    /// <summary>
-    /// 核心动作：根据连线关系构建整个文件树喵~
-    /// 生成路径索引和层级关系（侧边索引）
-    /// </summary>
-    public void InternalRebuildTree(VFSInstance instance)
+    private static bool AddNode(BasePackData pack, BaseNodeData node, string parentID)
     {
-        if (instance == null || instance.NodeMap == null) return;
-
-        // 清空侧边索引
-        instance.NodeToPath.Clear();
-        instance.PathIndex.Clear();
-        instance.Hierarchy.Clear();
-
-        // 从根节点开始遍历
-        if (!string.IsNullOrEmpty(instance.RootNodeId) &&
-            instance.NodeMap.TryGetValue(instance.RootNodeId, out var root))
+        if (pack.Nodes.ContainsKey(node.NodeID))
         {
-            AnalyzeRecursive(root, "/", instance);
+            Debug.LogWarning($"[GraphAnalyser] 节点已存在：{node.NodeID} 喵~");
+            return false;
         }
 
-        Debug.Log($"[GraphAnalyser] VFS 树重构完成喵！节点数：{instance.NodeMap.Count}, 路径索引：{instance.PathIndex.Count}");
+        pack.Nodes[node.NodeID] = node;
+
+        if (!string.IsNullOrEmpty(parentID) && pack.Nodes.TryGetValue(parentID, out var parent))
+        {
+            if (!parent.OutputConnections.Exists(c => c.TargetNodeID == node.NodeID))
+                parent.OutputConnections.Add(new ConnectionData(0, node.NodeID, 0));
+            if (node is VFSNodeData vfs)
+                vfs.ParentNodeID = parentID;
+        }
+
+        return true;
     }
 
-    /// <summary>
-    /// 通用递归分析器 - 不依赖具体节点类型喵~
-    /// 只认识 BaseNodeData，适用于任何图结构
-    /// </summary>
-    private void AnalyzeRecursive(BaseNodeData node, string currentPath, VFSInstance instance)
+    private static bool RemoveNode(BasePackData pack, string nodeID)
     {
-        // 1. 记录路径映射
-        instance.NodeToPath[node.NodeID] = currentPath;
-        instance.PathIndex[currentPath] = node.NodeID;
+        if (!pack.Nodes.Remove(nodeID)) return false;
+        foreach (var n in pack.Nodes.Values)
+            n.OutputConnections?.RemoveAll(c => c.TargetNodeID == nodeID);
+        return true;
+    }
 
-        // 2. 遍历物理连线
-        if (node.OutputConnections == null) return;
+    /// <summary>
+    /// 确保目录存在（递归创建）喵~
+    /// </summary>
+    private static bool EnsureDirectory(BasePackData pack, string path)
+    {
+        path = VFSPathResolver.Normalize(path);
+        if (path == "/" || string.IsNullOrEmpty(path)) return true;
 
-        foreach (var conn in node.OutputConnections)
+        var existing = BfsGetNode(pack, path);
+        if (existing is VFSNodeData vfs) return vfs.IsDirectory;
+        if (existing != null) return false; // 路径被文件占用
+
+        string parentPath = VFSPathResolver.GetParentPath(path);
+        if (!EnsureDirectory(pack, parentPath)) return false;
+
+        var parent = BfsGetNode(pack, parentPath);
+        if (parent == null) return false;
+
+        var dir = new VFSNodeData
         {
-            if (instance.NodeMap.TryGetValue(conn.TargetNodeID, out var child))
-            {
-                // 记录父子层级关系
-                if (!instance.Hierarchy.ContainsKey(node.NodeID))
-                    instance.Hierarchy[node.NodeID] = new List<string>();
-                instance.Hierarchy[node.NodeID].Add(child.NodeID);
-
-                // 计算子路径（需要包含扩展名喵~）
-                string childName = child.Name;
-                if (child is VFSNodeData vfsChild && vfsChild.IsFile)
-                {
-                    childName += vfsChild.Extension;
-                }
-
-                if (string.IsNullOrEmpty(childName))
-                    childName = child.NodeID;
-                
-                // 灵活处理斜杠：如果当前路径是 "/"，直接拼接
-                string nextPath;
-                if (currentPath == "/")
-                    nextPath = "/" + childName;
-                else
-                    nextPath = currentPath.EndsWith("/") ? currentPath + childName : currentPath + "/" + childName;
-
-                // 如果是目录（VFSNodeData 且 Extension 为空），添加结尾斜杠
-                if (child is VFSNodeData vfs && vfs.IsDirectory)
-                    nextPath += "/";
-
-                AnalyzeRecursive(child, nextPath, instance);
-            }
-        }
+            NodeID = "dir_" + Guid.NewGuid().ToString("N").Substring(0, 8),
+            Name = VFSPathResolver.GetFileName(path),
+            Extension = "",
+            IsEnabled = true
+        };
+        return AddNode(pack, dir, parent.NodeID);
     }
 
     // =========================================================
-    //  访问：通用节点查询接口喵~
+    //  查询接口喵~
     // =========================================================
 
     /// <summary>
-    /// 全系统通用的节点查询接口喵~
+    /// 按路径查询节点喵~
     /// </summary>
-    /// <param name="packID">Pack ID</param>
-    /// <param name="path">路径（如 "/social/friends/"）</param>
-    /// <returns>BaseNodeData，如果不存在则返回 null</returns>
     public BaseNodeData GetNode(string packID, string path)
     {
-        if (_vfsInstances.Count == 0)
-        {
-            Debug.LogWarning("[GraphAnalyser] 未初始化！请先调用 vfs_mount 命令加载 VFS 数据包喵~");
-            return null;
-        }
-
-        if (!_vfsInstances.TryGetValue(packID, out var instance))
-        {
-            Debug.LogWarning($"[GraphAnalyser] 实例不存在：{packID}。可用实例：{string.Join(", ", _vfsInstances.Keys)}");
-            return null;
-        }
-
-        // 直接通过总包里的路径索引查，快如闪电喵！
-        return instance.GetNodeByPath(path);
+        var pack = Resolve(packID);
+        return pack == null ? null : BfsGetNode(pack, path);
     }
 
     /// <summary>
-    /// 获取默认实例的节点喵~
+    /// 查询默认 Pack 的节点喵~
     /// </summary>
-    public BaseNodeData GetNode(string path)
-    {
-        return GetNode(_defaultPackId, path);
-    }
+    public BaseNodeData GetNode(string path) => GetNode(_defaultPackId, path);
 
     /// <summary>
-    /// 获取子节点列表喵~
+    /// 获取路径下的直接子节点列表喵~
     /// </summary>
-    /// <param name="packID">Pack ID</param>
-    /// <param name="path">父路径</param>
-    /// <returns>子节点列表</returns>
     public List<BaseNodeData> GetChildren(string packID, string path)
     {
-        if (_vfsInstances.Count == 0)
-        {
-            Debug.LogWarning("[GraphAnalyser] 未初始化！请先调用 vfs_mount 命令加载 VFS 数据包喵~");
-            return new List<BaseNodeData>();
-        }
-
-        if (!_vfsInstances.TryGetValue(packID, out var instance))
-        {
-            Debug.LogWarning($"[GraphAnalyser] 实例不存在：{packID}。可用实例：{string.Join(", ", _vfsInstances.Keys)}");
-            return new List<BaseNodeData>();
-        }
-
-        return instance.GetChildrenByPath(path);
+        var pack = Resolve(packID);
+        return pack == null ? new List<BaseNodeData>() : BfsGetChildren(pack, path);
     }
 
     /// <summary>
-    /// 获取默认实例的子节点列表喵~
+    /// 获取默认 Pack 路径下的子节点列表喵~
     /// </summary>
-    public List<BaseNodeData> GetChildren(string path)
-    {
-        return GetChildren(_defaultPackId, path);
-    }
+    public List<BaseNodeData> GetChildren(string path) => GetChildren(_defaultPackId, path);
 
     /// <summary>
     /// 检查路径是否存在喵~
     /// </summary>
-    public bool PathExists(string packID, string path)
-    {
-        return GetNode(packID, path) != null;
-    }
+    public bool PathExists(string packID, string path) => GetNode(packID, path) != null;
 
     // =========================================================
-    //  实例管理喵~
+    //  Pack 管理喵~
     // =========================================================
 
     /// <summary>
-    /// 注册 VFS 实例到总包喵~
+    /// 注册 Pack 喵~
     /// </summary>
-    public void RegisterInstance(VFSInstance instance)
+    public void RegisterPack(BasePackData pack)
     {
-        if (instance == null) return;
-
-        if (_vfsInstances.ContainsKey(instance.PackID))
-            _vfsInstances[instance.PackID] = instance;
-        else
-            _vfsInstances.Add(instance.PackID, instance);
-
-        instance.IsLoaded = true;
-        Debug.Log($"[GraphAnalyser] 实例注册：{instance.PackID}");
+        if (pack == null) return;
+        var packs = Packs;
+        if (packs == null) return;
+        string guid = FindGuidByPackID(pack.PackID) ?? Guid.NewGuid().ToString("N");
+        packs[guid] = pack;
+        _packIDToGuid[pack.PackID] = guid;
+        Debug.Log($"[GraphAnalyser] Pack 注册：{pack.PackID}");
     }
 
     /// <summary>
-    /// 注销 VFS 实例喵~
+    /// 注销 Pack 喵~
     /// </summary>
-    public void UnregisterInstance(string packID)
+    public void UnregisterPack(string packID)
     {
-        if (_vfsInstances.TryGetValue(packID, out var instance))
+        var packs = Packs;
+        if (packs == null) return;
+        string guid = FindGuidByPackID(packID);
+        if (guid != null && packs.Remove(guid))
         {
-            instance.IsLoaded = false;
-            instance.Clear();
-            _vfsInstances.Remove(packID);
-            Debug.Log($"[GraphAnalyser] 实例注销：{packID}");
+            _packIDToGuid.Remove(packID);
+            Debug.Log($"[GraphAnalyser] Pack 注销：{packID}");
         }
     }
 
     /// <summary>
-    /// 获取 VFS 实例喵~
+    /// 获取已挂载的 Pack 喵~
     /// </summary>
-    public VFSInstance GetInstance(string packID)
+    public BasePackData GetPack(string packID)
     {
-        _vfsInstances.TryGetValue(packID, out var instance);
-        return instance;
+        return FindPackByPackID(packID);
     }
 
     /// <summary>
@@ -527,43 +456,39 @@ public class GraphAnalyser : SingletonMono<GraphAnalyser>
     }
 
     /// <summary>
-    /// 获取所有实例 ID (PackID) 列表喵~
+    /// 获取所有已挂载的 Pack ID 列表喵~
     /// </summary>
-    public List<string> GetAllInstanceIds()
+    public List<string> GetAllPackIds()
     {
-        return new List<string>(_vfsInstances.Keys);
+        return new List<string>(_packIDToGuid.Keys);
     }
 
     // =========================================================
     //  调试信息喵~
     // =========================================================
 
-    /// <summary>
-    /// 获取调试信息喵~
-    /// </summary>
     public string GetDebugInfo()
     {
-        string info = $"=== GraphAnalyser 状态 ===\n";
-        info += $"实例数量：{_vfsInstances.Count}\n";
-
-        foreach (var kvp in _vfsInstances)
+        var packs = Packs;
+        var sb = new System.Text.StringBuilder("=== GraphAnalyser 状态 ===\n");
+        sb.Append($"Pack 数量：{packs?.Count ?? 0}\n");
+        if (packs == null) return sb.ToString();
+        foreach (var kvp in packs)
         {
-            info += $"\n  实例：{kvp.Key}\n";
-            info += $"    节点数：{kvp.Value.NodeMap.Count}\n";
-            info += $"    路径索引：{kvp.Value.PathIndex.Count}\n";
-            info += $"    根节点：{kvp.Value.RootNodeId ?? "null"}\n";
+            sb.Append($"\n  Pack：{kvp.Value.PackID}\n");
+            sb.Append($"    节点数：{kvp.Value.Nodes.Count}\n");
+            sb.Append($"    根节点：{kvp.Value.RootNodeId ?? "null"}\n");
+            sb.Append($"    权限：{kvp.Value.AccessLevel}\n");
         }
-
-        return info;
+        return sb.ToString();
     }
 
     // =========================================================
     //  Unity 生命周期喵~
     // =========================================================
 
-    protected override void Awake()
+    private void AwakeCompatibility()
     {
-        base.Awake();
         Debug.Log("[GraphAnalyser] 静态图解析大脑已启动喵~ 🧠");
     }
 }

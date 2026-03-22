@@ -388,14 +388,17 @@ public static partial class CommandRegistry
     {
         if (args.Length < 1) return CommandOutput.Fail("Usage: vfs_mount <PackID>");
 
-        var pVFS = NekoGraph.PersistentVFSManager.Instance;
-        if (pVFS == null) return CommandOutput.Fail("PersistentVFSManager 未初始化喵~");
+        var analyser = GraphAnalyser.Instance;
+        if (analyser == null) return CommandOutput.Fail("GraphAnalyser 未初始化喵~");
 
-        var instance = pVFS.MountVFS(args[0]);
+        var template = MetaLib.GetPack<BasePackData>(args[0]);
+        if (template == null) return CommandOutput.Fail($"MetaLib 找不到包：{args[0]}");
+
+        var instance = analyser.LoadVFSFromPack(template);
         if (instance == null) return CommandOutput.Fail($"挂载失败：{args[0]}");
 
         console.SetCurrentPath("/");
-        return CommandOutput.Success($"VFS 已挂载：{args[0]}（节点数：{instance.NodeMap.Count}）");
+        return CommandOutput.Success($"VFS 已挂载：{args[0]}（节点数：{instance.Nodes.Count}）");
     }
 
     [CommandInfo("vfs_unmount", "🗑️ 卸载 VFS", "System", new[] { "PackID" },
@@ -405,10 +408,10 @@ public static partial class CommandRegistry
     {
         if (args.Length < 1) return CommandOutput.Fail("Usage: vfs_unmount <PackID>");
 
-        var pVFS = NekoGraph.PersistentVFSManager.Instance;
-        if (pVFS == null) return CommandOutput.Fail("PersistentVFSManager 未初始化喵~");
+        var analyser = GraphAnalyser.Instance;
+        if (analyser == null) return CommandOutput.Fail("GraphAnalyser 未初始化喵~");
 
-        pVFS.UnmountVFS(args[0]);
+        analyser.UnregisterPack(args[0]);
         return CommandOutput.Success($"已卸载：{args[0]}");
     }
 
@@ -417,10 +420,11 @@ public static partial class CommandRegistry
         Color = "0.5,0.2,0.2")]
     public static CommandOutput VFSUnmountAll(DeveloperConsole console, string[] args, object payload)
     {
-        var pVFS = NekoGraph.PersistentVFSManager.Instance;
-        if (pVFS == null) return CommandOutput.Fail("PersistentVFSManager 未初始化喵~");
+        var analyser = GraphAnalyser.Instance;
+        if (analyser == null) return CommandOutput.Fail("GraphAnalyser 未初始化喵~");
 
-        pVFS.UnmountAll();
+        foreach (var id in analyser.GetAllPackIds())
+            analyser.UnregisterPack(id);
         return CommandOutput.Success("已卸载全部 VFS 实例");
     }
 
@@ -431,12 +435,28 @@ public static partial class CommandRegistry
     {
         if (args.Length < 1) return CommandOutput.Fail("Usage: vfs_save <PackID>");
 
-        var pVFS = NekoGraph.PersistentVFSManager.Instance;
-        if (pVFS == null) return CommandOutput.Fail("PersistentVFSManager 未初始化喵~");
+        var analyser = GraphAnalyser.Instance;
+        if (analyser == null) return CommandOutput.Fail("GraphAnalyser 未初始化喵~");
 
-        return pVFS.SaveVFSToDisk(args[0])
-            ? CommandOutput.Success($"已保存：{args[0]}")
-            : CommandOutput.Fail($"保存失败：{args[0]}");
+        var pack = analyser.GetPack(args[0]);
+        if (pack == null) return CommandOutput.Fail($"找不到 Pack：{args[0]}");
+
+        string relativePath = $"NekoGraph/{args[0]}.json";
+        string fullPath = System.IO.Path.Combine(UnityEngine.Application.streamingAssetsPath, relativePath);
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(fullPath));
+        VFSLoader.SavePackToFile(pack, fullPath);
+
+        MetaLib.Register(args[0], new MetaLib.MetaEntry
+        {
+            PackID = args[0],
+            Storage = MetaLib.StorageType.StreamingAssets,
+            ResourcePath = relativePath,
+            DisplayName = pack.DisplayName ?? args[0]
+        });
+#if UNITY_EDITOR
+        MetaLib.Save();
+#endif
+        return CommandOutput.Success($"已保存：{args[0]}");
     }
 
 
@@ -451,7 +471,7 @@ public static partial class CommandRegistry
             return CommandOutput.Fail("GraphAnalyser 未初始化喵~\n请使用 vfs_mount 命令加载 VFS 数据包");
         }
 
-        if (analyser.GetAllInstanceIds().Count == 0)
+        if (analyser.GetAllPackIds().Count == 0)
         {
             return CommandOutput.Fail("未加载任何 VFS 实例喵~\n请使用 vfs_mount 命令加载 VFS 数据包");
         }

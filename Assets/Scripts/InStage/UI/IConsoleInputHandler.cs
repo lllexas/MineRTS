@@ -38,3 +38,23 @@ public interface IConsoleInputHandler
     /// </summary>
     bool HandleCancel();
 }
+
+/// <summary>
+/// 可选的输入行显示策略。
+/// 由挂载到控制台的输入处理器决定是否继续显示默认输入提示，
+/// 以及是否替换为当前交互态专属的提示文本。
+/// </summary>
+public interface IConsoleInputLineState
+{
+    /// <summary>
+    /// 是否继续显示底部默认输入行。
+    /// 返回 false 时，控制台会把底部空间完全交给输入处理器自己的渲染内容。
+    /// </summary>
+    bool ShouldRenderInputLine { get; }
+
+    /// <summary>
+    /// 返回当前交互态要使用的提示文本。
+    /// 返回 null 或空字符串时，沿用控制台自己的默认提示。
+    /// </summary>
+    string GetInputPrompt(string fallbackPrompt);
+}

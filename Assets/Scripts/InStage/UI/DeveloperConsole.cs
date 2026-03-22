@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -8,27 +8,27 @@ using UnityEngine;
 using static CommandRegistry;
 
 /// <summary>
-/// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
-/// DeveloperConsole - ¿ª·¢Õß¿ØÖÆÌ¨Âß¼­²ã
-/// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+/// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/// DeveloperConsole - å¼€å‘è€…æ§åˆ¶å°é€»è¾‘å±‚
+/// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 ///
-/// Éè¼ÆÀíÄî£º
-/// 1. UI ÓëÂß¼­·ÖÀë - ²»³ÖÓĞÈÎºÎ UI ÒıÓÃ
-/// 2. ÊÂ¼şÇı¶¯Êä³ö - Í¨¹ı PostSystem ·¢ËÍÊä³öÊÂ¼ş
-/// 3. ÃüÁî×¢²á¹ÜÀí - Í³Ò»´Ó CommandRegistry ×Ô¶¯×¢²á
-/// 4. Ö§³Ö¹ÜµÀºÍ·ÖºÅ - ÃüÁî×éºÏ¹¦ÄÜ
+/// è®¾è®¡ç†å¿µï¼š
+/// 1. UI ä¸é€»è¾‘åˆ†ç¦» - ä¸æŒæœ‰ä»»ä½• UI å¼•ç”¨
+/// 2. äº‹ä»¶é©±åŠ¨è¾“å‡º - é€šè¿‡ PostSystem å‘é€è¾“å‡ºäº‹ä»¶
+/// 3. å‘½ä»¤æ³¨å†Œç®¡ç† - ç»Ÿä¸€ä» CommandRegistry è‡ªåŠ¨æ³¨å†Œ
+/// 4. æ”¯æŒç®¡é“å’Œåˆ†å· - å‘½ä»¤ç»„åˆåŠŸèƒ½
 ///
-/// ¼Ì³Ğ¹ØÏµ£º
+/// ç»§æ‰¿å…³ç³»ï¼š
 ///   DeveloperConsole : SingletonMono<DeveloperConsole>
-///   ¡ü
-///   ©¸©¤ SocialCLI : DeveloperConsole (Éç½»ÖÕ¶ËÌØ»¯)
+///   â†‘
+///   â””â”€ SocialCLI : DeveloperConsole (ç¤¾äº¤ç»ˆç«¯ç‰¹åŒ–)
 ///
-/// ¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T¨T
+/// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 /// </summary>
 public class DeveloperConsole : TUIManager
 {
     // =========================================================
-    //  Êä³öÊÂ¼şÊı¾İ½á¹¹
+    //  è¾“å‡ºäº‹ä»¶æ•°æ®ç»“æ„
     // =========================================================
     public class ConsoleOutputEvent
     {
@@ -37,19 +37,24 @@ public class DeveloperConsole : TUIManager
     }
 
     // =========================================================
-    //  ÃüÁî×¢²á±í
+    //  å‘½ä»¤æ³¨å†Œè¡¨
     // =========================================================
     private Dictionary<string, System.Action<string[]>> _commands;
 
     public bool EnableUnityLogging = false;
 
     // =========================================================
-    //  VFS ÎÄ¼şÏµÍ³Ö§³Ö
+    //  VFS æ–‡ä»¶ç³»ç»Ÿæ”¯æŒ
     // =========================================================
 
     /// <summary>
-    /// µ±Ç°¿ØÖÆÌ¨Ê¹ÓÃµÄ VFS Pack ID£¨¶¯Ì¬¼ìË÷£¬Àà±È CMD µÄµ±Ç°ÅÌ·û£©ß÷~
-    /// ÓÅÏÈ·µ»Ø GetPreferredPackID()£¬²»´æÔÚÔò»ØÍËµ½ GraphAnalyser ÖĞµÚÒ»¸ö¿ÉÓÃÊµÀı¡£
+    /// è¿è¡Œæ—¶æ˜¾å¼åˆ‡æ¢çš„ç›˜ç¬¦ï¼ˆnull = è‡ªåŠ¨é€‰æ‹©ï¼‰å–µ~
+    /// ä¼˜å…ˆçº§ï¼š_currentVFSPackID > GetPreferredPackID() > ç¬¬ä¸€ä¸ªå¯ç”¨ç›˜
+    /// </summary>
+    protected string _currentVFSPackID = null;
+
+    /// <summary>
+    /// å½“å‰æ§åˆ¶å°ä½¿ç”¨çš„ VFS Pack IDï¼ˆç±»æ¯” CMD çš„å½“å‰ç›˜ç¬¦ï¼‰å–µ~
     /// </summary>
     public string CurrentVFSPackID
     {
@@ -58,89 +63,218 @@ public class DeveloperConsole : TUIManager
             var analyser = GraphAnalyser.Instance;
             if (analyser == null) return null;
 
-            // ³¢ÊÔÊ×Ñ¡ÅÌß÷~
+            // 1. è¿è¡Œæ—¶æ˜¾å¼åˆ‡æ¢çš„ç›˜ç¬¦ä¼˜å…ˆå–µ~
+            if (!string.IsNullOrEmpty(_currentVFSPackID) && analyser.GetPack(_currentVFSPackID) != null)
+                return _currentVFSPackID;
+
+            // 2. å­ç±»é¦–é€‰ç›˜å–µ~
             string preferred = GetPreferredPackID();
-            if (!string.IsNullOrEmpty(preferred) && analyser.GetInstance(preferred) != null)
+            if (!string.IsNullOrEmpty(preferred) && analyser.GetPack(preferred) != null)
                 return preferred;
 
-            // »ØÍË£ºµÚÒ»¸ö¹ÒÔØµÄÅÌ£¨ÀàËÆ Unix µÄ /£©ß÷~
-            var ids = analyser.GetAllInstanceIds();
+            // 3. å…œåº•ï¼šç¬¬ä¸€ä¸ªæŒ‚è½½çš„ç›˜å–µ~
+            var ids = analyser.GetAllPackIds();
             return (ids != null && ids.Count > 0) ? ids[0] : null;
         }
     }
 
     /// <summary>
-    /// ´Ë¿ØÖÆÌ¨Ê×Ñ¡µÄ VFS °ü ID£¨ÅÌ·û£©ß÷~
-    /// »ùÀà·µ»Ø null£¨ÎŞÊ×Ñ¡£¬Ö±½ÓÓÃµÚÒ»¸ö¿ÉÓÃÅÌ£©£»×ÓÀà override ÉùÃ÷Æ«ºÃ¡£
+    /// æ­¤æ§åˆ¶å°é¦–é€‰çš„ VFS åŒ… IDï¼ˆç›˜ç¬¦ï¼‰å–µ~
+    /// åŸºç±»è¿”å› nullï¼ˆæ— é¦–é€‰ï¼Œç›´æ¥ç”¨ç¬¬ä¸€ä¸ªå¯ç”¨ç›˜ï¼‰ï¼›å­ç±» override å£°æ˜åå¥½ã€‚
     /// </summary>
     protected virtual string GetPreferredPackID() => null;
 
-    /// <summary>µ±Ç° VFS Â·¾¶ß÷~</summary>
+    // =========================================================
+    //  ç›˜ç¬¦æ˜ å°„ API å–µ~
+    // =========================================================
+
+    /// <summary>
+    /// ç›˜ç¬¦æ˜ å°„ï¼šä» GraphAnalyser ä¸­ç­›é€‰é Hidden çš„ Packï¼ŒæŒ‰æ’å…¥é¡ºåºåˆ†é… Aã€Bã€C...
+    /// </summary>
+    public List<(char letter, string packID)> GetDriveMap()
+    {
+        var result = new List<(char, string)>();
+        var analyser = GraphAnalyser.Instance;
+        if (analyser == null) return result;
+        char letter = 'A';
+        foreach (var id in analyser.GetAllPackIds())
+        {
+            var pack = analyser.GetPack(id);
+            if (pack != null && pack.AccessLevel != PackAccessLevel.Hidden)
+            {
+                result.Add((letter, id));
+                letter++;
+            }
+        }
+        return result;
+    }
+
+    // ç¼“å­˜å½“å‰ç›˜ç¬¦å­—æ¯ï¼Œé¿å…æ¯å¸§é‡å»º GetDriveMap åˆ—è¡¨å–µ~
+    private char? _cachedDriveLetter = null;
+
+    /// <summary>å½“å‰ç›˜ç¬¦å­—æ¯ï¼Œnull è¡¨ç¤ºæ— æ³•æ˜ å°„ï¼ˆç›˜æœªæŒ‚è½½ï¼‰å–µ~</summary>
+    public char? CurrentDriveLetter => _cachedDriveLetter;
+
+    /// <summary>é‡æ–°è®¡ç®—å¹¶ç¼“å­˜å½“å‰ç›˜ç¬¦å­—æ¯å–µ~ï¼ˆåœ¨åŒ…åˆ‡æ¢/VFSå°±ç»ªæ—¶è°ƒç”¨ï¼‰</summary>
+    private void RefreshDriveLetter()
+    {
+        var map = GetDriveMap();
+        string cur = CurrentVFSPackID;
+        for (int i = 0; i < map.Count; i++)
+        {
+            if (map[i].packID == cur) { _cachedDriveLetter = map[i].letter; return; }
+        }
+        _cachedDriveLetter = null;
+    }
+
+    /// <summary>
+    /// è§£æå«ç›˜ç¬¦çš„è·¯å¾„ â†’ (packID, ç»å¯¹vfsPath) å–µ~
+    /// "C:/messages/" â†’ (Cç›˜çš„packID, "/messages/")
+    /// "messages/"    â†’ (å½“å‰ç›˜, å½“å‰è·¯å¾„+messages/)
+    /// </summary>
+    public (string packID, string vfsPath) ResolveDrivePath(string input)
+    {
+        if (!string.IsNullOrEmpty(input) && input.Length >= 2
+            && char.IsLetter(input[0]) && input[1] == ':')
+        {
+            int idx = char.ToUpper(input[0]) - 'A';
+            var map = GetDriveMap();
+            string vfsPath = input.Length > 2 ? input.Substring(2) : "/";
+            if (!vfsPath.StartsWith("/")) vfsPath = "/" + vfsPath;
+            if (idx >= 0 && idx < map.Count)
+                return (map[idx].packID, VFSPathResolver.Normalize(vfsPath));
+            return (null, vfsPath); // æœªçŸ¥ç›˜ç¬¦
+        }
+        string resolved = input != null && input.StartsWith("/")
+            ? VFSPathResolver.Normalize(input)
+            : VFSPathResolver.Combine(_currentPath, input ?? "");
+        return (CurrentVFSPackID, resolved);
+    }
+
+    /// <summary>
+    /// åˆ‡æ¢å½“å‰ç›˜ç¬¦å–µ~ ä¼  null/ç©º åˆ™é‡ç½®ä¸ºè‡ªåŠ¨é€‰æ‹©ã€‚
+    /// åˆ‡æ¢æˆåŠŸåè·¯å¾„è‡ªåŠ¨é‡ç½®åˆ° /ã€‚
+    /// </summary>
+    public bool SetCurrentPackID(string packID)
+    {
+        if (string.IsNullOrEmpty(packID))
+        {
+            _currentVFSPackID = null;
+            _currentPath = "/";
+            return true;
+        }
+
+        var analyser = GraphAnalyser.Instance;
+        if (analyser == null)
+        {
+            Log("GraphAnalyser å®ä¾‹ä¸å­˜åœ¨", Color.red);
+            return false;
+        }
+
+        var pack = analyser.GetPack(packID);
+        if (pack == null)
+        {
+            Log($"ç›˜ç¬¦ä¸å­˜åœ¨ï¼š{packID}", Color.red);
+            return false;
+        }
+        if (pack.AccessLevel == PackAccessLevel.Hidden)
+        {
+            Log($"ç›˜ç¬¦ä¸å¯è®¿é—®ï¼š{packID}", Color.red);
+            return false;
+        }
+
+        _currentVFSPackID = packID;
+        _currentPath = "/";
+        RefreshDriveLetter();
+        return true;
+    }
+
+    /// <summary>å½“å‰ VFS è·¯å¾„å–µ~</summary>
     protected string _currentPath = "/";
     public string CurrentPath => _currentPath;
 
-    /// <summary>ÉèÖÃµ±Ç°Â·¾¶ß÷~</summary>
+    /// <summary>å«ç›˜ç¬¦çš„å®Œæ•´è·¯å¾„ï¼Œå¦‚ "A:/messages"ï¼›æ— ç›˜ç¬¦æ—¶é™çº§ä¸º CurrentPath å–µ~</summary>
+    public string FullCurrentPath
+    {
+        get
+        {
+            var letter = CurrentDriveLetter;
+            if (!letter.HasValue) return CurrentPath;
+            string p = CurrentPath.TrimEnd('/');
+            return $"{letter}:{(string.IsNullOrEmpty(p) ? "/" : p)}";
+        }
+    }
+
+    /// <summary>è®¾ç½®å½“å‰è·¯å¾„å–µ~</summary>
     public bool SetCurrentPath(string path)
     {
         if (string.IsNullOrEmpty(path))
         {
-            Log("Â·¾¶²»ÄÜÎª¿Õ", Color.red);
+            Log("è·¯å¾„ä¸èƒ½ä¸ºç©º", Color.red);
             return false;
         }
 
         if (string.IsNullOrEmpty(CurrentVFSPackID))
         {
-            Log("Î´¹ÒÔØÎÄ¼şÏµÍ³ß÷£¡", Color.yellow);
+            Log("æœªæŒ‚è½½æ–‡ä»¶ç³»ç»Ÿå–µï¼", Color.yellow);
             return false;
         }
 
         var analyser = GraphAnalyser.Instance;
         if (analyser == null)
         {
-            Log("GraphAnalyser ÊµÀı²»´æÔÚ", Color.red);
+            Log("GraphAnalyser å®ä¾‹ä¸å­˜åœ¨", Color.red);
             return false;
         }
 
         if (!analyser.PathExists(CurrentVFSPackID, path))
         {
-            Log($"Â·¾¶²»´æÔÚ£º{path}", Color.red);
+            Log($"è·¯å¾„ä¸å­˜åœ¨ï¼š{path}", Color.red);
             return false;
         }
 
         var node = analyser.GetNode(CurrentVFSPackID, path);
         if (node is VFSNodeData vfs && !vfs.IsDirectory)
         {
-            Log($"²»ÊÇÄ¿Â¼£º{path}", Color.red);
+            Log($"ä¸æ˜¯ç›®å½•ï¼š{path}", Color.red);
             return false;
         }
 
         _currentPath = path;
-        Log($"Â·¾¶ÒÑÇĞ»»µ½£º{_currentPath}", Color.green);
+        Log($"è·¯å¾„å·²åˆ‡æ¢åˆ°ï¼š{_currentPath}", Color.green);
         return true;
     }
 
     // =========================================================
-    //  VFS ¾ÍĞ÷ĞÅºÅ´¦Àí
+    //  VFS å°±ç»ªä¿¡å·å¤„ç†
     // =========================================================
 
     [Subscribe("VFS.IO_Ready")]
     private void OnVFSSystemReady(object data)
     {
-        // PersistentVFSManager ÒÑÔÚ·¢ËÍ´ËĞÅºÅÇ°Íê³ÉËùÓĞ EnsureVFS ß÷~
-        // Console Ö»ĞèÖØÖÃµ±Ç°Â·¾¶
+        // SaveManager å·²åœ¨å‘é€æ­¤ä¿¡å·å‰å®Œæˆæ‰€æœ‰æŒ‚ç›˜å–µ~
+        // å›ºå®šé¦–é€‰ç›˜ç¬¦ï¼ˆå¦‚æœæœ‰ï¼‰ï¼›å¦åˆ™æ¸…ç©ºè®©å±æ€§è‡ªåŠ¨å›é€€
+        string preferred = GetPreferredPackID();
+        _currentVFSPackID = (!string.IsNullOrEmpty(preferred) &&
+                             GraphAnalyser.Instance?.GetPack(preferred) != null)
+            ? preferred
+            : null;
+
         if (CurrentVFSPackID != null)
             _currentPath = "/";
+
+        RefreshDriveLetter();
     }
 
     // =========================================================
-    //  ²ßÂÔÏµÍ³£¨¿É½Ó¹Ü¿ØÖÆÌ¨ÊäÈë + TUI ½»»¥£©
+    //  ç­–ç•¥ç³»ç»Ÿï¼ˆå¯æ¥ç®¡æ§åˆ¶å°è¾“å…¥ + TUI äº¤äº’ï¼‰
     // =========================================================
     private IConsoleInputHandler _currentInputHandler;
     private ICatStrategy _activeStrategy;
     private Func<int> _inputHandleLineProvider;
     private Action<int, int, IEnumerable<string>> _inputHandleRangeWriter;
 
-    /// <summary>ÊÇ·ñÓĞ»îÔ¾µÄ½»»¥²ßÂÔß÷~</summary>
+    /// <summary>æ˜¯å¦æœ‰æ´»è·ƒçš„äº¤äº’ç­–ç•¥å–µ~</summary>
     public bool HasActiveStrategy => _activeStrategy != null;
     public bool HasInputHandler => _currentInputHandler != null;
     public IConsoleInputHandler CurrentInputHandler => _currentInputHandler;
@@ -148,7 +282,7 @@ public class DeveloperConsole : TUIManager
     public int InputHandleStartLine => _inputHandleLineProvider?.Invoke() ?? 0;
 
     /// <summary>
-    /// ¹ÒÔØÊäÈë´¦ÀíÆ÷¡£¹ÒÔØºó£¬³£¹æ¿ØÖÆÌ¨ÊäÈë½«ÓÅÏÈ×ª·¢¸øËü¡£
+    /// æŒ‚è½½è¾“å…¥å¤„ç†å™¨ã€‚æŒ‚è½½åï¼Œå¸¸è§„æ§åˆ¶å°è¾“å…¥å°†ä¼˜å…ˆè½¬å‘ç»™å®ƒã€‚
     /// </summary>
     public void MountInputHandler(IConsoleInputHandler handler)
     {
@@ -159,7 +293,7 @@ public class DeveloperConsole : TUIManager
     }
 
     /// <summary>
-    /// Ğ¶ÔØÊäÈë´¦ÀíÆ÷¡£Èô´«Èë null£¬ÔòÎŞÌõ¼şĞ¶ÔØµ±Ç°´¦ÀíÆ÷¡£
+    /// å¸è½½è¾“å…¥å¤„ç†å™¨ã€‚è‹¥ä¼ å…¥ nullï¼Œåˆ™æ— æ¡ä»¶å¸è½½å½“å‰å¤„ç†å™¨ã€‚
     /// </summary>
     public void UnmountInputHandler(IConsoleInputHandler handler = null)
     {
@@ -190,7 +324,7 @@ public class DeveloperConsole : TUIManager
     }
 
 
-/// <summary>ÉèÖÃ²¢Æô¶¯Ò»¸öĞÂµÄ cat ²ßÂÔß÷~</summary>
+/// <summary>è®¾ç½®å¹¶å¯åŠ¨ä¸€ä¸ªæ–°çš„ cat ç­–ç•¥å–µ~</summary>
     public void SetActiveStrategy(ICatStrategy strategy, string vfsPath, string graphPath = null)
     {
         CloseActiveStrategy();
@@ -198,7 +332,7 @@ public class DeveloperConsole : TUIManager
         _activeStrategy.Execute(vfsPath, graphPath);
     }
 
-    /// <summary>¹Ø±Õµ±Ç°ÕıÔÚÔËĞĞµÄ²ßÂÔß÷~</summary>
+    /// <summary>å…³é—­å½“å‰æ­£åœ¨è¿è¡Œçš„ç­–ç•¥å–µ~</summary>
     public void CloseActiveStrategy()
     {
         if (_activeStrategy != null)
@@ -210,10 +344,10 @@ public class DeveloperConsole : TUIManager
         }
     }
 
-    /// <summary>½«ÉÏÏÂ¼ıÍ··½Ïò¼ü×ª·¢¸øµ±Ç°»îÔ¾²ßÂÔß÷~</summary>
+    /// <summary>å°†ä¸Šä¸‹ç®­å¤´æ–¹å‘é”®è½¬å‘ç»™å½“å‰æ´»è·ƒç­–ç•¥å–µ~</summary>
     public void SendArrowKeyToStrategy(bool isUp) => _activeStrategy?.OnArrowKey(isUp);
 
-    /// <summary>½«»Ø³µÈ·ÈÏ×ª·¢¸øµ±Ç°»îÔ¾²ßÂÔß÷~</summary>
+    /// <summary>å°†å›è½¦ç¡®è®¤è½¬å‘ç»™å½“å‰æ´»è·ƒç­–ç•¥å–µ~</summary>
     public void ConfirmStrategySelection() => _activeStrategy?.OnConfirm();
 
     public bool TryHandleSubmit(string input)
@@ -236,18 +370,18 @@ public class DeveloperConsole : TUIManager
         return _currentInputHandler != null && _currentInputHandler.HandleCancel();
     }
 
-    /// <summary>´¥·¢ÇåÆÁÇëÇóß÷~</summary>
+    /// <summary>è§¦å‘æ¸…å±è¯·æ±‚å–µ~</summary>
     public virtual void ClearConsole() => InvokeClearRequested();
 
-    /// <summary>ÇëÇó½«¿ØÖÆÌ¨ÊÓ¿Ú¹ö¶¯µ½¶¥²¿ß÷~£¨×ÓÀà¿ÉÖØĞ´£©</summary>
-    public virtual void ScrollConsoleToTop() { }  // »ùÀàÄ¬ÈÏ¿ÕÊµÏÖ
+    /// <summary>è¯·æ±‚å°†æ§åˆ¶å°è§†å£æ»šåŠ¨åˆ°é¡¶éƒ¨å–µ~ï¼ˆå­ç±»å¯é‡å†™ï¼‰</summary>
+    public virtual void ScrollConsoleToTop() { }  // åŸºç±»é»˜è®¤ç©ºå®ç°
 
     // =========================================================
-    //  ¹«¹²½Ó¿Ú (API)
+    //  å…¬å…±æ¥å£ (API)
     // =========================================================
 
     /// <summary>
-    /// ×¢²áÃüÁî
+    /// æ³¨å†Œå‘½ä»¤
     /// </summary>
     public void AddCommand(string key, System.Action<string[]> action)
     {
@@ -261,25 +395,25 @@ public class DeveloperConsole : TUIManager
     }
 
     /// <summary>
-    /// »ñÈ¡ËùÓĞÃüÁî¼ü
+    /// è·å–æ‰€æœ‰å‘½ä»¤é”®
     /// </summary>
     public IEnumerable<string> GetCommandKeys() => _commands.Keys;
 
     // =========================================================
-    //  ÊÜ±£»¤µÄ´¥·¢Æ÷£¨×ÓÀà×¨ÓÃÍ¨µÀ£©
+    //  å—ä¿æŠ¤çš„è§¦å‘å™¨ï¼ˆå­ç±»ä¸“ç”¨é€šé“ï¼‰
     // =========================================================
 
     /// <summary>
-    /// ·¢ÉäÊä³öĞÅºÅ£¨ÊÜ±£»¤·½·¨£¬½ö¹©×ÓÀàµ÷ÓÃ£©ß÷~
+    /// å‘å°„è¾“å‡ºä¿¡å·ï¼ˆå—ä¿æŠ¤æ–¹æ³•ï¼Œä»…ä¾›å­ç±»è°ƒç”¨ï¼‰å–µ~
     /// </summary>
     protected void FireOutputEvents(string message, Color color)
     {
-        // Ö»·¢ËÍÒ»¸öÊÂ¼ş£¬±ÜÃâÖØ¸´´¦Àíß÷~
+        // åªå‘é€ä¸€ä¸ªäº‹ä»¶ï¼Œé¿å…é‡å¤å¤„ç†å–µ~
         PostSystem.Instance.Send("DeveloperConsole.Output", new ConsoleOutputEvent { message = message, color = color });
     }
 
     /// <summary>
-    /// Êä³öÈÕÖ¾£¨ÊÂ¼şÇı¶¯£¬²»Ö±½Ó²Ù×÷ UI£©
+    /// è¾“å‡ºæ—¥å¿—ï¼ˆäº‹ä»¶é©±åŠ¨ï¼Œä¸ç›´æ¥æ“ä½œ UIï¼‰
     /// </summary>
     public virtual void Log(string message, Color color)
     {
@@ -287,23 +421,23 @@ public class DeveloperConsole : TUIManager
     }
 
     // =========================================================
-    //  ÃüÁîÖ´ĞĞÈë¿Ú
+    //  å‘½ä»¤æ‰§è¡Œå…¥å£
     // =========================================================
 
     /// <summary>
-    /// ´¦ÀíÃüÁî×Ö·û´®£¨Ö§³Ö·ÖºÅ¡¢¹ÜµÀºÍÖØ¶¨Ïò£©
+    /// å¤„ç†å‘½ä»¤å­—ç¬¦ä¸²ï¼ˆæ”¯æŒåˆ†å·ã€ç®¡é“å’Œé‡å®šå‘ï¼‰
     /// </summary>
     public virtual void ProcessCommand(string input)
     {
         if (string.IsNullOrWhiteSpace(input)) return;
 
-        // ²ßÂÔÀ¹½Ø£ºÓĞ»îÔ¾²ßÂÔÊ±Ö±½Ó×ª·¢£¬²»×ßÃüÁîÏµÍ³ß÷~
+        // ç­–ç•¥æ‹¦æˆªï¼šæœ‰æ´»è·ƒç­–ç•¥æ—¶ç›´æ¥è½¬å‘ï¼Œä¸èµ°å‘½ä»¤ç³»ç»Ÿå–µ~
         if (TryHandleSubmit(input))
         {
             return;
         }
 
-        // Ö§³Ö·ÖºÅ¡¢»»ĞĞ·û×÷ÎªÖ¸Áî·Ö¸ô·û
+        // æ”¯æŒåˆ†å·ã€æ¢è¡Œç¬¦ä½œä¸ºæŒ‡ä»¤åˆ†éš”ç¬¦
         string[] commandQueue = input.Split(new[] { ';', '\n', '\r' }, System.StringSplitOptions.RemoveEmptyEntries);
 
         foreach (var commandLine in commandQueue)
@@ -311,7 +445,7 @@ public class DeveloperConsole : TUIManager
             string trimmedLine = commandLine.Trim();
             if (string.IsNullOrWhiteSpace(trimmedLine)) continue;
 
-            // ½âÎöÖØ¶¨Ïò·ûºÅ£¨>> »ò >£©
+            // è§£æé‡å®šå‘ç¬¦å·ï¼ˆ>> æˆ– >ï¼‰
             string execLine = ParseRedirection(trimmedLine, out string redirectPath, out bool isAppend);
 
             if (redirectPath != null)
@@ -330,15 +464,15 @@ public class DeveloperConsole : TUIManager
     }
 
     /// <summary>
-    /// ´ÓÃüÁîĞĞÖĞ½âÎöÖØ¶¨Ïò²¿·Ö£¨´ÓÓÒÍù×ó²éÕÒ£¬±ÜÃâ²ÎÊıÖĞµÄ > ÎóÅĞ£©ß÷~
-    /// ·µ»ØÈ¥µôÖØ¶¨Ïò²¿·ÖµÄÖ´ĞĞÃüÁî£»redirectPath Îª null ±íÊ¾ÎŞÖØ¶¨Ïò
+    /// ä»å‘½ä»¤è¡Œä¸­è§£æé‡å®šå‘éƒ¨åˆ†ï¼ˆä»å³å¾€å·¦æŸ¥æ‰¾ï¼Œé¿å…å‚æ•°ä¸­çš„ > è¯¯åˆ¤ï¼‰å–µ~
+    /// è¿”å›å»æ‰é‡å®šå‘éƒ¨åˆ†çš„æ‰§è¡Œå‘½ä»¤ï¼›redirectPath ä¸º null è¡¨ç¤ºæ— é‡å®šå‘
     /// </summary>
     private string ParseRedirection(string line, out string redirectPath, out bool isAppend)
     {
         redirectPath = null;
         isAppend = false;
 
-        // ÏÈÕÒ >>£¨×·¼Ó£©£¬±ÜÃâÓëµ¥ > »ìÏı
+        // å…ˆæ‰¾ >>ï¼ˆè¿½åŠ ï¼‰ï¼Œé¿å…ä¸å• > æ··æ·†
         int appendIdx = line.LastIndexOf(">>");
         if (appendIdx >= 0)
         {
@@ -347,7 +481,7 @@ public class DeveloperConsole : TUIManager
             return line.Substring(0, appendIdx).Trim();
         }
 
-        // ÔÙÕÒµ¥¶ÀµÄ >£¨¸²Ğ´£©
+        // å†æ‰¾å•ç‹¬çš„ >ï¼ˆè¦†å†™ï¼‰
         int writeIdx = line.LastIndexOf('>');
         if (writeIdx >= 0)
         {
@@ -360,17 +494,17 @@ public class DeveloperConsole : TUIManager
     }
 
     /// <summary>
-    /// Ö´ĞĞÃüÁî²¢½«Êä³öÖØ¶¨ÏòĞ´Èë VFS ÎÄ¼şß÷~
+    /// æ‰§è¡Œå‘½ä»¤å¹¶å°†è¾“å‡ºé‡å®šå‘å†™å…¥ VFS æ–‡ä»¶å–µ~
     /// </summary>
     private void ExecuteWithRedirection(string execLine, string redirectPath, bool isAppend)
     {
         if (string.IsNullOrEmpty(CurrentVFSPackID))
         {
-            Log("Î´¹ÒÔØÎÄ¼şÏµÍ³£¬ÎŞ·¨Ê¹ÓÃÖØ¶¨Ïòß÷£¡", Color.yellow);
+            Log("æœªæŒ‚è½½æ–‡ä»¶ç³»ç»Ÿï¼Œæ— æ³•ä½¿ç”¨é‡å®šå‘å–µï¼", Color.yellow);
             return;
         }
 
-        // Ö´ĞĞÃüÁî»ñÈ¡ CommandOutput£¨¹ÜµÀÖĞµÄ²ÎÊıÒ²ÒªÌæ»»Ë÷Òı£©
+        // æ‰§è¡Œå‘½ä»¤è·å– CommandOutputï¼ˆç®¡é“ä¸­çš„å‚æ•°ä¹Ÿè¦æ›¿æ¢ç´¢å¼•ï¼‰
         CommandOutput output;
         if (execLine.Contains('|'))
         {
@@ -382,20 +516,20 @@ public class DeveloperConsole : TUIManager
             if (parts.Length == 0) return;
             string cmdName = parts[0].ToLower();
             string[] args = parts.Skip(1).ToArray();
-            // ¡¾Ë÷ÒıÌæ»»¡¿Ö´ĞĞÃüÁîÇ°Ìæ»»²ÎÊıÖĞµÄË÷Òıß÷~
+            // ã€ç´¢å¼•æ›¿æ¢ã€‘æ‰§è¡Œå‘½ä»¤å‰æ›¿æ¢å‚æ•°ä¸­çš„ç´¢å¼•å–µ~
             args = ResolveIndexArguments(args);
             output = CommandRegistry.Execute(cmdName, args, null, this);
         }
 
         if (output == null || output.Result == CommandRegistry.CommandResult.Failed)
         {
-            Log($"ÃüÁîÖ´ĞĞÊ§°Ü£¬ÖØ¶¨ÏòÒÑÖÕÖ¹ß÷£º{output?.Message}", Color.red);
+            Log($"å‘½ä»¤æ‰§è¡Œå¤±è´¥ï¼Œé‡å®šå‘å·²ç»ˆæ­¢å–µï¼š{output?.Message}", Color.red);
             return;
         }
 
         string content = output.Payload?.ToString() ?? output.Message ?? "";
 
-        // ¡¾Ë÷ÒıÌæ»»¡¿ÖØ¶¨ÏòÂ·¾¶Ò²ÒªÌæ»»Ë÷Òıß÷~
+        // ã€ç´¢å¼•æ›¿æ¢ã€‘é‡å®šå‘è·¯å¾„ä¹Ÿè¦æ›¿æ¢ç´¢å¼•å–µ~
         string resolvedRedirectPath = redirectPath;
         if (Regex.IsMatch(redirectPath, @"^\.\d+$"))
         {
@@ -410,44 +544,49 @@ public class DeveloperConsole : TUIManager
                 int index = int.Parse(redirectPath.Substring(1));
                 if (index >= 0 && index < validChildren.Count)
                 {
-                    // Ê¹ÓÃ Name + Extension ×÷ÎªÂ·¾¶ß÷~£¨Ä¿Â¼µÄ Extension Îª¿Õ£¬²»Ó°Ïì£©
+                    // ä½¿ç”¨ Name + Extension ä½œä¸ºè·¯å¾„å–µ~ï¼ˆç›®å½•çš„ Extension ä¸ºç©ºï¼Œä¸å½±å“ï¼‰
                     var node = validChildren[index];
                     resolvedRedirectPath = node.Name + node.Extension;
                 }
                 else
                 {
-                    Log($"ÖØ¶¨ÏòË÷Òı {index} ³¬³ö·¶Î§ (0-{validChildren.Count - 1}) ß÷~", Color.red);
+                    Log($"é‡å®šå‘ç´¢å¼• {index} è¶…å‡ºèŒƒå›´ (0-{validChildren.Count - 1}) å–µ~", Color.red);
                     return;
                 }
             }
         }
 
-        string fullPath = resolvedRedirectPath.StartsWith("/") ? resolvedRedirectPath : VFSPathResolver.Combine(_currentPath, resolvedRedirectPath);
+        var (redirectPackID, fullPath) = ResolveDrivePath(resolvedRedirectPath);
+        if (string.IsNullOrEmpty(redirectPackID))
+        {
+            Log($"é‡å®šå‘ç›®æ ‡ç›˜ç¬¦ä¸å­˜åœ¨å–µï¼š{resolvedRedirectPath}", Color.red);
+            return;
+        }
 
         var analyser = GraphAnalyser.Instance;
-        if (analyser == null) { Log("GraphAnalyser Î´³õÊ¼»¯ß÷£¡", Color.red); return; }
+        if (analyser == null) { Log("GraphAnalyser æœªåˆå§‹åŒ–å–µï¼", Color.red); return; }
 
         if (isAppend)
         {
-            var existing = analyser.GetNode(CurrentVFSPackID, fullPath);
+            var existing = analyser.GetNode(redirectPackID, fullPath);
             if (existing is VFSNodeData existingVfs)
                 content = existingVfs.DataJson + "\n" + content;
         }
 
-        if (analyser.WriteFile(CurrentVFSPackID, fullPath, content))
-            Log($"ÄÚÈİÒÑ{(isAppend ? "×·¼Ó" : "Ğ´Èë")}µ½£º{fullPath}", Color.green);
+        if (analyser.WriteFile(redirectPackID, fullPath, content))
+            Log($"å†…å®¹å·²{(isAppend ? "è¿½åŠ " : "å†™å…¥")}åˆ°ï¼š{fullPath}", Color.green);
         else
-            Log($"Ğ´ÈëÊ§°Ü£¬Çë¼ì²éÂ·¾¶ÊÇ·ñÕıÈ·ß÷£º{fullPath}", Color.red);
+            Log($"å†™å…¥å¤±è´¥ï¼Œè¯·æ£€æŸ¥è·¯å¾„æ˜¯å¦æ­£ç¡®å–µï¼š{fullPath}", Color.red);
     }
 
     /// <summary>
-    /// Ö´ĞĞ¹ÜµÀÃüÁî²¢·µ»Ø×îÖÕ CommandOutput£¨¹©ÖØ¶¨ÏòÊ¹ÓÃ£©ß÷~
+    /// æ‰§è¡Œç®¡é“å‘½ä»¤å¹¶è¿”å›æœ€ç»ˆ CommandOutputï¼ˆä¾›é‡å®šå‘ä½¿ç”¨ï¼‰å–µ~
     /// </summary>
     private CommandOutput ExecutePipelineGetOutput(string input)
     {
         string[] parts = input.Split('|');
         object payload = null;
-        CommandOutput lastOutput = CommandOutput.Fail("¿Õ¹ÜµÀ");
+        CommandOutput lastOutput = CommandOutput.Fail("ç©ºç®¡é“");
 
         foreach (var part in parts)
         {
@@ -460,7 +599,7 @@ public class DeveloperConsole : TUIManager
             string commandName = tokens[0].ToLower();
             string[] args = tokens.Skip(1).ToArray();
 
-            // ¡¾Ë÷ÒıÌæ»»¡¿¹ÜµÀÖĞÒ²ÒªÌæ»»Ë÷Òıß÷~
+            // ã€ç´¢å¼•æ›¿æ¢ã€‘ç®¡é“ä¸­ä¹Ÿè¦æ›¿æ¢ç´¢å¼•å–µ~
             args = ResolveIndexArguments(args);
 
             lastOutput = CommandRegistry.Execute(commandName, args, payload, this);
@@ -477,17 +616,17 @@ public class DeveloperConsole : TUIManager
     }
 
     // =========================================================
-    //  ÃüÁîÖ´ĞĞÄÚ²¿·½·¨
+    //  å‘½ä»¤æ‰§è¡Œå†…éƒ¨æ–¹æ³•
     // =========================================================
 
     // =========================================================
-    //  Ë÷Òı½âÎöÖ§³Öß÷~
+    //  ç´¢å¼•è§£ææ”¯æŒå–µ~
     // =========================================================
 
     /// <summary>
-    /// Ìæ»»²ÎÊıÖĞµÄË÷ÒıÎªÊµ¼ÊÂ·¾¶ß÷~
-    /// Ö»ÓĞ¶ÀÁ¢²ÎÊıÇÒÍêÈ«Æ¥Åä ^\.\d+$ ²ÅÌæ»»£¨Èç .0, .1£©
-    /// Ğ¡Êı (1.5)¡¢ºó×º (file.1)¡¢Â·¾¶ (/path/.1) ²»»á±»Ìæ»»ß÷~
+    /// æ›¿æ¢å‚æ•°ä¸­çš„ç´¢å¼•ä¸ºå®é™…è·¯å¾„å–µ~
+    /// åªæœ‰ç‹¬ç«‹å‚æ•°ä¸”å®Œå…¨åŒ¹é… ^\.\d+$ æ‰æ›¿æ¢ï¼ˆå¦‚ .0, .1ï¼‰
+    /// å°æ•° (1.5)ã€åç¼€ (file.1)ã€è·¯å¾„ (/path/.1) ä¸ä¼šè¢«æ›¿æ¢å–µ~
     /// </summary>
     private string[] ResolveIndexArguments(string[] args)
     {
@@ -496,7 +635,7 @@ public class DeveloperConsole : TUIManager
         var analyser = GraphAnalyser.Instance;
         if (analyser == null) return args;
 
-        // »ñÈ¡µ±Ç°Ä¿Â¼µÄ×Ó½ÚµãÁĞ±í
+        // è·å–å½“å‰ç›®å½•çš„å­èŠ‚ç‚¹åˆ—è¡¨
         var children = analyser.GetChildren(CurrentVFSPackID, CurrentPath);
         var validChildren = children.Where(c => c is VFSNodeData vfs && vfs.IsEnabled)
                                     .Cast<VFSNodeData>()
@@ -504,34 +643,34 @@ public class DeveloperConsole : TUIManager
 
         for (int i = 0; i < args.Length; i++)
         {
-            // Ö»ÓĞ¶ÀÁ¢²ÎÊıÇÒÍêÈ«Æ¥Åä ^\.\d+$ ²ÅÌæ»»
+            // åªæœ‰ç‹¬ç«‹å‚æ•°ä¸”å®Œå…¨åŒ¹é… ^\.\d+$ æ‰æ›¿æ¢
             if (Regex.IsMatch(args[i], @"^\.\d+$"))
             {
                 int index = int.Parse(args[i].Substring(1));
 
                 if (index >= 0 && index < validChildren.Count)
                 {
-                    // Ê¹ÓÃ Name + Extension ×÷ÎªÂ·¾¶ß÷~£¨Ä¿Â¼µÄ Extension Îª¿Õ£¬²»Ó°Ïì£©
+                    // ä½¿ç”¨ Name + Extension ä½œä¸ºè·¯å¾„å–µ~ï¼ˆç›®å½•çš„ Extension ä¸ºç©ºï¼Œä¸å½±å“ï¼‰
                     var node = validChildren[index];
                     args[i] = node.Name + node.Extension;
                 }
                 else
                 {
-                    Log($"Ë÷Òı {index} ³¬³ö·¶Î§ (0-{validChildren.Count - 1}) ß÷~", Color.red);
+                    Log($"ç´¢å¼• {index} è¶…å‡ºèŒƒå›´ (0-{validChildren.Count - 1}) å–µ~", Color.red);
                 }
             }
-            // ²»Æ¥ÅäµÄ±£³ÖÔ­Ñù£º1.5, file.txt, /path/.1 µÈ
+            // ä¸åŒ¹é…çš„ä¿æŒåŸæ ·ï¼š1.5, file.txt, /path/.1 ç­‰
         }
 
         return args;
     }
 
     // =========================================================
-    //  ÃüÁîÖ´ĞĞÄÚ²¿·½·¨
+    //  å‘½ä»¤æ‰§è¡Œå†…éƒ¨æ–¹æ³•
     // =========================================================
 
     /// <summary>
-    /// Ö´ĞĞµ¥¸öÃüÁî
+    /// æ‰§è¡Œå•ä¸ªå‘½ä»¤
     /// </summary>
     private void ExecuteSingleCommand(string input)
     {
@@ -542,7 +681,7 @@ public class DeveloperConsole : TUIManager
         string commandKey = parts[0].ToLower();
         string[] args = parts.Skip(1).ToArray();
 
-        // ¡¾Ë÷ÒıÌæ»»¡¿ÔÚÖ´ĞĞÇ°Ìæ»»ËùÓĞ²ÎÊıÖĞµÄË÷Òıß÷~
+        // ã€ç´¢å¼•æ›¿æ¢ã€‘åœ¨æ‰§è¡Œå‰æ›¿æ¢æ‰€æœ‰å‚æ•°ä¸­çš„ç´¢å¼•å–µ~
         args = ResolveIndexArguments(args);
 
         if (_commands.TryGetValue(commandKey, out var commandAction))
@@ -565,7 +704,7 @@ public class DeveloperConsole : TUIManager
     }
 
     /// <summary>
-    /// Ö´ĞĞ¹ÜµÀÃüÁî
+    /// æ‰§è¡Œç®¡é“å‘½ä»¤
     /// </summary>
     private void ExecutePipeline(string input)
     {
@@ -584,32 +723,32 @@ public class DeveloperConsole : TUIManager
             string commandName = tokens[0].ToLower();
             string[] args = tokens.Skip(1).ToArray();
 
-            // ¡¾Ë÷ÒıÌæ»»¡¿ÔÚ¹ÜµÀÖĞÒ²ÒªÌæ»»Ë÷Òıß÷~
+            // ã€ç´¢å¼•æ›¿æ¢ã€‘åœ¨ç®¡é“ä¸­ä¹Ÿè¦æ›¿æ¢ç´¢å¼•å–µ~
             args = ResolveIndexArguments(args);
 
-            // Ö´ĞĞÃüÁî£¬´«ÈëÉÏÓÎµÄ payload
+            // æ‰§è¡Œå‘½ä»¤ï¼Œä¼ å…¥ä¸Šæ¸¸çš„ payload
             var output = CommandRegistry.Execute(commandName, args, payload, this);
 
-            // ½«Êä³ö Payload ´«µİ¸øÏÂÓÎ
+            // å°†è¾“å‡º Payload ä¼ é€’ç»™ä¸‹æ¸¸
             payload = output.Payload;
 
-            // Èç¹ûÊ§°Ü£¬Í£Ö¹¹ÜµÀ
+            // å¦‚æœå¤±è´¥ï¼Œåœæ­¢ç®¡é“
             if (output.Result == CommandRegistry.CommandResult.Failed)
             {
                 Log($"Pipeline failed at '{commandName}': {output.Message}", Color.red);
                 break;
             }
 
-            // ³É¹¦Ôò¼ÌĞø
+            // æˆåŠŸåˆ™ç»§ç»­
             if (GraphRunner.Instance != null && GraphRunner.Instance.EnableDebugLog)
             {
-                Log($"Pipeline: {commandName} ¡ú Payload: {(payload != null ? payload.GetType().Name : "null")}", Color.gray);
+                Log($"Pipeline: {commandName} â†’ Payload: {(payload != null ? payload.GetType().Name : "null")}", Color.gray);
             }
         }
     }
 
     // =========================================================
-    //  Unity ÉúÃüÖÜÆÚ
+    //  Unity ç”Ÿå‘½å‘¨æœŸ
     // =========================================================
 
     protected virtual void Awake()
@@ -618,10 +757,8 @@ public class DeveloperConsole : TUIManager
         RegisterCommands();
         PostSystem.Instance.Register(this);
 
-        // ¶µµ×£ºÈô VFS ÏµÍ³ÒÑ¾ÍĞ÷£¨PersistentVFSManager ÒÑ¹ÒÅÌ£©£¬Ö±½ÓÖØÖÃÂ·¾¶ß÷~
-        if (PersistentVFSManager.Instance != null &&
-            PersistentVFSManager.Instance.IsReady &&
-            CurrentVFSPackID != null)
+        // å…œåº•ï¼šè‹¥ VFS ç³»ç»Ÿå·²å°±ç»ªï¼ˆGraphAnalyser å·²æœ‰æŒ‚ç›˜ï¼‰ï¼Œç›´æ¥é‡ç½®è·¯å¾„å–µ~
+        if (GraphAnalyser.Instance != null && CurrentVFSPackID != null)
         {
             _currentPath = "/";
         }
@@ -637,7 +774,7 @@ public class DeveloperConsole : TUIManager
     {
         if (Application.isEditor && EnableUnityLogging)
         {
-            // ±à¼­Æ÷Ä£Ê½ÏÂ¿ÉÒÔ²¶»ñ Unity ÈÕÖ¾
+            // ç¼–è¾‘å™¨æ¨¡å¼ä¸‹å¯ä»¥æ•è· Unity æ—¥å¿—
             Application.logMessageReceived += HandleUnityLog;
         }
     }
@@ -651,7 +788,7 @@ public class DeveloperConsole : TUIManager
     }
 
     /// <summary>
-    /// ´¦Àí Unity ÈÕÖ¾£¨¿ÉÑ¡£©
+    /// å¤„ç† Unity æ—¥å¿—ï¼ˆå¯é€‰ï¼‰
     /// </summary>
     private void HandleUnityLog(string logString, string stackTrace, LogType type)
     {
@@ -665,7 +802,7 @@ public class DeveloperConsole : TUIManager
     }
 
     /// <summary>
-    /// ×¢²áÃüÁî£¨´Ó CommandRegistry ×Ô¶¯×¢²á£©
+    /// æ³¨å†Œå‘½ä»¤ï¼ˆä» CommandRegistry è‡ªåŠ¨æ³¨å†Œï¼‰
     /// </summary>
     private void RegisterCommands()
     {

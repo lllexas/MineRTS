@@ -18,6 +18,7 @@ public class PackWindow : EditorWindow
     private BaseGraphView _graphView;
     private VisualElement _viewContainer;
     private TextField _packIDField;
+    private EnumField _accessLevelField;
     private BasePackData _currentPack;
     private string _currentFilePath;
 
@@ -70,6 +71,19 @@ public class PackWindow : EditorWindow
         _packIDField.RegisterValueChangedCallback(evt => _graphView?.SetPackID(evt.newValue));
         toolbar.Add(_packIDField);
 
+        _accessLevelField = new EnumField(PackAccessLevel.ReadOnly)
+        {
+            tooltip = "玩家访问权限喵~",
+        };
+        _accessLevelField.style.width = 110;
+        _accessLevelField.style.marginRight = 5;
+        _accessLevelField.RegisterValueChangedCallback(evt =>
+        {
+            if (_currentPack != null)
+                _currentPack.AccessLevel = (PackAccessLevel)evt.newValue;
+        });
+        toolbar.Add(_accessLevelField);
+
         toolbar.Add(new ToolbarSpacer());
         toolbar.Add(new Button(SaveData) { text = "💾 保存" });
         toolbar.Add(new Button(LoadData) { text = "📂 读取" });
@@ -102,6 +116,7 @@ public class PackWindow : EditorWindow
         string id = !string.IsNullOrEmpty(pack.PackID) ? pack.PackID : Path.GetFileNameWithoutExtension(path);
         _packIDField.SetValueWithoutNotify(id);
         _graphView.SetPackID(id);
+        _accessLevelField.SetValueWithoutNotify(pack.AccessLevel);
 
         SetupSearchWindow(pack);
 

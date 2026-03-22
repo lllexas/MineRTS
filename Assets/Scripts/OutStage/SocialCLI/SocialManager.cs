@@ -20,10 +20,9 @@ public class SocialManager : SingletonData<SocialManager>
     public void SendMessage(string packID, string sender = "系统", string vfsPath = null)
     {
         var analyser = GraphAnalyser.Instance;
-        var vfsManager = PersistentVFSManager.Instance;
-        if (analyser == null || vfsManager == null) return;
+        if (analyser == null) return;
 
-        if (analyser.GetInstance(SOCIAL_PACK_ID) == null)
+        if (analyser.GetPack(SOCIAL_PACK_ID) == null)
         {
             Debug.LogError($"[SocialManager] VFS 未挂载：{SOCIAL_PACK_ID}，请检查存档加载流程喵！");
             return;

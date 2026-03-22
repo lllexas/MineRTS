@@ -218,7 +218,7 @@ public class SocialCLI : DeveloperConsole
 
     // OnDestroy 已上移至基类（负责 PostSystem.Unregister）喵~
     // OnVFSSystemReady 已上移至基类（Subscribe VFS.IO_Ready）喵~
-    // VFS 初始化由 PersistentVFSManager.Initialize() 在挂盘时统一完成喵~
+    // VFS 初始化由 SaveManager 在挂盘时统一完成喵~
 
     // =========================================================
     //  调试方法喵~
@@ -232,9 +232,8 @@ public class SocialCLI : DeveloperConsole
         var analyser = GraphAnalyser.Instance;
         if (analyser == null) return "GraphAnalyser 实例不存在";
 
-        var instance = analyser.GetInstance(CurrentVFSPackID);
-        if (instance == null) return $"VFS 实例不存在：{CurrentVFSPackID}";
+        if (analyser.GetPack(CurrentVFSPackID) == null) return $"VFS Pack 不存在：{CurrentVFSPackID}";
 
-        return instance.GetDebugInfo();
+        return analyser.GetDebugInfo();
     }
 }

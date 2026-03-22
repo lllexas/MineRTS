@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 
 namespace MineRTS.BigMap.UI.Panels
@@ -60,7 +60,7 @@ namespace MineRTS.BigMap.UI.Panels
         {
             "╔═╗┌─┐┌─┐┬┌─┐┬  ╔═╗╦  ╦",
             "╚═╗│ ││  │├─┤│  ║  ║  ║",
-            "╚═╝└─┘└─┘┴└─┘┴─┘╚═╝╩═╝╩",
+            "╚═╝└─┘└─┘┴┴ ┴┴─┘╚═╝╩═╝╩",
         };
 
         // Small：contentW < 22，不显示艺术字，仅 Tab 头 + 底栏边框

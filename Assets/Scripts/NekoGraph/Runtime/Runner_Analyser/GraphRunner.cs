@@ -7,8 +7,9 @@ using UnityEngine;
 /// 图运行器 - 管理所有运行时图实例的中央调度器喵~
 /// 直接操作 BasePackData，不再需要 RuntimeGraphInstance 中间层喵！
 /// </summary>
-public class GraphRunner : SingletonMono<GraphRunner>
+public class GraphRunner
 {
+    public static GraphRunner Instance => GraphHub.Instance?.DefaultRunner;
     /// <summary>
     /// 持久化 GUID 到实例化 Pack 字典喵~
     /// Key: InstanceID (运行时生成的 GUID), Value: BasePackData 本体
@@ -33,24 +34,24 @@ public class GraphRunner : SingletonMono<GraphRunner>
     /// </summary>
     public bool EnableDebugLog = false;
 
-    protected override void Awake()
+    public GraphRunner(Dictionary<string, BasePackData> dict = null)
     {
-        base.Awake();
+        SetPackDataDict(dict);
     }
 
-    private void Start()
+    private void StartCompatibility()
     {
         // 注册到 PostSystem 接收全局事件
         PostSystem.Instance.Register(this);
     }
 
-    private void Update()
+    public void Tick()
     {
         // 驱动所有 Pack 中的信号步进喵~
         TickAllPacks();
     }
 
-    private void OnDestroy()
+    public void Dispose()
     {
         PersistentGuidToInstancedPackDict?.Clear();
     }
@@ -65,7 +66,40 @@ public class GraphRunner : SingletonMono<GraphRunner>
     /// </summary>
     public void SetPackDataDict(Dictionary<string, BasePackData> dict)
     {
-        PersistentGuidToInstancedPackDict = dict;
+        PersistentGuidToInstancedPackDict = dict ?? new Dictionary<string, BasePackData>();
+    }
+
+    public void OnPackDataDictLoaded(Dictionary<string, BasePackData> dict)
+    {
+        SetPackDataDict(dict);
+
+        foreach (var pack in PersistentGuidToInstancedPackDict.Values)
+        {
+            if (pack != null && !pack.HasStarted && !string.IsNullOrEmpty(pack.RootNodeId))
+            {
+                pack.ActiveSignals.Enqueue(new SignalContext(pack.RootNodeId, null));
+                pack.HasStarted = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 读档/新档后由 SaveManager 直接调用，完成引用挂接 + 启动未启动的 Pack 喵~
+    /// </summary>
+    public void OnUserLoaded(UserModel user)
+    {
+        // 1. 直接引用 PackDataDict，零副本喵~
+        PersistentGuidToInstancedPackDict = user.PackDataDict;
+
+        // 2. 扫描所有 Pack，启动未启动的（VFS 类型的 pack 注入根信号后静默通过，无副作用）
+        foreach (var pack in user.PackDataDict.Values)
+        {
+            if (!pack.HasStarted && !string.IsNullOrEmpty(pack.RootNodeId))
+            {
+                pack.ActiveSignals.Enqueue(new SignalContext(pack.RootNodeId, null));
+                pack.HasStarted = true;
+            }
+        }
     }
 
     /// <summary>

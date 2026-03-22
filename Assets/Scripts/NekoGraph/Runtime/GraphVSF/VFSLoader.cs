@@ -13,9 +13,9 @@ using Newtonsoft.Json;
 /// - 与 GraphAnalyser 配合：Loader 负责"沉睡数据"，Analyser 负责"觉醒"
 ///
 /// 职责：
-/// - 从 Resources 加载 VFSPackData（JSON 反序列化）
-/// - 从文件加载 VFSPackData（存档读取）
-/// - 序列化 VFSPackData 到 JSON（存档写入）
+/// - 从 Resources 加载 BasePackData（JSON 反序列化）
+/// - 从文件加载 BasePackData（存档读取）
+/// - 序列化 BasePackData 到 JSON（存档写入）
 ///
 /// 与 GraphAnalyser 的分工：
 /// - VFSLoader: 数据加载（沉睡状态）
@@ -38,18 +38,18 @@ public static class VFSLoader
     // =========================================================
 
     /// <summary>
-    /// 从 Resources 加载 VFSPackData 喵~
+    /// 从 Resources 加载 BasePackData 喵~
     /// 【Newtonsoft.Json + TypeNameHandling.Auto 驱动】
     /// </summary>
     /// <param name="path">资源路径（相对于 Resources 目录，不含扩展名）</param>
-    /// <returns>VFSPackData，如果加载失败则返回 null</returns>
-    public static VFSPackData LoadPackFromResources(string path)
+    /// <returns>BasePackData，如果加载失败则返回 null</returns>
+    public static BasePackData LoadPackFromResources(string path)
     {
-        return LoadPackFromResources<VFSPackData>(path);
+        return LoadPackFromResources<BasePackData>(path);
     }
 
     /// <summary>
-    /// 从 Resources 加载 VFSPackData（泛型版本）喵~
+    /// 从 Resources 加载 BasePackData（泛型版本）喵~
     /// 【Newtonsoft.Json + TypeNameHandling.Auto 驱动】
     /// </summary>
     public static T LoadPackFromResources<T>(string path) where T : BasePackData
@@ -78,11 +78,11 @@ public static class VFSLoader
     // =========================================================
 
     /// <summary>
-    /// 从文件加载 VFSPackData 喵~（用于存档读取）
+    /// 从文件加载 BasePackData 喵~（用于存档读取）
     /// </summary>
     /// <param name="filePath">文件路径（绝对路径或相对路径）</param>
-    /// <returns>VFSPackData，如果加载失败则返回 null</returns>
-    public static VFSPackData LoadPackFromFile(string filePath)
+    /// <returns>BasePackData，如果加载失败则返回 null</returns>
+    public static BasePackData LoadPackFromFile(string filePath)
     {
         try
         {
@@ -93,7 +93,7 @@ public static class VFSLoader
             }
 
             string json = System.IO.File.ReadAllText(filePath);
-            VFSPackData pack = JsonConvert.DeserializeObject<VFSPackData>(json, VfsJsonSettings);
+            BasePackData pack = JsonConvert.DeserializeObject<BasePackData>(json, VfsJsonSettings);
 
             if (pack == null)
             {
@@ -117,12 +117,12 @@ public static class VFSLoader
     // =========================================================
 
     /// <summary>
-    /// 保存 VFSPackData 到文件喵~（用于存档写入）
+    /// 保存 BasePackData 到文件喵~（用于存档写入）
     /// </summary>
     /// <param name="pack">VFS 数据包</param>
     /// <param name="filePath">文件路径</param>
     /// <returns>是否保存成功</returns>
-    public static bool SavePackToFile(VFSPackData pack, string filePath)
+    public static bool SavePackToFile(BasePackData pack, string filePath)
     {
         if (pack == null)
         {
@@ -158,11 +158,11 @@ public static class VFSLoader
     // =========================================================
 
     /// <summary>
-    /// 从 JSON 字符串反序列化 VFSPackData 喵~
+    /// 从 JSON 字符串反序列化 BasePackData 喵~
     /// </summary>
     /// <param name="json">JSON 字符串</param>
-    /// <returns>VFSPackData</returns>
-    public static VFSPackData LoadPackFromString(string json)
+    /// <returns>BasePackData</returns>
+    public static BasePackData LoadPackFromString(string json)
     {
         if (string.IsNullOrEmpty(json))
         {
@@ -172,7 +172,7 @@ public static class VFSLoader
 
         try
         {
-            VFSPackData pack = JsonConvert.DeserializeObject<VFSPackData>(json, VfsJsonSettings);
+            BasePackData pack = JsonConvert.DeserializeObject<BasePackData>(json, VfsJsonSettings);
 
             if (pack == null)
             {
@@ -192,11 +192,11 @@ public static class VFSLoader
     }
 
     /// <summary>
-    /// 序列化 VFSPackData 到 JSON 字符串喵~
+    /// 序列化 BasePackData 到 JSON 字符串喵~
     /// </summary>
     /// <param name="pack">VFS 数据包</param>
     /// <returns>JSON 字符串</returns>
-    public static string SavePackToString(VFSPackData pack)
+    public static string SavePackToString(BasePackData pack)
     {
         if (pack == null)
         {
@@ -222,9 +222,9 @@ public static class VFSLoader
     // =========================================================
 
     /// <summary>
-    /// 验证 VFSPackData 是否有效喵~
+    /// 验证 BasePackData 是否有效喵~
     /// </summary>
-    public static bool ValidatePack(VFSPackData pack)
+    public static bool ValidatePack(BasePackData pack)
     {
         if (pack == null) return false;
         if (string.IsNullOrEmpty(pack.PackID)) return false;

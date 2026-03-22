@@ -39,11 +39,8 @@ namespace MineRTS.BigMap.UI.Panels
         [Tooltip("输入框（TMP_InputField，透明覆盖，只捕获输入）")]
         [SerializeField] protected TMP_InputField inputField;
 
-        [Tooltip("输入文本（TextMeshProUGUI，当前输入行）")]
-        [SerializeField] protected TextMeshProUGUI inputText;
-
         [Header("Cursor Settings")]
-        [Tooltip("光标根节点（RectTransform，作为 inputText 的子对象，用于定位）")]
+        [Tooltip("光标根节点（RectTransform，用于定位光标块）")]
         [SerializeField] protected RectTransform cursorRoot;
 
         [Tooltip("光标背景（Image，白色块）")]
@@ -75,11 +72,20 @@ namespace MineRTS.BigMap.UI.Panels
 
         // 上下导航保持性目标列
         protected int _targetColumn = -1;
+        protected bool _isVerticalNavigationActive = false;
 
         // 光标状态
         protected RectTransform _cursorRootRect;
         protected float _cursorBlinkTimer = 0f;
         protected bool _cursorVisible = true;
+        protected string _renderedInputText = "";
+        protected int _renderedInputLineCount = 1;
+
+        private int _inputStartSourceIndex = -1;
+        private int _inputStartLineNumber = -1;
+        private bool _inputHandleHostBound = false;
+        private Func<int> _inputHandleLineProvider;
+        private Action<int, int, IEnumerable<string>> _inputHandleRangeWriter;
 
         // =========================================================
         //  抽象接口（由子类实现）
@@ -106,6 +112,8 @@ namespace MineRTS.BigMap.UI.Panels
 
         protected override void Awake()
         {
+            _inputHandleLineProvider = GetInputHandleStartLine;
+            _inputHandleRangeWriter = ReplaceRange;
             base.Awake(); // ConsoleDisplayBase.Awake → InitializeDisplay
             InitializeTerminal(); // 只含输入层初始化
         }
@@ -125,12 +133,14 @@ namespace MineRTS.BigMap.UI.Panels
         public override void Show()
         {
             base.Show();
+            TryBindInputHandleHost();
             // 显示时自动激活输入
             if (inputField != null)
             {
                 inputField.enabled = true;
                 inputField.ActivateInputField();
                 inputField.Select();
+                UpdateInputLine(inputField.text, inputField.caretPosition);
             }
         }
 
@@ -152,6 +162,7 @@ namespace MineRTS.BigMap.UI.Panels
 
             // 隐藏光标
             if (cursorBackground != null) cursorBackground.enabled = false;
+            if (cursorCharText != null) cursorCharText.enabled = false;
 
             // 隐藏 IME 预览
             if (imePreviewText != null)
@@ -169,6 +180,17 @@ namespace MineRTS.BigMap.UI.Panels
         protected override void Start()
         {
             base.Start(); // ConsoleDisplayBase.Start 已处理 Clear/Width 注入
+            TryBindInputHandleHost();
+            if (inputField != null)
+            {
+                UpdateInputLine(inputField.text, inputField.caretPosition);
+            }
+        }
+
+        protected override void OnDestroy()
+        {
+            TryUnbindInputHandleHost();
+            base.OnDestroy();
         }
 
         /// <summary>
@@ -181,13 +203,6 @@ namespace MineRTS.BigMap.UI.Panels
             {
                 inputField.lineType = TMP_InputField.LineType.MultiLineNewline;
                 inputField.contentType = TMP_InputField.ContentType.Standard;
-            }
-
-            // 初始化输入文本
-            if (inputText != null)
-            {
-                inputText.richText = true;
-                inputText.enableWordWrapping = true;
             }
 
             // 初始化光标背景（层级由 Inspector 排好，不在代码中移动）
@@ -203,13 +218,13 @@ namespace MineRTS.BigMap.UI.Panels
             }
 
             // 初始化 IME 预览文本
-            if (imePreviewText != null && inputText != null)
+            if (imePreviewText != null && historyText != null)
             {
                 imePreviewText.richText = true;
                 imePreviewText.enableWordWrapping = false;
                 imePreviewText.alignment = TextAlignmentOptions.TopLeft;
-                imePreviewText.fontSize = inputText.fontSize;
-                imePreviewText.font = inputText.font;
+                imePreviewText.fontSize = historyText.fontSize;
+                imePreviewText.font = historyText.font;
                 imePreviewText.enabled = false;
             }
         }
@@ -220,6 +235,7 @@ namespace MineRTS.BigMap.UI.Panels
 
         protected new virtual void Update()
         {
+            TryBindInputHandleHost();
             base.Update(); // 滚轮 + 脏刷新（ConsoleDisplayBase 处理）
 
             // 键盘输入监听
@@ -249,6 +265,8 @@ namespace MineRTS.BigMap.UI.Panels
         public override void OnPointerClick(UnityEngine.EventSystems.PointerEventData eventData)
         {
             base.OnPointerClick(eventData);
+            _targetColumn = -1;
+            _isVerticalNavigationActive = false;
             // 点击时激活输入框（仅在面板显示时）
             if (inputField != null && _canvasGroup.blocksRaycasts)
             {
@@ -275,91 +293,414 @@ namespace MineRTS.BigMap.UI.Panels
             _cursorVisible = Mathf.Sin(_cursorBlinkTimer * Mathf.PI) >= 0;
         }
 
+        private void ResetCursorBlink()
+        {
+            _cursorBlinkTimer = 0f;
+            _cursorVisible = true;
+        }
+
         /// <summary>
         /// 更新输入行（同步处理，富文本反色光标方案）
         /// </summary>
         protected virtual void UpdateInputLine(string input, int caret)
         {
-            if (inputText == null || inputField == null) return;
+            if (historyText == null || inputField == null) return;
+
+            input ??= string.Empty;
             string composition = Input.compositionString;
             caret = Mathf.Clamp(caret, 0, input.Length);
-            if (input != _lastInputText) _targetColumn = -1;
+            if (input != _lastInputText)
+            {
+                _targetColumn = -1;
+                _isVerticalNavigationActive = false;
+            }
 
-            HandleCursorBlink();
+            if (caret != _lastCaretPosition)
+            {
+                ResetCursorBlink();
+            }
+            else
+            {
+                HandleCursorBlink();
+            }
 
+            ResolveInputLineState(out bool shouldRenderInputLine, out string prompt);
+            string renderedInput = shouldRenderInputLine
+                ? BuildRenderedInputText(input, caret, composition, prompt)
+                : string.Empty;
+            int renderedLineCount = shouldRenderInputLine ? CountRenderedLines(renderedInput) : 0;
+            bool layoutChanged = renderedLineCount != _renderedInputLineCount;
+            bool contentChanged = !string.Equals(_renderedInputText, renderedInput, StringComparison.Ordinal);
+
+            _renderedInputText = renderedInput;
+            _renderedInputLineCount = renderedLineCount;
+
+            if (layoutChanged)
+            {
+                if (autoScrollToBottom) ScrollToBottom();
+                else ClampScrollAndInvalidate();
+            }
+
+            if (contentChanged || layoutChanged)
+            {
+                _isDirty = true;
+                RefreshHistoryDisplay();
+                _isDirty = false;
+            }
+
+            if (cursorBackground != null)
+            {
+                if (shouldRenderInputLine && _cursorVisible && inputField.isFocused)
+                {
+                    PositionCursorBackground(caret, input, prompt);
+                    cursorBackground.enabled = true;
+                }
+                else cursorBackground.enabled = false;
+            }
+
+            if (cursorCharText != null) cursorCharText.enabled = false;
+
+            if (imePreviewText != null)
+            {
+                imePreviewText.enabled = false;
+            }
+
+            _lastInputText = input;
+            _lastCaretPosition = caret;
+        }
+
+        /// <summary>
+        /// 将 cursorBackground Image 精确定位到光标字符处
+        /// </summary>
+        private void PositionCursorBackground(int rawCaret, string rawInput, string prompt)
+        {
+            TMP_TextInfo textInfo = historyText.textInfo;
+            if (textInfo == null || textInfo.lineCount <= 0) return;
+
+            int absoluteCaretSourceIndex = GetAbsoluteCaretSourceIndex(rawCaret, rawInput, prompt);
+            int lineNumber = GetAbsoluteInputLineNumber(rawCaret, rawInput, textInfo.lineCount);
+            bool isOnRenderableCharacter = rawCaret < rawInput.Length && rawInput[rawCaret] != '\n';
+
+            float x;
+            float y;
+            float w;
+            float h;
+
+            if (isOnRenderableCharacter && TryFindCharacterInfo(textInfo, absoluteCaretSourceIndex, out TMP_CharacterInfo ci))
+            {
+                x = ci.bottomLeft.x;
+                y = ci.descender;
+                w = Mathf.Max(1f, ci.topRight.x - ci.bottomLeft.x);
+                h = ci.ascender - ci.descender;
+            }
+            else
+            {
+                TMP_LineInfo lineInfo = textInfo.lineInfo[lineNumber];
+                x = lineInfo.maxAdvance;
+
+                // TMP 不将行尾空格计入 maxAdvance，需手动补偿喵~
+                int trailingSpaces = 0;
+                for (int i = rawCaret - 1; i >= 0 && rawInput[i] != '\n'; i--)
+                {
+                    if (rawInput[i] == ' ') trailingSpaces++;
+                    else break;
+                }
+                if (trailingSpaces > 0)
+                    x += trailingSpaces * GetCharacterWidth(' ', historyText);
+
+                y = lineInfo.descender;
+                w = Mathf.Max(1f, GetCursorAdvanceWidth());
+                h = lineInfo.ascender - lineInfo.descender;
+            }
+
+            ApplyCursorVisual(x, y, w, h);
+        }
+
+        protected override int GetReservedBottomRows()
+        {
+            if (_canvasGroup == null || !_canvasGroup.blocksRaycasts)
+            {
+                return 0;
+            }
+
+            ResolveInputLineState(out bool shouldRenderInputLine, out _);
+            if (!shouldRenderInputLine)
+            {
+                return 0;
+            }
+
+            return Mathf.Max(1, _renderedInputLineCount);
+        }
+
+        protected override void RefreshHistoryDisplay()
+        {
+            if (historyText == null || _buffer == null) return;
+
+            if (_visibleRows <= 0)
+            {
+                _visibleRows = RecalculateVisibleRows();
+            }
+
+            int historyRows = GetHistoryViewportRows();
+            int maxScrollIndex = Mathf.Max(0, _buffer.LineCount - GetScrollableHistoryRows());
+            _scrollLineIndex = Mathf.Clamp(_scrollLineIndex, 0, maxScrollIndex);
+
+            var historyLines = historyRows > 0
+                ? _buffer.GetVisibleLines(_scrollLineIndex, historyRows)
+                : new List<string>();
+
+            var closedHistoryLines = new List<string>(historyLines.Count);
+            foreach (var line in historyLines)
+            {
+                closedHistoryLines.Add(CloseColorTags(line));
+            }
+
+            var displayLines = new List<string>(closedHistoryLines);
+            ResolveInputLineState(out bool shouldRenderInputLine, out _);
+            var inputLines = shouldRenderInputLine
+                ? SplitRenderedLines(_renderedInputText)
+                : new List<string>();
+            string historyBlock = string.Join("\n", closedHistoryLines);
+            _inputStartSourceIndex = -1;
+            _inputStartLineNumber = -1;
+
+            if (inputLines.Count > 0)
+            {
+                _inputStartLineNumber = closedHistoryLines.Count > 0 ? closedHistoryLines.Count : 0;
+                _inputStartSourceIndex = closedHistoryLines.Count > 0 ? historyBlock.Length + 1 : 0;
+                displayLines.AddRange(inputLines);
+            }
+
+            historyText.text = string.Join("\n", displayLines);
+            historyText.ForceMeshUpdate();
+        }
+
+        private void ResolveInputLineState(out bool shouldRenderInputLine, out string prompt)
+        {
+            shouldRenderInputLine = true;
+            prompt = GetPrompt() ?? string.Empty;
+
+            IConsoleInputLineState lineState = ConsoleLogic != null
+                ? ConsoleLogic.CurrentInputHandler as IConsoleInputLineState
+                : null;
+            if (lineState == null)
+            {
+                return;
+            }
+
+            shouldRenderInputLine = lineState.ShouldRenderInputLine;
+            string customPrompt = lineState.GetInputPrompt(prompt);
+            if (!string.IsNullOrEmpty(customPrompt))
+            {
+                prompt = customPrompt;
+            }
+        }
+
+        private void TryBindInputHandleHost()
+        {
+            if (_inputHandleHostBound || ConsoleLogic == null)
+            {
+                return;
+            }
+
+            ConsoleLogic.BindInputHandleHost(_inputHandleLineProvider, _inputHandleRangeWriter);
+            _inputHandleHostBound = true;
+        }
+
+        private void TryUnbindInputHandleHost()
+        {
+            if (!_inputHandleHostBound || ConsoleLogic == null)
+            {
+                return;
+            }
+
+            ConsoleLogic.UnbindInputHandleHost(_inputHandleLineProvider, _inputHandleRangeWriter);
+            _inputHandleHostBound = false;
+        }
+
+        private int GetInputHandleStartLine()
+        {
+            return LineCount;
+        }
+
+        private string BuildRenderedInputText(string input, int caret, string composition, string prompt)
+        {
             string beforeCaret = input.Substring(0, caret);
-            string afterCaret  = caret < input.Length ? input.Substring(caret + 1) : "";
-            char   rawChar     = caret < input.Length ? input[caret] : '\0';
+            string afterCaret = caret < input.Length ? input.Substring(caret + 1) : "";
+            char rawChar = caret < input.Length ? input[caret] : '\0';
 
             string cursorSegment;
-            if (_cursorVisible && rawChar != '\0' && rawChar != '\n')
+            if (_cursorVisible && inputField != null && inputField.isFocused && rawChar != '\0' && rawChar != '\n')
                 cursorSegment = $"<color=#000000>{rawChar}</color>";
             else
                 cursorSegment = rawChar == '\0' ? "" : rawChar.ToString();
 
             string inputWithCursor = beforeCaret + cursorSegment + afterCaret;
             string imePreview = string.IsNullOrEmpty(composition) ? "" : $"<u color=white>{composition}</u>";
-            string formattedInput = inputWithCursor.Replace("\n", "\n" + GetPrompt());
-            inputText.text = GetPrompt() + formattedInput + imePreview;
-            inputText.ForceMeshUpdate();
+            string formattedInput = inputWithCursor.Replace("\n", "\n" + prompt);
+            return prompt + formattedInput + imePreview;
+        }
+
+        private void ApplyCursorVisual(float x, float y, float width, float height)
+        {
+            Vector3 worldPos = historyText.transform.TransformPoint(x, y, 0f);
 
             if (cursorBackground != null)
             {
-                if (_cursorVisible) { PositionCursorBackground(caret, input); cursorBackground.enabled = true; }
-                else cursorBackground.enabled = false;
-            }
-
-            if (imePreviewText != null)
-            {
-                if (!string.IsNullOrEmpty(composition)) { imePreviewText.text = $"<color=#FFFFFF>{composition}</color>"; imePreviewText.enabled = true; }
-                else imePreviewText.enabled = false;
+                RectTransform bgRect = cursorBackground.rectTransform;
+                bgRect.localPosition = bgRect.parent.InverseTransformPoint(worldPos);
+                bgRect.sizeDelta = new Vector2(width, height);
             }
         }
 
-        /// <summary>
-        /// 将 cursorBackground Image 精确定位到光标字符处
-        /// </summary>
-        private void PositionCursorBackground(int rawCaret, string rawInput)
+        private int GetAbsoluteCaretSourceIndex(int rawCaret, string rawInput, string prompt)
         {
-            TMP_TextInfo textInfo = inputText.textInfo;
-            if (textInfo == null || textInfo.characterCount == 0) return;
+            if (_inputStartSourceIndex < 0)
+            {
+                return -1;
+            }
 
-            int promptLen = GetPromptVisibleLength();
-            int newlines = 0;
+            int relativeSourceIndex = prompt.Length;
             for (int i = 0; i < rawCaret && i < rawInput.Length; i++)
-                if (rawInput[i] == '\n') newlines++;
-            int charIndex = promptLen * (1 + newlines) + rawCaret;
+            {
+                relativeSourceIndex += rawInput[i] == '\n'
+                    ? 1 + prompt.Length
+                    : 1;
+            }
 
-            bool isAtEnd = charIndex >= textInfo.characterCount;
-            TMP_CharacterInfo ci = isAtEnd
-                ? textInfo.characterInfo[textInfo.characterCount - 1]
-                : textInfo.characterInfo[charIndex];
+            bool highlightsCurrentCharacter =
+                _cursorVisible &&
+                inputField != null &&
+                inputField.isFocused &&
+                rawCaret >= 0 &&
+                rawCaret < rawInput.Length &&
+                rawInput[rawCaret] != '\n';
 
-            float x = isAtEnd ? ci.xAdvance : ci.origin;
-            float y = ci.descender;
-            float w = isAtEnd ? (inputText.fontSize * 0.5f) : (ci.xAdvance - ci.origin);
-            float h = ci.ascender - ci.descender;
+            if (highlightsCurrentCharacter)
+            {
+                relativeSourceIndex += "<color=#000000>".Length;
+            }
 
-            Vector3 worldPos = inputText.transform.TransformPoint(x, y, 0f);
-            RectTransform bgRect = cursorBackground.rectTransform;
-            bgRect.localPosition = bgRect.parent.InverseTransformPoint(worldPos);
-            bgRect.sizeDelta = new Vector2(w, h);
+            return _inputStartSourceIndex + relativeSourceIndex;
         }
 
-        /// <summary>
-        /// 计算 Prompt 的可见字符数（去除富文本标签）
-        /// </summary>
-        private int GetPromptVisibleLength()
+        private int GetAbsoluteInputLineNumber(int rawCaret, string rawInput, int totalLineCount)
         {
-            string prompt = GetPrompt();
-            if (string.IsNullOrEmpty(prompt)) return 0;
-            int count = 0; bool inTag = false;
-            foreach (char c in prompt)
+            int lineNumber = Mathf.Max(0, _inputStartLineNumber);
+            for (int i = 0; i < rawCaret && i < rawInput.Length; i++)
             {
-                if (c == '<') inTag = true;
-                else if (c == '>' && inTag) inTag = false;
-                else if (!inTag) count++;
+                if (rawInput[i] == '\n')
+                {
+                    lineNumber++;
+                }
             }
+
+            return Mathf.Clamp(lineNumber, 0, Mathf.Max(0, totalLineCount - 1));
+        }
+
+        private static bool TryFindCharacterInfo(TMP_TextInfo textInfo, int sourceIndex, out TMP_CharacterInfo characterInfo)
+        {
+            if (textInfo != null)
+            {
+                for (int i = 0; i < textInfo.characterCount; i++)
+                {
+                    TMP_CharacterInfo ci = textInfo.characterInfo[i];
+                    if (ci.index == sourceIndex)
+                    {
+                        characterInfo = ci;
+                        return true;
+                    }
+                }
+            }
+
+            characterInfo = default(TMP_CharacterInfo);
+            return false;
+        }
+
+        private float GetCursorAdvanceWidth()
+        {
+            char glyph = !string.IsNullOrEmpty(cursorChar) ? cursorChar[0] : '_';
+            return GetCharacterWidth(glyph, historyText);
+        }
+
+        private static int CountRenderedLines(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return 1;
+            }
+
+            int count = 1;
+            for (int i = 0; i < text.Length; i++)
+            {
+                if (text[i] == '\n')
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static List<string> SplitRenderedLines(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return new List<string>();
+            }
+
+            return text.Split(new[] { '\n' }, StringSplitOptions.None).ToList();
+        }
+
+        private static int CountVisibleCharacters(IReadOnlyList<string> lines)
+        {
+            if (lines == null || lines.Count == 0)
+            {
+                return 0;
+            }
+
+            int count = 0;
+            for (int i = 0; i < lines.Count; i++)
+            {
+                count += CountVisibleCharacters(lines[i]);
+                if (i < lines.Count - 1)
+                {
+                    count += 1;
+                }
+            }
+
+            return count;
+        }
+
+        private static int CountVisibleCharacters(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return 0;
+            }
+
+            int count = 0;
+            bool inTag = false;
+            foreach (char c in text)
+            {
+                if (c == '<')
+                {
+                    inTag = true;
+                    continue;
+                }
+
+                if (c == '>' && inTag)
+                {
+                    inTag = false;
+                    continue;
+                }
+
+                if (!inTag)
+                {
+                    count++;
+                }
+            }
+
             return count;
         }
 
@@ -441,8 +782,8 @@ namespace MineRTS.BigMap.UI.Panels
 
             GetLineColumn(currentCaret, text, out int currentLine, out int currentColumn);
 
-            // 更新或设置目标列
-            if (_targetColumn < 0)
+            // 只有连续上下导航时才保持锚点列；其他来源的移动会重新取当前列
+            if (!_isVerticalNavigationActive || _targetColumn < 0)
             {
                 _targetColumn = currentColumn;
             }
@@ -459,6 +800,7 @@ namespace MineRTS.BigMap.UI.Panels
                 // 目标位置 = 行首 + min(目标列，行长度)
                 int targetCaret = lineStart + Mathf.Min(_targetColumn, lineLength);
                 inputField.caretPosition = targetCaret;
+                _isVerticalNavigationActive = true;
             }
         }
 
@@ -477,6 +819,7 @@ namespace MineRTS.BigMap.UI.Panels
 
             inputField.caretPosition = lineStart;
             _targetColumn = 0;
+            _isVerticalNavigationActive = true;
         }
 
         /// <summary>
@@ -489,11 +832,43 @@ namespace MineRTS.BigMap.UI.Panels
             string text = inputField.text;
             int currentCaret = inputField.caretPosition;
 
-            GetLineColumn(currentCaret, text, out int line, out int column);
+            GetLineColumn(currentCaret, text, out int line, out _);
+            int lineStart = GetLineStart(line, text);
             int lineEnd = GetLineEnd(line, text);
+            int lineLength = lineEnd - lineStart;
 
             inputField.caretPosition = lineEnd;
-            _targetColumn = column; // 保持当前列
+            _targetColumn = lineLength;
+            _isVerticalNavigationActive = true;
+        }
+
+        private void InsertNewLineAtCaret()
+        {
+            if (inputField == null) return;
+
+            string text = inputField.text ?? string.Empty;
+            int anchor = Mathf.Clamp(inputField.selectionStringAnchorPosition, 0, text.Length);
+            int focus = Mathf.Clamp(inputField.selectionStringFocusPosition, 0, text.Length);
+            int start = Mathf.Min(anchor, focus);
+            int end = Mathf.Max(anchor, focus);
+            string updatedText = text.Substring(0, start) + "\n" + text.Substring(end);
+            int newCaret = start + 1;
+
+            inputField.text = updatedText;
+            inputField.stringPosition = newCaret;
+            inputField.selectionStringAnchorPosition = newCaret;
+            inputField.selectionStringFocusPosition = newCaret;
+            inputField.caretPosition = newCaret;
+            inputField.selectionAnchorPosition = newCaret;
+            inputField.selectionFocusPosition = newCaret;
+            inputField.ForceLabelUpdate();
+            inputField.ActivateInputField();
+            inputField.Select();
+
+            _targetColumn = -1;
+            _isVerticalNavigationActive = false;
+            ResetCursorBlink();
+            UpdateInputLine(updatedText, newCaret);
         }
 
         // =========================================================
@@ -573,6 +948,7 @@ namespace MineRTS.BigMap.UI.Panels
                     return;
 
                 _targetColumn = -1;
+                _isVerticalNavigationActive = false;
             }
 
             if (Input.GetKeyDown(KeyCode.RightArrow))
@@ -581,6 +957,7 @@ namespace MineRTS.BigMap.UI.Panels
                     return;
 
                 _targetColumn = -1;
+                _isVerticalNavigationActive = false;
             }
 
             // 回车提交命令（Shift+Enter 换行）
@@ -589,6 +966,7 @@ namespace MineRTS.BigMap.UI.Panels
                 // Shift+Enter 不提交，只换行（由 inputField 自动处理）
                 if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
                 {
+                    InsertNewLineAtCaret();
                     return;
                 }
 
@@ -603,8 +981,9 @@ namespace MineRTS.BigMap.UI.Panels
                     }
                 }
 
-                // 提交时移除所有换行符（防止自动换行或手动换行截断指令）
-                string input = System.Text.RegularExpressions.Regex.Replace(inputField.text, @"\s*\n\s*", " ");
+                // 用上一帧末尾的文本，避免 TMP 在当前帧已把 \n 插入光标位置喵~
+                // Shift+Enter 产生的多行内容合并为单行
+                string input = System.Text.RegularExpressions.Regex.Replace(_lastInputText, @"\s*\n\s*", " ").Trim();
 
                 if (ConsoleLogic != null && ConsoleLogic.TryHandleSubmit(input))
                 {
@@ -613,6 +992,10 @@ namespace MineRTS.BigMap.UI.Panels
                     UpdateInputLine("", 0);
                     return;
                 }
+
+                string prompt = GetPrompt();
+                string echoedInput = prompt + input;
+                Output(echoedInput, Color.white);
 
                 // 提交处理后的内容
                 OnSubmitCommand(input);

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public abstract class TUISelectSlot : IConsoleInputHandler
+public abstract class TUISelectSlot : IConsoleInputHandler, IConsoleInputLineState
 {
     private TUISelectionConfig _config;
     private readonly int _startLine;
@@ -27,6 +27,7 @@ public abstract class TUISelectSlot : IConsoleInputHandler
     protected int ItemCount => _config.items?.Count ?? 0;
     protected bool HasItems => ItemCount > 0;
     protected int ConsoleWidth => Console?.ConsoleWidth ?? 0;
+    public virtual bool ShouldRenderInputLine => false;
 
     public void UpdateConfig(TUISelectionConfig config, bool resetSelection = false)
     {
@@ -108,6 +109,11 @@ public abstract class TUISelectSlot : IConsoleInputHandler
 
         _config.interaction.onCancel.Invoke();
         return true;
+    }
+
+    public virtual string GetInputPrompt(string fallbackPrompt)
+    {
+        return fallbackPrompt;
     }
 
     protected void MoveSelection(int delta)

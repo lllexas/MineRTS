@@ -244,21 +244,21 @@ public class BoundMapNodeData : BaseNodeData
 /// - MapNodes: 地图节点（大地图关卡）
 /// - BoundMap: 绑定的地图信息
 ///
-/// 【注】旧有的专用字段（如 MissionNodes、Triggers 等）保留用于向后兼容，
-/// 新代码请直接使用基类的 Nodes 字段喵~
+/// 【注】旧有的专用字段（如 MissionNodes、Triggers 等）已废弃，
+/// 所有节点统一存入基类的 Nodes 字段喵~
 /// </summary>
 [System.Serializable]
+[Obsolete("已废弃：请使用 BasePackData { System = NodeSystem.Mission } 喵~")]
 public class MissionPackData : BasePackData
 {
-    public override NodeSystem GetNodeSystem() => NodeSystem.Mission;
+    public BoundMapNodeData BoundMap; // 绑定地图节点（已废弃）
 
-    public BoundMapNodeData BoundMap; // 绑定地图节点（由基类反射自动填充喵~）
-
-    // 任务节点列表
+    // 任务节点列表（已废弃）
     public List<MissionNode_A_Data> MissionNodes_A = new List<MissionNode_A_Data>();
 
-    // 专用节点列表
+    // 专用节点列表（已废弃）
     public List<TriggerNodeData> Triggers = new List<TriggerNodeData>();
     public List<MapNodeData> MapNodes = new List<MapNodeData>();
     public List<CommandNodeData> Commands = new List<CommandNodeData>();
 }
+

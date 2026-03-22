@@ -27,7 +27,7 @@ public class NodeSearchWindow : ScriptableObject, ISearchWindowProvider
 
     public List<SearchTreeEntry> CreateSearchTree(SearchWindowContext context)
     {
-        var nodeTypes = NodeTypeHelper.GetNodeTypesForSystem(_pack.GetNodeSystem());
+        var nodeTypes = NodeTypeHelper.GetNodeTypesForSystem(_pack.System);
         var tree = new List<SearchTreeEntry>
         {
             new SearchTreeGroupEntry(new GUIContent("创建节点"), 0)

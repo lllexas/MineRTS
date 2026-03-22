@@ -66,6 +66,7 @@ public class VFSNode : BaseNode<VFSNodeData>
         _extensionField.RegisterValueChangedCallback(evt =>
         {
             TypedData.Extension = evt.newValue;
+            _extensionField.SetValueWithoutNotify(TypedData.Extension);
             UpdateTitle();
         });
         foldout.Add(_extensionField);

@@ -14,7 +14,7 @@
     "PackID": "social_tree_default",
     "Storage": 0,
     "ResourcePath": "GraphVSF/social_tree_default",
-    "GraphType": "VFS",
+    "GraphType": "Base",
     "DisplayName": "New VFS Pack",
     "Author": "NekoTeam",
     "Version": "1.0.0",

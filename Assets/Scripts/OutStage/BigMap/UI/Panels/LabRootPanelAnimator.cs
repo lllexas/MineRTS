@@ -9,8 +9,13 @@ namespace MineRTS.BigMap.UI.Panels
     /// <para>【UI ID】LabRootPanel - 用于事件匹配</para>
     /// <para>【职责】实验室系统根面板（科技研究、蓝图解锁等）</para>
     /// </summary>
-    public class LabRootPanelAnimator : SpaceUIAnimator
+    public class LabRootPanelAnimator : ConsoleDisplayBase<LabRootManager>
     {
+        [Header("TUI Manager")]
+        [SerializeField] private LabRootManager _manager;
+
+        protected override LabRootManager ConsoleLogic => _manager;
+
         /// <summary>
         /// UI ID - 由代码硬编码，Inspector 显示但不可改
         /// </summary>
@@ -18,6 +23,11 @@ namespace MineRTS.BigMap.UI.Panels
 
         protected override void Awake()
         {
+            if (_manager == null)
+            {
+                _manager = GetComponent<LabRootManager>();
+            }
+
             base.Awake();
         }
 
@@ -26,8 +36,19 @@ namespace MineRTS.BigMap.UI.Panels
             FadeOut();
         }
 
-        private void Start()
+        protected override void Start()
         {
+            if (_manager == null)
+            {
+                _manager = GetComponent<LabRootManager>();
+                if (_manager == null)
+                {
+                    Debug.LogError("[LabRootPanelAnimator] LabRootManager reference is missing and not found on the same GameObject!");
+                    return;
+                }
+            }
+
+            base.Start();
             // 追加行为到委托链（子类决定行为内容）
             进入根界面 += OnEnterRoot;
             期望显示面板 += OnShowPanel;
@@ -35,6 +56,20 @@ namespace MineRTS.BigMap.UI.Panels
             鼠标滑入 += OnMouseEnterHandler;
             鼠标滑出 += OnMouseExitHandler;
             鼠标点击 += OnMouseClickHandler;
+        }
+
+        protected override void OnDisable()
+        {
+            base.OnDisable();
+        }
+
+        [Subscribe("LabRoot.Output")]
+        private void HandleRenderLine(object data)
+        {
+            if (data is DeveloperConsole.ConsoleOutputEvent evt)
+            {
+                OutputLine(evt.message, evt.color);
+            }
         }
 
         /// <summary>

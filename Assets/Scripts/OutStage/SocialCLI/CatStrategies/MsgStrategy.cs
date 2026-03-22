@@ -86,9 +86,10 @@ namespace CatStrategies
             var node = analyser.GetNode(SocialManager.SOCIAL_PACK_ID, vfsPath);
             if (node is VFSNodeData vfs && !string.IsNullOrEmpty(vfs.DataJson))
             {
-                var pack = JsonConvert.DeserializeObject<MsgPackData>(vfs.DataJson, MetaLib.JsonSettings);
+                var pack = JsonConvert.DeserializeObject<BasePackData>(vfs.DataJson, MetaLib.JsonSettings);
                 if (pack != null)
                 {
+                    pack.System = NodeSystem.Social;
                     if (GraphRunner.Instance == null)
                     {
                         _cli.Log("错误：GraphRunner 未就绪", Color.red);

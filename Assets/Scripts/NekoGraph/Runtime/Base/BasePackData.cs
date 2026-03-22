@@ -6,11 +6,21 @@ using System.Linq;
 using NekoGraph;
 
 /// <summary>
+/// Pack 访问权限喵~
+/// </summary>
+public enum PackAccessLevel
+{
+    ReadWrite,  // 用户盘：玩家可读可写（仓库、社交）
+    ReadOnly,   // 内核盘：玩家可读不可写（mainstory、techlab）
+    Hidden,     // 隐藏：不对玩家暴露（运行时特效、开发用包）
+}
+
+/// <summary>
 /// ═══════════════════════════════════════════════════════════════
 /// BasePackData - 数据包基类喵~
 /// ═══════════════════════════════════════════════════════════════
 ///
-/// 所有剧情/任务/VSF 数据包的统一抽象基类
+/// 所有剧情/任务/VSF 数据包的统一基类
 /// 运行时和编辑器共用，不能放在 Editor 目录下喵~
 /// 【Newtonsoft.Json + TypeNameHandling.Auto 驱动】
 /// 所有节点统一存入 Nodes 列表，类型信息自动保存在 JSON 中喵~！
@@ -18,7 +28,7 @@ using NekoGraph;
 /// </summary>
 [Serializable]
 [JsonObject(ItemTypeNameHandling = TypeNameHandling.All)]
-public abstract class BasePackData
+public class BasePackData
 {
     /// <summary>
     /// Pack 唯一 ID（用于代码引用）
@@ -52,6 +62,12 @@ public abstract class BasePackData
     public string Version = "1.0.0";
 
     /// <summary>
+    /// 访问权限 - 控制玩家通过文件树盘符访问此 Pack 的权限喵~
+    /// </summary>
+    [Tooltip("访问权限")]
+    public PackAccessLevel AccessLevel = PackAccessLevel.ReadOnly;
+
+    /// <summary>
     /// 创建时间戳
     /// </summary>
     [Tooltip("创建时间")]
@@ -83,6 +99,18 @@ public abstract class BasePackData
     /// </summary>
     [Tooltip("Pack 级快捷元数据（自动生成）")]
     public Dictionary<string, string> SidePara = new Dictionary<string, string>();
+
+    /// <summary>
+    /// 节点系统类型 - 用于 SearchWindow 过滤喵~
+    /// </summary>
+    [Tooltip("节点系统类型")]
+    public NodeSystem System = NodeSystem.Common;
+
+    /// <summary>
+    /// 是否已被 GraphRunner 注入过根信号喵~
+    /// false = 新包，OnUserLoaded 时会注入根信号启动；true = 已启动，跳过喵~
+    /// </summary>
+    public bool HasStarted = false;
 
     /// <summary>
     /// 构建 RootNodeId（运行时调用，序列化后自动填充）喵~
@@ -168,8 +196,13 @@ public abstract class BasePackData
 
     /// <summary>
     /// 返回本 Pack 所属的节点系统喵~（用于 SearchWindow 过滤）
+    /// 【已废弃】请使用 System 字段喵~
     /// </summary>
-    public abstract NodeSystem GetNodeSystem();
+    [Obsolete("已废弃：请使用 System 字段喵~")]
+    public virtual NodeSystem GetNodeSystem()
+    {
+        return System;
+    }
 
     /// <summary>
     /// 验证数据包是否有效喵~
@@ -179,8 +212,10 @@ public abstract class BasePackData
 
 /// <summary>
 /// 泛型数据包基类 - 保留用于向后兼容喵~
+/// 【已废弃】直接使用 BasePackData 喵~
 /// </summary>
 [Serializable]
+[Obsolete("已废弃：直接使用 BasePackData 喵~")]
 public abstract class BasePackData<T> : BasePackData where T : BaseNodeData
 {
     public override NodeSystem GetNodeSystem() => NodeSystem.Common;

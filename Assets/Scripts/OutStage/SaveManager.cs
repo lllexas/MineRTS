@@ -11,6 +11,9 @@ public class SaveManager : SingletonMono<SaveManager>
     // 【已迁移到 MainModel】当前内存中的用户数据 - 请使用 MainModel.Instance.CurrentUser
     // 【已迁移到 MainModel】当前正在活跃的据点 ID - 请使用 MainModel.Instance.CurrentActiveStageID
 
+    [Header("VFS 默认挂载包（新存档用）")]
+    [SerializeField] private string[] _defaultVFSPackIDs = { "social_tree_default" };
+
     // 当前正在使用的存档文件名（不含扩展名），例如 "AutoSave", "Slot_1"
     public string CurrentSaveFileName { get; private set; } = "default_save";
 
@@ -89,16 +92,24 @@ public class SaveManager : SingletonMono<SaveManager>
         }
         Debug.Log($"<color=yellow>[SaveManager]</color> 已初始化 {economyDict.Count} 个关卡的经济数据");
 
-        // 5. 设置到 MainModel
+        // 5. 准备玩家默认 slot 的 PackDataDict
+        if (newUser.PackDataDict == null) newUser.PackDataDict = new Dictionary<string, BasePackData>();
+        foreach (var packID in _defaultVFSPackIDs)
+        {
+            var pack = MetaLib.GetPack<BasePackData>(packID);
+            if (pack != null)
+                newUser.PackDataDict[System.Guid.NewGuid().ToString("N")] = pack;
+        }
+
+        // 6. 设置到 MainModel，并把各 slot 的 Pack 集合灌入 GraphHub
         MainModel.Instance.SetCurrentUser(newUser);
+        GraphHub.Instance?.ApplyUser(newUser);
+        PostSystem.Instance.Send("VFS.IO_Ready", newUser);
 
-        PersistentVFSManager.Instance.InitForNewSave(newUser);
-
-
-        // 6. 标记当前文件名
+        // 7. 标记当前文件名
         CurrentSaveFileName = saveName;
 
-        // 7. 立即落地到磁盘
+        // 8. 立即落地到磁盘
         SaveGameToDisk();
 
         Debug.Log($"<color=green>[SaveManager]</color> 新存档 {saveName} 已创建并就绪！");
@@ -172,8 +183,9 @@ public class SaveManager : SingletonMono<SaveManager>
             // 4. 设置到 MainModel
             MainModel.Instance.SetCurrentUser(loadedUser);
 
-            PersistentVFSManager.Instance.LoadFromSave(loadedUser);
-
+            // 核心系统直接调用，UI 层才走事件喵~
+            GraphHub.Instance?.ApplyUser(loadedUser);
+            PostSystem.Instance.Send("VFS.IO_Ready", loadedUser);
 
             // 5. 更新当前文件名引用
             CurrentSaveFileName = saveName;
@@ -235,9 +247,7 @@ public class SaveManager : SingletonMono<SaveManager>
             GameFlowController.Instance.SaveCurrentStageFromSystem();
         }
 
-        // 2. 同步 VFS 数据
-        PersistentVFSManager.Instance.SyncAll();
-
+        // 2. 直接序列化（GraphAnalyser 持有的 pack 引用与 PackDataDict 是同一对象，零副本无需 Sync）
         // 3. 使用 Newtonsoft.Json 序列化
         string json = JsonConvert.SerializeObject(currentUser, JsonSettings);
         string fullPath = Path.Combine(SaveDirectory, CurrentSaveFileName + ".json");
@@ -355,6 +365,7 @@ public class SaveManager : SingletonMono<SaveManager>
 
         // 3. 【已迁移到 MainModel】销毁当前的 UserModel 引用
         MainModel.Instance.ClearCurrentUser();
+        GraphHub.Instance?.ApplyUser(MainModel.Instance.CurrentUser);
 
         System.GC.Collect();
     }

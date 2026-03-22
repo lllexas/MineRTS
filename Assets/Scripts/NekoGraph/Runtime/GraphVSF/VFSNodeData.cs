@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 using NekoGraph;
 
 /// <summary>
@@ -34,7 +35,16 @@ public class VFSNodeData : BaseNodeData
     /// 类似 Linux 的设计：目录没有扩展名
     /// </summary>
     [Tooltip("扩展名（空=目录）")]
-    public string Extension;
+    [SerializeField, FormerlySerializedAs("Extension")]
+    private string _extension = "";
+
+    public string Extension
+    {
+        get => _extension;
+        set => _extension = (!string.IsNullOrEmpty(value) && !value.StartsWith("."))
+            ? "." + value
+            : value ?? "";
+    }
 
     /// <summary>
     /// 数据内容（JSON 格式）

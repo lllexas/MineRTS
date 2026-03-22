@@ -130,31 +130,31 @@ public class CommandData
 
 /// <summary>
 /// 剧情数据包：包含一个完整剧情章节的所有内容喵~
+/// 【已废弃】请使用 BasePackData { System = NodeSystem.Story } 喵~
 /// </summary>
 [Serializable]
+[Obsolete("已废弃：请使用 BasePackData { System = NodeSystem.Story } 喵~")]
 public class StoryPackData : BasePackData
 {
-    public override NodeSystem GetNodeSystem() => NodeSystem.Story;
-
     [Tooltip("剧情包 ID（已废弃，使用 PackID）")]
     public string StoryID;
 
-    [Tooltip("对话序列列表（CSV 导入生成）")]
+    [Tooltip("对话序列列表（CSV 导入生成，已废弃）")]
     public List<DialogueSequence> Sequences = new List<DialogueSequence>();
 
-    // 使用通用流程节点（已移动到 Common/ProcessFlowNodeData.cs）
-    [Tooltip("剧情根节点（全图唯一）")]
+    // 以下平行列表均已废弃，所有节点存入基类的 Nodes 字段喵~
+    [Tooltip("剧情根节点（已废弃）")]
     public RootNodeData Root;
 
-    [Tooltip("树 ID 节点列表（章节/阶段）")]
+    [Tooltip("树 ID 节点列表（已废弃）")]
     public List<SpineNodeData> SpineNodes = new List<SpineNodeData>();
 
-    [Tooltip("叶 ID 节点列表（演出）")]
+    [Tooltip("叶 ID 节点列表（已废弃）")]
     public List<LeafNode_A_Data> LeafNodes = new List<LeafNode_A_Data>();
 
-    [Tooltip("触发器节点列表")]
+    [Tooltip("触发器节点列表（已废弃）")]
     public List<TriggerNodeData> Triggers = new List<TriggerNodeData>();
 
-    [Tooltip("命令节点列表")]
+    [Tooltip("命令节点列表（已废弃）")]
     public List<CommandNodeData> Commands = new List<CommandNodeData>();
 }

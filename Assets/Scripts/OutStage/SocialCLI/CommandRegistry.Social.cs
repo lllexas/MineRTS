@@ -41,11 +41,11 @@ public static partial class CommandRegistry
     [SocialCommand]
     public static CommandOutput Pwd(DeveloperConsole console, string[] args, object payload)
     {
-        return CommandOutput.Success($"当前目录：{console.CurrentPath}");
+        return CommandOutput.Success($"当前目录：{console.FullCurrentPath}");
     }
 
     [CommandInfo("cd", "📂 切换目录", "Social", new[] { "path" },
-        Tooltip = "切换当前目录喵~\n示例：cd friends",
+        Tooltip = "切换当前目录喵~\n示例：cd friends  cd A:/messages  cd ..",
         Color = "0.3,0.5,0.8")]
     [SocialCommand]
     public static CommandOutput Cd(DeveloperConsole console, string[] args, object payload)
@@ -53,7 +53,7 @@ public static partial class CommandRegistry
         if (args.Length < 1)
         {
             console.SetCurrentPath("/");
-            return CommandOutput.Success($"当前目录：{console.CurrentPath}");
+            return CommandOutput.Success($"当前目录：{console.FullCurrentPath}");
         }
 
         string path = args[0];
@@ -69,17 +69,22 @@ public static partial class CommandRegistry
         }
         else
         {
-            string targetPath = path.StartsWith("/")
-                ? VFSPathResolver.Normalize(path)
-                : VFSPathResolver.Combine(console.CurrentPath, path);
-            console.SetCurrentPath(targetPath);
+            var (packID, vfsPath) = console.ResolveDrivePath(path);
+            if (packID == null)
+                return CommandOutput.Fail($"未知盘符：{path}");
+
+            // 跨盘则先切盘（SetCurrentPackID 会把路径重置到 /）
+            if (packID != console.CurrentVFSPackID)
+                console.SetCurrentPackID(packID);
+
+            console.SetCurrentPath(vfsPath);
         }
 
-        return CommandOutput.Success($"当前目录：{console.CurrentPath}");
+        return CommandOutput.Success($"当前目录：{console.FullCurrentPath}");
     }
 
-    [CommandInfo("ls", "📋 列出目录", "Social", new[] { "path" },
-        Tooltip = "列出社交目录内容喵~\n示例：ls /social/friends/",
+    [CommandInfo("ls", "📋 列出目录", "Social", new[] { "[path]" },
+        Tooltip = "列出目录内容喵~\n示例：ls  ls /messages/  ls A:/shop",
         Color = "0.3,0.5,0.7")]
     [SocialCommand]
     public static CommandOutput List(DeveloperConsole console, string[] args, object payload)
@@ -87,7 +92,10 @@ public static partial class CommandRegistry
         if (string.IsNullOrEmpty(console.CurrentVFSPackID))
             return CommandOutput.Fail("未挂载文件系统喵！");
 
-        string path = args.Length > 0 ? args[0] : console.CurrentPath;
+        string rawPath = args.Length > 0 ? args[0] : console.CurrentPath;
+        var (packID, path) = console.ResolveDrivePath(rawPath);
+        if (packID == null)
+            return CommandOutput.Fail($"未知盘符：{rawPath}");
 
         var analyser = GraphAnalyser.Instance;
         if (analyser == null)
@@ -96,20 +104,20 @@ public static partial class CommandRegistry
         }
 
         // 检查路径是否存在
-        if (!analyser.PathExists(console.CurrentVFSPackID, path))
+        if (!analyser.PathExists(packID, path))
         {
             return CommandOutput.Fail($"路径不存在：{path}");
         }
 
         // 检查是否是目录
-        var node = analyser.GetNode(console.CurrentVFSPackID, path);
+        var node = analyser.GetNode(packID, path);
         if (node is VFSNodeData vfs && !vfs.IsDirectory)
         {
             return CommandOutput.Fail($"不是目录：{path}");
         }
 
         // 获取子节点列表
-        var children = analyser.GetChildren(console.CurrentVFSPackID, path);
+        var children = analyser.GetChildren(packID, path);
 
         // 过滤启用的节点
         var validChildren = new List<VFSNodeData>();
@@ -123,7 +131,7 @@ public static partial class CommandRegistry
 
         // 构建表格
         var table = new TUITableBuilder()
-            .SetTitle($"📁 {path}")
+            .SetTitle($"📁 {console.FullCurrentPath}")
             .SetFooter($"共 {validChildren.Count} 项")
             .UseBorder(true)
             .SetBorderStyle(BorderStyle.Classic)
@@ -174,7 +182,7 @@ public static partial class CommandRegistry
             string size = child.IsDirectory ? "-" : (child.DataJson?.Length.ToString() ?? "0") + "B";
 
             // 名称（目录加/，文件加扩展名，扩展名前需要加点）
-            string name = child.Name + (child.IsDirectory ? "/" : (string.IsNullOrEmpty(child.Extension) ? "" : "." + child.Extension));
+            string name = child.Name + (child.IsDirectory ? "/" : child.Extension);
 
             // 序号
             string num = index.ToString();
@@ -219,7 +227,7 @@ public static partial class CommandRegistry
     }
 
     [CommandInfo("cat", "📖 读取文件内容", "Social", new[] { "path" },
-        Tooltip = "读取 VFS 文件内容喵~\n示例：cat message.txt",
+        Tooltip = "读取 VFS 文件内容喵~\n示例：cat message.txt  cat A:/messages/test.msg",
         Color = "0.3,0.7,0.3")]
     [SocialCommand]
     public static CommandOutput Cat(DeveloperConsole console, string[] args, object payload)
@@ -229,11 +237,12 @@ public static partial class CommandRegistry
 
         if (args.Length < 1) return CommandOutput.Fail("请指定要读取的文件路径喵~");
 
-        string path = args[0];
-        string targetPath = path.StartsWith("/") ? path : VFSPathResolver.Combine(console.CurrentPath, path);
+        var (packID, targetPath) = console.ResolveDrivePath(args[0]);
+        if (packID == null)
+            return CommandOutput.Fail($"未知盘符：{args[0]}");
 
         var analyser = GraphAnalyser.Instance;
-        var node = analyser.GetNode(console.CurrentVFSPackID, targetPath);
+        var node = analyser.GetNode(packID, targetPath);
 
         if (node == null) return CommandOutput.Fail($"文件不存在：{targetPath}");
         if (node is VFSNodeData vfs)
@@ -279,6 +288,66 @@ public static partial class CommandRegistry
         }
 
         return CommandOutput.Success(content, content);
+    }
+
+    [CommandInfo("mount", "💾 浏览/切换盘符", "Social", null,
+        Tooltip = "打开交互式盘符选择界面，↑↓ 导航，Enter 确认切换喵~",
+        Color = "0.5,0.8,0.5")]
+    [SocialCommand]
+    public static CommandOutput Mount(DeveloperConsole console, string[] args, object payload)
+    {
+        if (console == null) return CommandOutput.Fail("console 为空");
+
+        var driveMap = console.GetDriveMap();
+        if (driveMap.Count == 0)
+            return CommandOutput.Fail("当前无可见盘符喵~");
+
+        var analyser = GraphAnalyser.Instance;
+        var items = new List<TUISelectionItem>();
+        for (int i = 0; i < driveMap.Count; i++)
+        {
+            var (letter, packID) = driveMap[i];
+            var pack = analyser?.GetPack(packID);
+            string rw = pack?.AccessLevel == PackAccessLevel.ReadWrite ? "RW" : "RO";
+            bool isCurrent = packID == console.CurrentVFSPackID;
+            items.Add(new TUISelectionItem
+            {
+                key = i,
+                indexText = letter.ToString(),
+                label = packID,
+                subtitle = $"[{rw}]{(isCurrent ? " ◀ 当前" : "")}",
+                payload = packID
+            });
+        }
+
+        int currentIdx = driveMap.FindIndex(d => d.packID == console.CurrentVFSPackID);
+        var config = new TUISelectionConfig
+        {
+            title = "══ 选择盘符 ══",
+            helpText = "↑↓ 导航  Enter 确认  Esc 取消",
+            emptyText = "无可见盘符",
+            initialSelectedKey = currentIdx >= 0 ? currentIdx : 0,
+            console = console,
+            items = items,
+            viewStyle = TUISelectionViewStyle.Default,
+            interaction = new TUISelectionInteractionConfig
+            {
+                wrapNavigation = true,
+                enableDigitSelect = false,
+                allowConfirmOnEmptySubmit = true,
+                onConfirmSelection = (idx, item) =>
+                {
+                    string pid = (string)item.payload;
+                    console.SetCurrentPackID(pid);
+                    console.Log($"已切换到盘符 {item.indexText}: ({pid})", Color.green);
+                },
+                onCancel = () => console.Log("已取消", Color.gray)
+            }
+        };
+
+        var handler = new TUIListSelectionHandler(config);
+        console.MountInputHandler(handler);
+        return CommandOutput.Success("");
     }
 
     [CommandInfo("social_isolation", "🔓 切换 CLI 隔离模式", "Debug", new[] { "enable (0/1)" },
