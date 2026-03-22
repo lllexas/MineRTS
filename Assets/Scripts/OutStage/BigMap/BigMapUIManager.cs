@@ -2,32 +2,32 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// ¡¾Controller¡¿´óµØÍ¼ UI ¹ÜÀíÆ÷
-/// Ö°Ôğ£º¹ÜÀí´óµØÍ¼½çÃæÉÏ³ıÁË½ÚµãÖ®ÍâµÄËùÓĞ UI ÔªËØ
-///  - ·µ»ØÖ÷²Ëµ¥°´Å¥£¨´ø±£´æºÍÈ·ÈÏ£©
-///  - ÉèÖÃ°´Å¥
-///  - ÆäËû´óµØÍ¼¹¦ÄÜ°´Å¥
-/// Éè¼ÆÔ­Ôò£º×ñÑ­Ğ¡Áã¼ş¼Ü¹¹£¬×÷Îª IMenuPanel ½ÓÈë GameFlowController ×´Ì¬»ú
-/// Éè¼ÆÀíÄî£º²»Ìá¹©Ö±½ÓÍË³ö³ÌĞòÑ¡Ïî£¬ÈÃÍæ¼ÒĞÀÉÍ¾«ÃÀµÄÖ÷²Ëµ¥ÌØĞ§ß÷£¡
+/// ã€Controllerã€‘å¤§åœ°å›¾ UI ç®¡ç†å™¨
+/// èŒè´£ï¼šç®¡ç†å¤§åœ°å›¾ç•Œé¢ä¸Šé™¤äº†èŠ‚ç‚¹ä¹‹å¤–çš„æ‰€æœ‰ UI å…ƒç´ 
+///  - è¿”å›ä¸»èœå•æŒ‰é’®ï¼ˆå¸¦ä¿å­˜å’Œç¡®è®¤ï¼‰
+///  - è®¾ç½®æŒ‰é’®
+///  - å…¶ä»–å¤§åœ°å›¾åŠŸèƒ½æŒ‰é’®
+/// è®¾è®¡åŸåˆ™ï¼šéµå¾ªå°é›¶ä»¶æ¶æ„ï¼Œä½œä¸º IMenuPanel æ¥å…¥ GameFlowController çŠ¶æ€æœº
+/// è®¾è®¡ç†å¿µï¼šä¸æä¾›ç›´æ¥é€€å‡ºç¨‹åºé€‰é¡¹ï¼Œè®©ç©å®¶æ¬£èµç²¾ç¾çš„ä¸»èœå•ç‰¹æ•ˆå–µï¼
 /// </summary>
 public class BigMapUIManager : SingletonMono<BigMapUIManager>, IMenuPanel
 {
-    [Header("UI ¸ù½Úµã")]
-    [SerializeField] private GameObject _uiRoot; // ´óµØÍ¼ UI Ãæ°å¸ù½Úµã
+    [Header("UI æ ¹èŠ‚ç‚¹")]
+    [SerializeField] private GameObject _uiRoot; // å¤§åœ°å›¾ UI é¢æ¿æ ¹èŠ‚ç‚¹
 
-    [Header("¹¦ÄÜ°´Å¥")]
-    [SerializeField] private Button _backToMainMenuButton; // ·µ»ØÖ÷²Ëµ¥£¨±£´æ²¢È·ÈÏ£©
-    [SerializeField] private Button _settingsButton;    // ÉèÖÃ
+    [Header("åŠŸèƒ½æŒ‰é’®")]
+    [SerializeField] private Button _backToMainMenuButton; // è¿”å›ä¸»èœå•ï¼ˆä¿å­˜å¹¶ç¡®è®¤ï¼‰
+    [SerializeField] private Button _settingsButton;    // è®¾ç½®
 
-    [Header("×ÓÃæ°åÒıÓÃ")]
-    [SerializeField] private GameObject _settingsPanel; // ÉèÖÃÃæ°å£¨¿ÉÑ¡£©
-    [SerializeField] private GameObject _confirmBackPanel; // ·µ»ØÖ÷²Ëµ¥È·ÈÏµ¯´°£¨¿ÉÑ¡£©
+    [Header("å­é¢æ¿å¼•ç”¨")]
+    [SerializeField] private GameObject _settingsPanel; // è®¾ç½®é¢æ¿ï¼ˆå¯é€‰ï¼‰
+    [SerializeField] private GameObject _confirmBackPanel; // è¿”å›ä¸»èœå•ç¡®è®¤å¼¹çª—ï¼ˆå¯é€‰ï¼‰
 
-    [Header("È·ÈÏµ¯´°°´Å¥")]
-    [SerializeField] private Button _confirmBackButton; // È·ÈÏ·µ»ØÖ÷²Ëµ¥
-    [SerializeField] private Button _cancelBackButton;  // È¡Ïû·µ»Ø
+    [Header("ç¡®è®¤å¼¹çª—æŒ‰é’®")]
+    [SerializeField] private Button _confirmBackButton; // ç¡®è®¤è¿”å›ä¸»èœå•
+    [SerializeField] private Button _cancelBackButton;  // å–æ¶ˆè¿”å›
 
-    // IMenuPanel ½Ó¿ÚÊµÏÖ
+    // IMenuPanel æ¥å£å®ç°
     private bool _isOpen = false;
 
     public GameObject PanelRoot => _uiRoot != null ? _uiRoot : gameObject;
@@ -36,35 +36,35 @@ public class BigMapUIManager : SingletonMono<BigMapUIManager>, IMenuPanel
     protected override void Awake()
     {
         base.Awake();
-        Debug.Log("<color=cyan>[BigMapUIManager]</color> ³õÊ¼»¯Íê³É");
+        Debug.Log("<color=cyan>[BigMapUIManager]</color> åˆå§‹åŒ–å®Œæˆ");
 
-        // °ó¶¨°´Å¥ÊÂ¼ş
+        // ç»‘å®šæŒ‰é’®äº‹ä»¶
         if (_backToMainMenuButton != null)
         {
             _backToMainMenuButton.onClick.AddListener(OnBackToMainMenuClicked);
-            Debug.Log("<color=cyan>[BigMapUIManager]</color> ·µ»ØÖ÷²Ëµ¥°´Å¥ÊÂ¼şÒÑ°ó¶¨");
+            Debug.Log("<color=cyan>[BigMapUIManager]</color> è¿”å›ä¸»èœå•æŒ‰é’®äº‹ä»¶å·²ç»‘å®š");
         }
 
         if (_settingsButton != null)
         {
             _settingsButton.onClick.AddListener(OnSettingsClicked);
-            Debug.Log("<color=yellow>[BigMapUIManager]</color> ÉèÖÃ°´Å¥ÊÂ¼şÒÑ°ó¶¨£¨¹¦ÄÜ´ıÊµÏÖ£©");
+            Debug.Log("<color=yellow>[BigMapUIManager]</color> è®¾ç½®æŒ‰é’®äº‹ä»¶å·²ç»‘å®šï¼ˆåŠŸèƒ½å¾…å®ç°ï¼‰");
         }
 
-        // °ó¶¨È·ÈÏµ¯´°°´Å¥ÊÂ¼ş
+        // ç»‘å®šç¡®è®¤å¼¹çª—æŒ‰é’®äº‹ä»¶
         if (_confirmBackButton != null)
         {
             _confirmBackButton.onClick.AddListener(OnConfirmBackClicked);
-            Debug.Log("<color=cyan>[BigMapUIManager]</color> È·ÈÏ·µ»Ø°´Å¥ÊÂ¼şÒÑ°ó¶¨");
+            Debug.Log("<color=cyan>[BigMapUIManager]</color> ç¡®è®¤è¿”å›æŒ‰é’®äº‹ä»¶å·²ç»‘å®š");
         }
 
         if (_cancelBackButton != null)
         {
             _cancelBackButton.onClick.AddListener(OnCancelBackClicked);
-            Debug.Log("<color=cyan>[BigMapUIManager]</color> È¡Ïû·µ»Ø°´Å¥ÊÂ¼şÒÑ°ó¶¨");
+            Debug.Log("<color=cyan>[BigMapUIManager]</color> å–æ¶ˆè¿”å›æŒ‰é’®äº‹ä»¶å·²ç»‘å®š");
         }
 
-        // ³õÊ¼Òş²Ø×ÓÃæ°å
+        // åˆå§‹éšè—å­é¢æ¿
         if (_settingsPanel != null)
         {
             _settingsPanel.SetActive(false);
@@ -78,7 +78,7 @@ public class BigMapUIManager : SingletonMono<BigMapUIManager>, IMenuPanel
 
     private void Start()
     {
-        // È·±£³õÊ¼×´Ì¬ÕıÈ·
+        // ç¡®ä¿åˆå§‹çŠ¶æ€æ­£ç¡®
         if (_isOpen != PanelRoot.activeSelf)
         {
             PanelRoot.SetActive(_isOpen);
@@ -86,11 +86,11 @@ public class BigMapUIManager : SingletonMono<BigMapUIManager>, IMenuPanel
     }
 
     // ==========================================
-    // IMenuPanel ½Ó¿ÚÊµÏÖ
+    // IMenuPanel æ¥å£å®ç°
     // ==========================================
 
     /// <summary>
-    /// ´ò¿ª´óµØÍ¼ UI Ãæ°å
+    /// æ‰“å¼€å¤§åœ°å›¾ UI é¢æ¿
     /// </summary>
     public void Open()
     {
@@ -98,11 +98,11 @@ public class BigMapUIManager : SingletonMono<BigMapUIManager>, IMenuPanel
 
         _isOpen = true;
         PanelRoot.SetActive(true);
-        Debug.Log("<color=cyan>[BigMapUIManager]</color> ´óµØÍ¼ UI Ãæ°åÒÑ´ò¿ª");
+        Debug.Log("<color=cyan>[BigMapUIManager]</color> å¤§åœ°å›¾ UI é¢æ¿å·²æ‰“å¼€");
     }
 
     /// <summary>
-    /// ¹Ø±Õ´óµØÍ¼ UI Ãæ°å
+    /// å…³é—­å¤§åœ°å›¾ UI é¢æ¿
     /// </summary>
     public void Close()
     {
@@ -111,7 +111,7 @@ public class BigMapUIManager : SingletonMono<BigMapUIManager>, IMenuPanel
         _isOpen = false;
         PanelRoot.SetActive(false);
 
-        // ¹Ø±Õ×ÓÃæ°å
+        // å…³é—­å­é¢æ¿
         if (_settingsPanel != null)
         {
             _settingsPanel.SetActive(false);
@@ -122,68 +122,68 @@ public class BigMapUIManager : SingletonMono<BigMapUIManager>, IMenuPanel
             _confirmBackPanel.SetActive(false);
         }
 
-        Debug.Log("<color=cyan>[BigMapUIManager]</color> ´óµØÍ¼ UI Ãæ°åÒÑ¹Ø±Õ");
+        Debug.Log("<color=cyan>[BigMapUIManager]</color> å¤§åœ°å›¾ UI é¢æ¿å·²å…³é—­");
     }
 
     // ==========================================
-    // °´Å¥µã»÷ÊÂ¼ş´¦Àí
+    // æŒ‰é’®ç‚¹å‡»äº‹ä»¶å¤„ç†
     // ==========================================
 
     /// <summary>
-    /// ·µ»ØÖ÷²Ëµ¥°´Å¥µã»÷ÊÂ¼ş
+    /// è¿”å›ä¸»èœå•æŒ‰é’®ç‚¹å‡»äº‹ä»¶
     /// </summary>
     private void OnBackToMainMenuClicked()
     {
-        Debug.Log("<color=cyan>[BigMapUIManager]</color> ·µ»ØÖ÷²Ëµ¥°´Å¥±»µã»÷");
+        Debug.Log("<color=cyan>[BigMapUIManager]</color> è¿”å›ä¸»èœå•æŒ‰é’®è¢«ç‚¹å‡»");
         ShowConfirmBackToMainMenu();
     }
 
     /// <summary>
-    /// ÉèÖÃ°´Å¥µã»÷ÊÂ¼ş
+    /// è®¾ç½®æŒ‰é’®ç‚¹å‡»äº‹ä»¶
     /// </summary>
     private void OnSettingsClicked()
     {
-        Debug.Log("<color=yellow>[BigMapUIManager]</color> ÉèÖÃ°´Å¥±»µã»÷");
+        Debug.Log("<color=yellow>[BigMapUIManager]</color> è®¾ç½®æŒ‰é’®è¢«ç‚¹å‡»");
         ToggleSettingsPanel();
     }
 
     /// <summary>
-    /// È·ÈÏ·µ»ØÖ÷²Ëµ¥°´Å¥µã»÷ÊÂ¼ş
+    /// ç¡®è®¤è¿”å›ä¸»èœå•æŒ‰é’®ç‚¹å‡»äº‹ä»¶
     /// </summary>
     private void OnConfirmBackClicked()
     {
-        Debug.Log("<color=cyan>[BigMapUIManager]</color> È·ÈÏ·µ»ØÖ÷²Ëµ¥");
+        Debug.Log("<color=cyan>[BigMapUIManager]</color> ç¡®è®¤è¿”å›ä¸»èœå•");
         SaveAndBackToMainMenu();
     }
 
     /// <summary>
-    /// È¡Ïû·µ»ØÖ÷²Ëµ¥°´Å¥µã»÷ÊÂ¼ş
+    /// å–æ¶ˆè¿”å›ä¸»èœå•æŒ‰é’®ç‚¹å‡»äº‹ä»¶
     /// </summary>
     private void OnCancelBackClicked()
     {
-        Debug.Log("<color=cyan>[BigMapUIManager]</color> È¡Ïû·µ»ØÖ÷²Ëµ¥");
+        Debug.Log("<color=cyan>[BigMapUIManager]</color> å–æ¶ˆè¿”å›ä¸»èœå•");
         CloseConfirmPanel();
     }
 
     // ==========================================
-    // PostSystem ÊÂ¼ş¶©ÔÄ£¨Ö§³ÖÍâ²¿´¥·¢£©
+    // PostSystem äº‹ä»¶è®¢é˜…ï¼ˆæ”¯æŒå¤–éƒ¨è§¦å‘ï¼‰
     // ==========================================
 
     private void OnEnable()
     {
-        // ¶©ÔÄ·µ»ØÖ÷²Ëµ¥È·ÈÏÊÂ¼ş£¨¹©ÆäËûÏµÍ³´¥·¢£©
+        // è®¢é˜…è¿”å›ä¸»èœå•ç¡®è®¤äº‹ä»¶ï¼ˆä¾›å…¶ä»–ç³»ç»Ÿè§¦å‘ï¼‰
         PostSystem.Instance.On("BigMap.ShowConfirmBack", OnShowConfirmBack);
     }
 
     private void OnDisable()
     {
-        // È¡Ïû¶©ÔÄ
+        // å–æ¶ˆè®¢é˜…
         if (PostSystem.Instance != null)
             PostSystem.Instance.Off("BigMap.ShowConfirmBack", OnShowConfirmBack);
     }
 
     /// <summary>
-    /// Íâ²¿´¥·¢ÏÔÊ¾È·ÈÏµ¯´°
+    /// å¤–éƒ¨è§¦å‘æ˜¾ç¤ºç¡®è®¤å¼¹çª—
     /// </summary>
     private void OnShowConfirmBack(object data)
     {
@@ -191,128 +191,128 @@ public class BigMapUIManager : SingletonMono<BigMapUIManager>, IMenuPanel
     }
 
     // ==========================================
-    // ¹¦ÄÜ·½·¨
+    // åŠŸèƒ½æ–¹æ³•
     // ==========================================
 
     /// <summary>
-    /// ÇĞ»»ÉèÖÃÃæ°åÏÔÊ¾/Òş²Ø
+    /// åˆ‡æ¢è®¾ç½®é¢æ¿æ˜¾ç¤º/éšè—
     /// </summary>
     public void ToggleSettingsPanel()
     {
         if (_settingsPanel == null)
         {
-            Debug.LogWarning("<color=orange>[BigMapUIManager]</color> ÉèÖÃÃæ°åÎ´ÉèÖÃ");
+            Debug.LogWarning("<color=orange>[BigMapUIManager]</color> è®¾ç½®é¢æ¿æœªè®¾ç½®");
             return;
         }
 
         bool isActive = _settingsPanel.activeSelf;
         _settingsPanel.SetActive(!isActive);
 
-        Debug.Log($"<color=cyan>[BigMapUIManager]</color> ÉèÖÃÃæ°åÒÑ{(!isActive ? "´ò¿ª" : "¹Ø±Õ")}");
+        Debug.Log($"<color=cyan>[BigMapUIManager]</color> è®¾ç½®é¢æ¿å·²{(!isActive ? "æ‰“å¼€" : "å…³é—­")}");
     }
 
     /// <summary>
-    /// ÏÔÊ¾·µ»ØÖ÷²Ëµ¥È·ÈÏµ¯´°
+    /// æ˜¾ç¤ºè¿”å›ä¸»èœå•ç¡®è®¤å¼¹çª—
     /// </summary>
     public void ShowConfirmBackToMainMenu()
     {
         if (_confirmBackPanel != null)
         {
-            // Èç¹ûÓĞÈ·ÈÏµ¯´°£¬ÏÔÊ¾Ëü
+            // å¦‚æœæœ‰ç¡®è®¤å¼¹çª—ï¼Œæ˜¾ç¤ºå®ƒ
             _confirmBackPanel.SetActive(true);
-            Debug.Log("<color=yellow>[BigMapUIManager]</color> ÏÔÊ¾·µ»ØÖ÷²Ëµ¥È·ÈÏµ¯´°");
+            Debug.Log("<color=yellow>[BigMapUIManager]</color> æ˜¾ç¤ºè¿”å›ä¸»èœå•ç¡®è®¤å¼¹çª—");
         }
         else
         {
-            // Ã»ÓĞÈ·ÈÏµ¯´°£¬Ö±½Ó·µ»ØÖ÷²Ëµ¥£¨´ø±£´æ£©
-            Debug.Log("<color=yellow>[BigMapUIManager]</color> ÎŞÈ·ÈÏµ¯´°£¬Ö±½Ó·µ»ØÖ÷²Ëµ¥");
+            // æ²¡æœ‰ç¡®è®¤å¼¹çª—ï¼Œç›´æ¥è¿”å›ä¸»èœå•ï¼ˆå¸¦ä¿å­˜ï¼‰
+            Debug.Log("<color=yellow>[BigMapUIManager]</color> æ— ç¡®è®¤å¼¹çª—ï¼Œç›´æ¥è¿”å›ä¸»èœå•");
             SaveAndBackToMainMenu();
         }
     }
 
     /// <summary>
-    /// ±£´æÓÎÏ·²¢·µ»ØÖ÷²Ëµ¥
+    /// ä¿å­˜æ¸¸æˆå¹¶è¿”å›ä¸»èœå•
     /// </summary>
     public void SaveAndBackToMainMenu()
     {
-        Debug.Log("<color=cyan>[BigMapUIManager]</color> ÕıÔÚ±£´æ²¢·µ»ØÖ÷²Ëµ¥...");
+        Debug.Log("<color=cyan>[BigMapUIManager]</color> æ­£åœ¨ä¿å­˜å¹¶è¿”å›ä¸»èœå•...");
 
-        // 1. ±£´æÓÎÏ·
+        // 1. ä¿å­˜æ¸¸æˆ
         if (SaveManager.Instance != null)
         {
             SaveManager.Instance.SaveGameToDisk();
-            Debug.Log("<color=green>[BigMapUIManager]</color> ÓÎÏ·ÒÑ±£´æ");
+            Debug.Log("<color=green>[BigMapUIManager]</color> æ¸¸æˆå·²ä¿å­˜");
         }
 
-        // 2. ÇåÀíµ±Ç°¹Ø¿¨×´Ì¬
+        // 2. æ¸…ç†å½“å‰å…³å¡çŠ¶æ€
         if (EntitySystem.Instance != null)
         {
             EntitySystem.Instance.ClearWorld();
         }
 
-        // 3. ÖØÖÃ MainModel ×´Ì¬
+        // 3. é‡ç½® MainModel çŠ¶æ€
         if (MainModel.Instance != null)
         {
             MainModel.Instance.ClearCurrentStage();
         }
 
-        // 4. ÇĞ»»»ØÖ÷²Ëµ¥×´Ì¬£¨ĞÀÉÍÌØĞ§ß÷£¡£©
+        // 4. åˆ‡æ¢å›ä¸»èœå•çŠ¶æ€ï¼ˆæ¬£èµç‰¹æ•ˆå–µï¼ï¼‰
         if (GameFlowController.Instance != null)
         {
             GameFlowController.Instance.SwitchToState(GameFlowController.GameState.MainMenu);
         }
 
-        // 5. ¹Ø±ÕÈ·ÈÏµ¯´°£¨Èç¹ûÓĞ£©
+        // 5. å…³é—­ç¡®è®¤å¼¹çª—ï¼ˆå¦‚æœæœ‰ï¼‰
         if (_confirmBackPanel != null)
         {
             _confirmBackPanel.SetActive(false);
         }
 
-        // 6. ¹Ø±Õµ±Ç° UI
+        // 6. å…³é—­å½“å‰ UI
         Close();
 
-        Debug.Log("<color=green>[BigMapUIManager]</color> ·µ»ØÖ÷²Ëµ¥Íê³É£¬ÇëĞÀÉÍÌØĞ§ß÷£¡");
+        Debug.Log("<color=green>[BigMapUIManager]</color> è¿”å›ä¸»èœå•å®Œæˆï¼Œè¯·æ¬£èµç‰¹æ•ˆå–µï¼");
     }
 
     /// <summary>
-    /// ·µ»ØÖ÷²Ëµ¥£¨²»±£´æ£©
+    /// è¿”å›ä¸»èœå•ï¼ˆä¸ä¿å­˜ï¼‰
     /// </summary>
     public void BackToMainMenuWithoutSave()
     {
-        Debug.Log("<color=orange>[BigMapUIManager]</color> ÕıÔÚ·µ»ØÖ÷²Ëµ¥£¨Î´±£´æ£©...");
+        Debug.Log("<color=orange>[BigMapUIManager]</color> æ­£åœ¨è¿”å›ä¸»èœå•ï¼ˆæœªä¿å­˜ï¼‰...");
 
-        // 1. ÇåÀíµ±Ç°¹Ø¿¨×´Ì¬
+        // 1. æ¸…ç†å½“å‰å…³å¡çŠ¶æ€
         if (EntitySystem.Instance != null)
         {
             EntitySystem.Instance.ClearWorld();
         }
 
-        // 2. ÖØÖÃ MainModel ×´Ì¬
+        // 2. é‡ç½® MainModel çŠ¶æ€
         if (MainModel.Instance != null)
         {
             MainModel.Instance.ClearCurrentStage();
         }
 
-        // 3. ÇĞ»»»ØÖ÷²Ëµ¥×´Ì¬
+        // 3. åˆ‡æ¢å›ä¸»èœå•çŠ¶æ€
         if (GameFlowController.Instance != null)
         {
             GameFlowController.Instance.SwitchToState(GameFlowController.GameState.MainMenu);
         }
 
-        // 4. ¹Ø±ÕÈ·ÈÏµ¯´°
+        // 4. å…³é—­ç¡®è®¤å¼¹çª—
         if (_confirmBackPanel != null)
         {
             _confirmBackPanel.SetActive(false);
         }
 
-        // 5. ¹Ø±Õµ±Ç° UI
+        // 5. å…³é—­å½“å‰ UI
         Close();
 
-        Debug.LogWarning("<color=orange>[BigMapUIManager]</color> ·µ»ØÖ÷²Ëµ¥Íê³É£¨Î´±£´æ½ø¶È£©");
+        Debug.LogWarning("<color=orange>[BigMapUIManager]</color> è¿”å›ä¸»èœå•å®Œæˆï¼ˆæœªä¿å­˜è¿›åº¦ï¼‰");
     }
 
     /// <summary>
-    /// ´ò¿ªÉèÖÃÃæ°å
+    /// æ‰“å¼€è®¾ç½®é¢æ¿
     /// </summary>
     public void OpenSettings()
     {
@@ -323,7 +323,7 @@ public class BigMapUIManager : SingletonMono<BigMapUIManager>, IMenuPanel
     }
 
     /// <summary>
-    /// ¹Ø±ÕÉèÖÃÃæ°å
+    /// å…³é—­è®¾ç½®é¢æ¿
     /// </summary>
     public void CloseSettings()
     {
@@ -334,7 +334,7 @@ public class BigMapUIManager : SingletonMono<BigMapUIManager>, IMenuPanel
     }
 
     /// <summary>
-    /// ¹Ø±ÕÈ·ÈÏµ¯´°
+    /// å…³é—­ç¡®è®¤å¼¹çª—
     /// </summary>
     public void CloseConfirmPanel()
     {

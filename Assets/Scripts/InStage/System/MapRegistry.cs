@@ -1,4 +1,4 @@
-﻿public static class MapRegistry
+public static class MapRegistry
 {
     // --- 逻辑分类查询 ---
 

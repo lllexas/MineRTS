@@ -1,4 +1,4 @@
-﻿using TMPro;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI; // 如果你用 TextMeshPro，请换成 using TMPro;
 

@@ -1,4 +1,4 @@
-﻿public class SellerStrategy : IWorkStrategy
+public class SellerStrategy : IWorkStrategy
 {
     public void Tick(int index, WholeComponent whole, float deltaTime)
     {

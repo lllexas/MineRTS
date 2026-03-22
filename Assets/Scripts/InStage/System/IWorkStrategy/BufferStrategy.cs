@@ -1,4 +1,4 @@
-﻿public class BufferStrategy : IWorkStrategy
+public class BufferStrategy : IWorkStrategy
 {
     public void Tick(int index, WholeComponent whole, float deltaTime)
     {

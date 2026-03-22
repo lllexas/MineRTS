@@ -21,17 +21,17 @@ Shader "Custom/SpriteFlatOverlay"
         Cull Off
         Lighting Off
         ZWrite Off
-        // ±ê×¼µÄÍ¸Ã÷»ìºÏ
+        // æ ‡å‡†çš„é€æ˜æ··åˆ
         Blend SrcAlpha OneMinusSrcAlpha
 
         // =======================================================
-        // ¡¾ºËĞÄºÚÄ§·¨¡¿ Ä£°æ²âÊÔ (Stencil)
+        // ã€æ ¸å¿ƒé»‘é­”æ³•ã€‘ æ¨¡ç‰ˆæµ‹è¯• (Stencil)
         // =======================================================
         Stencil
         {
-            Ref 1           // Éè¶¨²Î¿¼ÖµÎª 1
-            Comp NotEqual   // ±È½Ï¹æÔò£ºÖ»ÓĞµ±»º³åÇøµÄÖµ "²»µÈÓÚ" 1 Ê±²Å»æÖÆ
-            Pass Replace    // Í¨¹ı¹æÔò£º»æÖÆºó£¬°Ñ»º³åÇøµÄÖµ "Ìæ»»" Îª 1
+            Ref 1           // è®¾å®šå‚è€ƒå€¼ä¸º 1
+            Comp NotEqual   // æ¯”è¾ƒè§„åˆ™ï¼šåªæœ‰å½“ç¼“å†²åŒºçš„å€¼ "ä¸ç­‰äº" 1 æ—¶æ‰ç»˜åˆ¶
+            Pass Replace    // é€šè¿‡è§„åˆ™ï¼šç»˜åˆ¶åï¼ŒæŠŠç¼“å†²åŒºçš„å€¼ "æ›¿æ¢" ä¸º 1
         }
         // =======================================================
 
@@ -64,7 +64,7 @@ Shader "Custom/SpriteFlatOverlay"
                 v2f OUT;
                 OUT.vertex = UnityObjectToClipPos(IN.vertex);
                 OUT.texcoord = IN.texcoord;
-                // ¼Ì³Ğ SpriteRenderer ´«ÈëµÄÑÕÉ«
+                // ç»§æ‰¿ SpriteRenderer ä¼ å…¥çš„é¢œè‰²
                 OUT.color = IN.color * _Color;
                 #ifdef PIXELSNAP_ON
                 OUT.vertex = UnityPixelSnap (OUT.vertex);
@@ -80,12 +80,12 @@ Shader "Custom/SpriteFlatOverlay"
             {
                 fixed4 c = tex2D(_MainTex, IN.texcoord) * IN.color;
                 
-                // ¡¾ºËĞÄĞŞ¸´¡¿ ÏñËØÌŞ³ı
-                // Èç¹ûµ±Ç°ÏñËØµÄ Alpha ÖµµÍÓÚ 0.1£¨Ò²¾ÍÊÇÍ¸Ã÷²¿·Ö£©£¬
-                // Á¢¼´¶ªÆú¸ÃÏñËØ£¬²»Ö´ĞĞºóÃæµÄ»æÖÆ£¬Ò²²»ĞŞ¸Ä Stencil »º³åÇø£¡
+                // ã€æ ¸å¿ƒä¿®å¤ã€‘ åƒç´ å‰”é™¤
+                // å¦‚æœå½“å‰åƒç´ çš„ Alpha å€¼ä½äº 0.1ï¼ˆä¹Ÿå°±æ˜¯é€æ˜éƒ¨åˆ†ï¼‰ï¼Œ
+                // ç«‹å³ä¸¢å¼ƒè¯¥åƒç´ ï¼Œä¸æ‰§è¡Œåé¢çš„ç»˜åˆ¶ï¼Œä¹Ÿä¸ä¿®æ”¹ Stencil ç¼“å†²åŒºï¼
                 clip(c.a - 0.1);
 
-                c.rgb *= c.a; // Ô¤³Ë Alpha
+                c.rgb *= c.a; // é¢„ä¹˜ Alpha
                 return c;
             }
         ENDCG
