@@ -157,7 +157,7 @@ public class PlayerWarehouseManager : SingletonData<PlayerWarehouseManager>
             return result;
         }
 
-        if (!analyser.CreateDirectory(preview.PackID, preview.ItemRootPath))
+        if (!analyser.CreateDirectory(preview.PackID, preview.ItemRootPath, PackAccessSubjects.SystemMin))
         {
             result.Success = false;
             result.Message = $"无法创建仓库目录：{preview.ItemRootPath}";
@@ -280,7 +280,7 @@ public class PlayerWarehouseManager : SingletonData<PlayerWarehouseManager>
             return false;
         }
 
-        pack = analyser.GetPack(packID);
+        pack = analyser.GetPack(packID, PackAccessSubjects.Player);
         if (pack == null)
             pack = TryMountWarehousePack(packID, analyser);
 
@@ -296,13 +296,17 @@ public class PlayerWarehouseManager : SingletonData<PlayerWarehouseManager>
             return false;
         }
 
-        if (pack.AccessLevel == PackAccessLevel.Hidden)
+        PackAccessLevel accessLevel = GraphHub.Instance != null
+            ? GraphHub.Instance.GetPackAccessLevel(GraphInstanceSlot.Player, pack)
+            : analyser.GetPackAccessLevel(pack, PackAccessSubjects.Player);
+
+        if (accessLevel == PackAccessLevel.Hidden)
         {
             error = $"仓库 Pack 已隐藏，拒绝访问：{packID}";
             return false;
         }
 
-        if (requireWrite && pack.AccessLevel != PackAccessLevel.ReadWrite)
+        if (requireWrite && accessLevel != PackAccessLevel.ReadWrite)
         {
             error = $"仓库 Pack 不可写：{packID}";
             return false;
@@ -314,9 +318,8 @@ public class PlayerWarehouseManager : SingletonData<PlayerWarehouseManager>
     private static BasePackData TryMountWarehousePack(string packID, GraphAnalyser analyser)
     {
         var user = MainModel.Instance?.CurrentUser;
-        if (user?.PackDataDict != null &&
-            user.PackDataDict.TryGetValue(packID, out var savedPack) &&
-            savedPack != null &&
+        var savedPack = user?.FindPackByPackID(packID);
+        if (savedPack != null &&
             savedPack.System == NodeSystem.VFS)
         {
             return analyser.LoadVFSFromPack(savedPack);
@@ -334,7 +337,7 @@ public class PlayerWarehouseManager : SingletonData<PlayerWarehouseManager>
             return false;
 
         string filePath = BuildItemFilePath(itemRootPath, itemType);
-        var node = analyser.GetNode(packID, filePath);
+        var node = analyser.GetNode(packID, filePath, PackAccessSubjects.Player);
         if (node == null)
             return true;
 
@@ -381,7 +384,7 @@ public class PlayerWarehouseManager : SingletonData<PlayerWarehouseManager>
             if (states.ContainsKey(change.FilePath))
                 continue;
 
-            var node = analyser.GetNode(packID, change.FilePath);
+            var node = analyser.GetNode(packID, change.FilePath, PackAccessSubjects.Player);
             if (node is VFSNodeData vfsNode && vfsNode.IsFile)
             {
                 states[change.FilePath] = new OriginalFileState
@@ -409,10 +412,10 @@ public class PlayerWarehouseManager : SingletonData<PlayerWarehouseManager>
 
         if (change.AfterCount <= 0)
         {
-            if (!analyser.PathExists(packID, change.FilePath))
+            if (!analyser.PathExists(packID, change.FilePath, PackAccessSubjects.SystemMin))
                 return true;
 
-            if (!analyser.Delete(packID, change.FilePath))
+            if (!analyser.Delete(packID, change.FilePath, PackAccessSubjects.SystemMin))
             {
                 error = $"删除仓库文件失败：{change.FilePath}";
                 return false;
@@ -430,7 +433,7 @@ public class PlayerWarehouseManager : SingletonData<PlayerWarehouseManager>
         };
 
         string json = JsonUtility.ToJson(record, true);
-        if (!analyser.WriteFile(packID, change.FilePath, json))
+        if (!analyser.WriteFile(packID, change.FilePath, json, PackAccessSubjects.SystemMin))
         {
             error = $"写入仓库文件失败：{change.FilePath}";
             return false;
@@ -445,11 +448,11 @@ public class PlayerWarehouseManager : SingletonData<PlayerWarehouseManager>
         {
             if (!kvp.Value.Exists)
             {
-                analyser.Delete(packID, kvp.Key);
+                analyser.Delete(packID, kvp.Key, PackAccessSubjects.SystemMin);
                 continue;
             }
 
-            analyser.WriteFile(packID, kvp.Key, kvp.Value.DataJson ?? string.Empty);
+            analyser.WriteFile(packID, kvp.Key, kvp.Value.DataJson ?? string.Empty, PackAccessSubjects.SystemMin);
         }
     }
 

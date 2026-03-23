@@ -14,11 +14,11 @@ using UnityEngine;
 /// </summary>
 public class CommandNodeStrategy : NodeStrategy
 {
-    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         if (data is not CommandNodeData commandNode) return;
 
-        if (GraphRunner.Instance.EnableDebugLog)
+        if (runner.EnableDebugLog)
         {
             Debug.Log($"[CommandNode] 执行命令：{commandNode.Command.CommandName}");
         }
@@ -30,7 +30,7 @@ public class CommandNodeStrategy : NodeStrategy
         PropagateSignal(commandNode, context, pack);
     }
 
-    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         // 命令节点通常不直接响应外部事件
     }
@@ -57,7 +57,9 @@ public class CommandNodeStrategy : NodeStrategy
         // 【管道重构后】直接调用 CommandRegistry 统一入口喵~
         try
         {
-            var output = CommandRegistry.Execute(command.CommandName, args, context.Args, null);
+            // 从 GraphRunner 获取当前执行主体的权限喵~
+            int subjectLevel = GraphRunner.Instance?.GetSubjectLevel() ?? PackAccessSubjects.Player;
+            var output = CommandRegistry.Execute(command.CommandName, subjectLevel, args, context.Args, null);
 
             // 将命令输出的 Payload 传递给下游节点
             if (output.Payload != null)

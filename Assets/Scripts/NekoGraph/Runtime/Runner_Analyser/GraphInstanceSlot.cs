@@ -5,6 +5,6 @@ public enum GraphInstanceSlot
     AI_2 = 101,
     AI_3 = 102,
     AI_4 = 103,
-    System = 200,
-    Test = 999
+    System = 1000,
+    Test = 1999
 }

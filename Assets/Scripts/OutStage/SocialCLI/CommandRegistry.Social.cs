@@ -39,7 +39,7 @@ public static partial class CommandRegistry
         Tooltip = "显示当前目录路径喵~",
         Color = "0.3,0.5,0.9")]
     [SocialCommand]
-    public static CommandOutput Pwd(DeveloperConsole console, string[] args, object payload)
+    public static CommandOutput Pwd(DeveloperConsole console, int subjectLevel, string[] args, object payload)
     {
         return CommandOutput.Success($"当前目录：{console.FullCurrentPath}");
     }
@@ -48,7 +48,7 @@ public static partial class CommandRegistry
         Tooltip = "切换当前目录喵~\n示例：cd friends  cd A:/messages  cd ..",
         Color = "0.3,0.5,0.8")]
     [SocialCommand]
-    public static CommandOutput Cd(DeveloperConsole console, string[] args, object payload)
+    public static CommandOutput Cd(DeveloperConsole console, int subjectLevel, string[] args, object payload)
     {
         if (args.Length < 1)
         {
@@ -87,7 +87,7 @@ public static partial class CommandRegistry
         Tooltip = "列出目录内容喵~\n示例：ls  ls /messages/  ls A:/shop",
         Color = "0.3,0.5,0.7")]
     [SocialCommand]
-    public static CommandOutput List(DeveloperConsole console, string[] args, object payload)
+    public static CommandOutput List(DeveloperConsole console, int subjectLevel, string[] args, object payload)
     {
         if (string.IsNullOrEmpty(console.CurrentVFSPackID))
             return CommandOutput.Fail("未挂载文件系统喵！");
@@ -104,20 +104,20 @@ public static partial class CommandRegistry
         }
 
         // 检查路径是否存在
-        if (!analyser.PathExists(packID, path))
+        if (!analyser.PathExists(packID, path, PackAccessSubjects.Player))
         {
             return CommandOutput.Fail($"路径不存在：{path}");
         }
 
         // 检查是否是目录
-        var node = analyser.GetNode(packID, path);
+        var node = analyser.GetNode(packID, path, PackAccessSubjects.Player);
         if (node is VFSNodeData vfs && !vfs.IsDirectory)
         {
             return CommandOutput.Fail($"不是目录：{path}");
         }
 
         // 获取子节点列表
-        var children = analyser.GetChildren(packID, path);
+        var children = analyser.GetChildren(packID, path, PackAccessSubjects.Player);
 
         // 过滤启用的节点
         var validChildren = new List<VFSNodeData>();
@@ -209,7 +209,7 @@ public static partial class CommandRegistry
         Tooltip = "显示帮助信息喵~\n示例：help ls",
         Color = "0.5,0.5,0.5")]
     [SocialCommand]
-    public static CommandOutput SocialHelp(DeveloperConsole console, string[] args, object payload)
+    public static CommandOutput SocialHelp(DeveloperConsole console, int subjectLevel, string[] args, object payload)
     {
         StringBuilder sb = new StringBuilder();
         sb.AppendLine("=== 社交终端帮助 ===");
@@ -230,7 +230,7 @@ public static partial class CommandRegistry
         Tooltip = "读取 VFS 文件内容喵~\n示例：cat message.txt  cat A:/messages/test.msg",
         Color = "0.3,0.7,0.3")]
     [SocialCommand]
-    public static CommandOutput Cat(DeveloperConsole console, string[] args, object payload)
+    public static CommandOutput Cat(DeveloperConsole console, int subjectLevel, string[] args, object payload)
     {
         if (string.IsNullOrEmpty(console.CurrentVFSPackID))
             return CommandOutput.Fail("未挂载文件系统喵！");
@@ -242,7 +242,7 @@ public static partial class CommandRegistry
             return CommandOutput.Fail($"未知盘符：{args[0]}");
 
         var analyser = GraphAnalyser.Instance;
-        var node = analyser.GetNode(packID, targetPath);
+        var node = analyser.GetNode(packID, targetPath, PackAccessSubjects.Player);
 
         if (node == null) return CommandOutput.Fail($"文件不存在：{targetPath}");
         if (node is VFSNodeData vfs)
@@ -278,7 +278,7 @@ public static partial class CommandRegistry
         Tooltip = "输出指定文本喵~\n示例：echo \"Hello World\"",
         Color = "0.8,0.8,0.3")]
     [SocialCommand]
-    public static CommandOutput Echo(DeveloperConsole console, string[] args, object payload)
+    public static CommandOutput Echo(DeveloperConsole console, int subjectLevel, string[] args, object payload)
     {
         string content = string.Join(" ", args);
         // 如果是从上游传下来的 payload 且 args 为空，则优先显示 payload
@@ -294,7 +294,7 @@ public static partial class CommandRegistry
         Tooltip = "打开交互式盘符选择界面，↑↓ 导航，Enter 确认切换喵~",
         Color = "0.5,0.8,0.5")]
     [SocialCommand]
-    public static CommandOutput Mount(DeveloperConsole console, string[] args, object payload)
+    public static CommandOutput Mount(DeveloperConsole console, int subjectLevel, string[] args, object payload)
     {
         if (console == null) return CommandOutput.Fail("console 为空");
 
@@ -307,8 +307,11 @@ public static partial class CommandRegistry
         for (int i = 0; i < driveMap.Count; i++)
         {
             var (letter, packID) = driveMap[i];
-            var pack = analyser?.GetPack(packID);
-            string rw = pack?.AccessLevel == PackAccessLevel.ReadWrite ? "RW" : "RO";
+            var pack = analyser?.GetPack(packID, PackAccessSubjects.Player);
+            PackAccessLevel accessLevel = GraphHub.Instance?.GetPackAccessLevel(GraphInstanceSlot.Player, pack)
+                ?? analyser?.GetPackAccessLevel(pack, PackAccessSubjects.Player)
+                ?? PackAccessLevel.Hidden;
+            string rw = accessLevel == PackAccessLevel.ReadWrite ? "RW" : "RO";
             bool isCurrent = packID == console.CurrentVFSPackID;
             items.Add(new TUISelectionItem
             {
@@ -353,7 +356,7 @@ public static partial class CommandRegistry
     [CommandInfo("social_isolation", "🔓 切换 CLI 隔离模式", "Debug", new[] { "enable (0/1)" },
         Tooltip = "解除/启用社交 CLI 的命令隔离喵~\n此命令只能在大控制台执行！\n示例：social_isolation 0 (解除隔离)\nsocial_isolation 1 (启用隔离)",
         Color = "0.8,0.4,0.2")]
-    public static CommandOutput SocialIsolation(DeveloperConsole console, string[] args, object payload)
+    public static CommandOutput SocialIsolation(DeveloperConsole console, int subjectLevel, string[] args, object payload)
     {
         // 此命令只能在大控制台（DeveloperConsole）执行，不能在社交终端执行喵~
         if (console is SocialCLI)

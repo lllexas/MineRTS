@@ -31,8 +31,11 @@ public class CommandExecutor : SingletonMono<CommandExecutor>
             return CommandRegistry.CommandResult.Skipped;
         }
 
+        // 从 GraphRunner 获取当前执行主体的权限喵~
+        int subjectLevel = GraphRunner.Instance?.GetSubjectLevel() ?? PackAccessSubjects.Player;
+
         // 委托给 CommandRegistry 执行喵~
-        var output = CommandRegistry.Execute(command.CommandName, command.Parameters?.ToArray() ?? new string[0], null, null);
+        var output = CommandRegistry.Execute(command.CommandName, subjectLevel, command.Parameters?.ToArray() ?? new string[0], null, null);
         return output.Result;
     }
 

@@ -22,7 +22,7 @@ public class SocialManager : SingletonData<SocialManager>
         var analyser = GraphAnalyser.Instance;
         if (analyser == null) return;
 
-        if (analyser.GetPack(SOCIAL_PACK_ID) == null)
+        if (analyser.GetPack(SOCIAL_PACK_ID, PackAccessSubjects.Player) == null)
         {
             Debug.LogError($"[SocialManager] VFS 未挂载：{SOCIAL_PACK_ID}，请检查存档加载流程喵！");
             return;
@@ -56,7 +56,7 @@ public class SocialManager : SingletonData<SocialManager>
         }
 
         // 3. 动态写入 VFS 喵！✨
-        if (analyser.WriteFile(SOCIAL_PACK_ID, fullVfsPath, json))
+        if (analyser.WriteFile(SOCIAL_PACK_ID, fullVfsPath, json, PackAccessSubjects.SystemMin))
         {
             // 写入成功后，虽然 SyncAll 会在存档时做，但这里我们可以主动触发局部同步（可选）
             // vfsManager.SyncAll(SOCIAL_PACK_ID);
@@ -74,15 +74,15 @@ public class SocialManager : SingletonData<SocialManager>
         var analyser = GraphAnalyser.Instance;
         if (analyser == null) return;
 
-        var node = analyser.GetNode(SOCIAL_PACK_ID, vfsPath);
+        var node = analyser.GetNode(SOCIAL_PACK_ID, vfsPath, PackAccessSubjects.Player);
         if (node is VFSNodeData vfs)
         {
             var data = JsonUtility.FromJson<SocialMessageVFSData>(vfs.DataJson);
             if (data != null && !data.IsRead)
             {
                 data.IsRead = true;
-                vfs.DataJson = JsonUtility.ToJson(data); 
-                analyser.WriteFile(SOCIAL_PACK_ID, vfsPath, vfs.DataJson); 
+                vfs.DataJson = JsonUtility.ToJson(data);
+                analyser.WriteFile(SOCIAL_PACK_ID, vfsPath, vfs.DataJson, PackAccessSubjects.SystemMin);
                 Debug.Log($"[SocialManager] 消息已标记为已读：{vfsPath}");
             }
         }

@@ -11,11 +11,11 @@ using UnityEngine;
 /// </summary>
 public class RootNodeStrategy : NodeStrategy
 {
-    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         if (data is not RootNodeData rootNode) return;
 
-        if (GraphRunner.Instance.EnableDebugLog)
+        if (runner.EnableDebugLog)
         {
             Debug.Log($"[RootNode] 流程启动：{rootNode.NodeID}");
         }
@@ -24,7 +24,7 @@ public class RootNodeStrategy : NodeStrategy
         EnqueueSignals(pack, rootNode.OutputConnections, context);
     }
 
-    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         // Root 节点不响应外部事件
     }
@@ -35,11 +35,11 @@ public class RootNodeStrategy : NodeStrategy
 /// </summary>
 public class SpineNodeStrategy : NodeStrategy, IBlockingNodeStrategy
 {
-    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         if (data is not SpineNodeData spineNode) return;
 
-        if (GraphRunner.Instance.EnableDebugLog)
+        if (runner.EnableDebugLog)
         {
             Debug.Log($"[SpineNode] 信号中继：{spineNode.NodeID} (ProcessID: {spineNode.ProcessID})");
         }
@@ -51,12 +51,12 @@ public class SpineNodeStrategy : NodeStrategy, IBlockingNodeStrategy
         PropagateToNextSpine(spineNode, context, pack);
     }
 
-    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         if (data is not SpineNodeData spineNode) return;
 
         // Spine 节点可以通过 Leaf B 节点的回调来响应事件
-        if (GraphRunner.Instance.EnableDebugLog)
+        if (runner.EnableDebugLog)
         {
             Debug.Log($"[SpineNode] 收到事件：{eventName} -> {spineNode.NodeID}");
         }
@@ -131,15 +131,34 @@ public class SpineNodeStrategy : NodeStrategy, IBlockingNodeStrategy
 }
 
 /// <summary>
+/// 销毁节点策略 - 销毁 Pack 实例并重置状态喵~
+/// </summary>
+public class DestroyNodeStrategy : NodeStrategy
+{
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack, GraphRunner runner, string packInstanceID)
+    {
+        if (runner.EnableDebugLog)
+        {
+            Debug.Log($"[DestroyNode] 销毁 Pack 实例：{pack.PackID} (InstanceID: {packInstanceID})");
+        }
+
+        // 销毁当前 Pack 实例，强制重置状态喵~
+        runner.UnloadPack(packInstanceID);
+    }
+
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack, GraphRunner runner, string packInstanceID) { }
+}
+
+/// <summary>
 /// Leaf A 节点策略 - 处理具体的执行演出喵~
 /// </summary>
 public class LeafNodeAStrategy : NodeStrategy
 {
-    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         if (data is not LeafNode_A_Data leafNode) return;
 
-        if (GraphRunner.Instance.EnableDebugLog)
+        if (runner.EnableDebugLog)
         {
             Debug.Log($"[LeafNode A] 执行演出：{leafNode.NodeID} (ProcessID: {leafNode.ProcessID})");
         }
@@ -151,7 +170,7 @@ public class LeafNodeAStrategy : NodeStrategy
         NotifyLeafB(leafNode, context, pack);
     }
 
-    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         // Leaf A 节点通常不直接响应外部事件
     }
@@ -179,11 +198,11 @@ public class LeafNodeAStrategy : NodeStrategy
 /// </summary>
 public class LeafNodeBStrategy : NodeStrategy
 {
-    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         if (data is not LeafNode_B_Data leafNode) return;
 
-        if (GraphRunner.Instance.EnableDebugLog)
+        if (runner.EnableDebugLog)
         {
             Debug.Log($"[LeafNode B] 执行回调：{leafNode.NodeID} (ProcessID: {leafNode.ProcessID})");
         }
@@ -192,7 +211,7 @@ public class LeafNodeBStrategy : NodeStrategy
         EnqueueSignals(pack, leafNode.OutputConnections, context);
     }
 
-    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         // Leaf B 节点通常不直接响应外部事件
     }

@@ -6,16 +6,6 @@ using System.Linq;
 using NekoGraph;
 
 /// <summary>
-/// Pack 访问权限喵~
-/// </summary>
-public enum PackAccessLevel
-{
-    ReadWrite,  // 用户盘：玩家可读可写（仓库、社交）
-    ReadOnly,   // 内核盘：玩家可读不可写（mainstory、techlab）
-    Hidden,     // 隐藏：不对玩家暴露（运行时特效、开发用包）
-}
-
-/// <summary>
 /// ═══════════════════════════════════════════════════════════════
 /// BasePackData - 数据包基类喵~
 /// ═══════════════════════════════════════════════════════════════
@@ -61,11 +51,11 @@ public class BasePackData
     [Tooltip("版本号")]
     public string Version = "1.0.0";
 
-    /// <summary>
-    /// 访问权限 - 控制玩家通过文件树盘符访问此 Pack 的权限喵~
-    /// </summary>
-    [Tooltip("访问权限")]
-    public PackAccessLevel AccessLevel = PackAccessLevel.ReadOnly;
+    [Tooltip("Readable subject lower bound (inclusive)")]
+    public int ReadableFrom = PackAccessSubjects.Player;
+
+    [Tooltip("Writable subject lower bound (inclusive)")]
+    public int WritableFrom = PackAccessSubjects.SystemMin;
 
     /// <summary>
     /// 创建时间戳
@@ -149,6 +139,28 @@ public class BasePackData
     {
         CreatedAt = DateTimeOffset.Now.ToUnixTimeSeconds();
         ModifiedAt = CreatedAt;
+        EnsureRootNode();
+    }
+
+    private void EnsureRootNode()
+    {
+        Nodes ??= new Dictionary<string, BaseNodeData>();
+
+        if (!string.IsNullOrEmpty(RootNodeId) && Nodes.ContainsKey(RootNodeId))
+            return;
+
+        string rootNodeID = "root_" + Guid.NewGuid().ToString("N")[..8];
+        var rootNode = new RootNodeData
+        {
+            NodeID = rootNodeID,
+            Name = "Root",
+            EditorPosition = new SerializableVector2(0f, 0f),
+            OutputConnections = new List<ConnectionData>(),
+            _ = new List<string>()
+        };
+
+        Nodes[rootNodeID] = rootNode;
+        RootNodeId = rootNodeID;
     }
 
     /// <summary>

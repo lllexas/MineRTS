@@ -255,6 +255,24 @@ public class UserModel
         return GetEntityPackDict(slot.ToString(), createIfMissing);
     }
 
+    public BasePackData FindPackByPackID(string packID)
+    {
+        if (string.IsNullOrEmpty(packID) || PackDataDict == null)
+        {
+            return null;
+        }
+
+        foreach (var pair in PackDataDict)
+        {
+            if (pair.Value != null && pair.Value.PackID == packID)
+            {
+                return pair.Value;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>
     /// 设置或更新指定实体持有的 Pack
     /// </summary>

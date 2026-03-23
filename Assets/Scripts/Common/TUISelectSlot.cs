@@ -42,6 +42,54 @@ public abstract class TUISelectSlot : IConsoleInputHandler, IConsoleInputLineSta
         Render();
     }
 
+    public virtual bool HandleKey(KeyInfo key)
+    {
+        // 回车键 → HandleConfirm
+        if (key.keyCode == KeyCode.Return || key.keyCode == KeyCode.KeypadEnter)
+        {
+            if (!key.isShiftDown) // Shift+Enter 不确认
+            {
+                return HandleConfirm();
+            }
+            return false; // Shift+Enter 交给输入框处理
+        }
+
+        // Esc 键 → HandleCancel
+        if (key.keyCode == KeyCode.Escape)
+        {
+            return HandleCancel();
+        }
+
+        // 方向键 → HandleNavigation
+        if (key.keyCode == KeyCode.UpArrow)
+        {
+            return HandleNavigation(ConsoleNavKey.Up);
+        }
+        if (key.keyCode == KeyCode.DownArrow)
+        {
+            return HandleNavigation(ConsoleNavKey.Down);
+        }
+        if (key.keyCode == KeyCode.Home)
+        {
+            return HandleNavigation(ConsoleNavKey.Home);
+        }
+        if (key.keyCode == KeyCode.End)
+        {
+            return HandleNavigation(ConsoleNavKey.End);
+        }
+        if (key.keyCode == KeyCode.LeftArrow)
+        {
+            return HandleNavigation(ConsoleNavKey.Left);
+        }
+        if (key.keyCode == KeyCode.RightArrow)
+        {
+            return HandleNavigation(ConsoleNavKey.Right);
+        }
+
+        // 其他键默认不处理
+        return false;
+    }
+
     public virtual bool HandleSubmit(string input)
     {
         string trimmed = input?.Trim() ?? string.Empty;

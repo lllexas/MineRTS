@@ -1,3 +1,5 @@
+using UnityEngine;
+
 /// <summary>
 /// 控制台导航键类型。
 /// </summary>
@@ -12,12 +14,28 @@ public enum ConsoleNavKey
 }
 
 /// <summary>
+/// 按键信息结构体 - 打包原始按键状态喵~
+/// </summary>
+public struct KeyInfo
+{
+    public KeyCode keyCode;
+    public bool isShiftDown;
+    public bool isCtrlDown;
+    public bool isAltDown;
+}
+
+/// <summary>
 /// 控制台输入处理器接口。
 /// 挂载后，DeveloperConsole 会优先将输入事件导流给处理器。
 /// 返回 true 表示该输入已被消费，控制台默认行为不再继续。
 /// </summary>
 public interface IConsoleInputHandler
 {
+    /// <summary>
+    /// 处理原始按键输入喵~
+    /// </summary>
+    bool HandleKey(KeyInfo key);
+
     /// <summary>
     /// 处理一条来自控制台的提交输入。
     /// </summary>

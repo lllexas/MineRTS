@@ -232,7 +232,7 @@ public class SocialCLI : DeveloperConsole
         var analyser = GraphAnalyser.Instance;
         if (analyser == null) return "GraphAnalyser 实例不存在";
 
-        if (analyser.GetPack(CurrentVFSPackID) == null) return $"VFS Pack 不存在：{CurrentVFSPackID}";
+        if (analyser.GetPack(CurrentVFSPackID, PackAccessSubjects.Player) == null) return $"VFS Pack 不存在：{CurrentVFSPackID}";
 
         return analyser.GetDebugInfo();
     }

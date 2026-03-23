@@ -17,7 +17,7 @@ public class ComparerNodeStrategy : NodeStrategy
 
     private ComparerNodeStrategy() { }
 
-    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         if (data is not ComparerNodeData comparerNode) return;
 
@@ -25,7 +25,7 @@ public class ComparerNodeStrategy : NodeStrategy
         object payload = context.Args;
         var result = ComparerRegistry.Execute(comparerNode.ComparerName, payload, comparerNode.Parameters.ToArray());
 
-        if (GraphRunner.Instance.EnableDebugLog)
+        if (runner.EnableDebugLog)
         {
             Debug.Log($"[ComparerNode] 判定结果：{result} (NodeID: {comparerNode.NodeID}) 喵~");
         }
@@ -47,7 +47,7 @@ public class ComparerNodeStrategy : NodeStrategy
 
             // 不通过：走红灯喵！
             Propagate(comparerNode.FailOutputs, context, pack);
-            BacktraceAndReactivateTrigger(context, pack);
+            BacktraceAndReactivateTrigger(context, pack, runner, packInstanceID);
         }
     }
 
@@ -63,7 +63,7 @@ public class ComparerNodeStrategy : NodeStrategy
     /// <summary>
     /// 顺着信号路径往回找，重新激活上一个 Trigger 节点喵！
     /// </summary>
-    private void BacktraceAndReactivateTrigger(SignalContext context, BasePackData pack)
+    private void BacktraceAndReactivateTrigger(SignalContext context, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         // 信号路径是从近到远排列的，我们倒着找喵~
         // 注意：TraveledPath 存储的是 ConnectionData 列表
@@ -90,7 +90,7 @@ public class ComparerNodeStrategy : NodeStrategy
                 }
 
                 // 重新通过 Strategy 激活该 Trigger 的监听喵~
-                TriggerNodeStrategy.Instance.OnSignalEnter(triggerNode, context, pack);
+                TriggerNodeStrategy.Instance.OnSignalEnter(triggerNode, context, pack, runner, packInstanceID);
                 break; // 找到最近的一个就够了喵~
             }
         }
@@ -123,5 +123,5 @@ public class ComparerNodeStrategy : NodeStrategy
         return null;
     }
 
-    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack) { }
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack, GraphRunner runner, string packInstanceID) { }
 }

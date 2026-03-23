@@ -36,11 +36,11 @@ using System.Linq;
 /// </summary>
 public class MissionNodeAStrategy : NodeStrategy
 {
-    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         if (data is not MissionNode_A_Data missionNode) return;
 
-        if (GraphRunner.Instance.EnableDebugLog)
+        if (runner.EnableDebugLog)
         {
             Debug.Log($"[MissionNode A] 任务激活：{missionNode.Title} (ID: {missionNode.MissionID})");
         }
@@ -57,7 +57,7 @@ public class MissionNodeAStrategy : NodeStrategy
         PropagateSignal(missionNode, context, pack);
     }
 
-    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         // 任务节点通常不直接响应外部事件
         // 事件监听由 TriggerNode 负责
@@ -98,11 +98,11 @@ public class MissionNodeAStrategy : NodeStrategy
 /// </summary>
 public class MissionNodeSStrategy : NodeStrategy
 {
-    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         if (data is not MissionNode_S_Data missionNode) return;
 
-        if (GraphRunner.Instance.EnableDebugLog)
+        if (runner.EnableDebugLog)
         {
             Debug.Log($"[MissionNode S] 成功节点触发：{missionNode.NodeID} (MissionID: {missionNode.MissionID})");
         }
@@ -117,7 +117,7 @@ public class MissionNodeSStrategy : NodeStrategy
             missionA.IsCompleted = true;
             missionA.IsActive = false;
 
-            if (GraphRunner.Instance.EnableDebugLog)
+            if (runner.EnableDebugLog)
             {
                 Debug.Log($"[MissionNode S] 任务完成：{missionA.Title}");
             }
@@ -130,7 +130,7 @@ public class MissionNodeSStrategy : NodeStrategy
         PropagateSignal(missionNode, context, pack);
     }
 
-    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         // 任务节点通常不直接响应外部事件
         // 事件监听由 TriggerNode 负责
@@ -167,11 +167,11 @@ public class MissionNodeSStrategy : NodeStrategy
 /// </summary>
 public class MissionNodeFStrategy : NodeStrategy
 {
-    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         if (data is not MissionNode_F_Data missionNode) return;
 
-        if (GraphRunner.Instance.EnableDebugLog)
+        if (runner.EnableDebugLog)
         {
             Debug.Log($"[MissionNode F] 失败节点触发：{missionNode.NodeID} (MissionID: {missionNode.MissionID})");
         }
@@ -186,7 +186,7 @@ public class MissionNodeFStrategy : NodeStrategy
             missionA.IsFailed = true;
             missionA.IsActive = false;
 
-            if (GraphRunner.Instance.EnableDebugLog)
+            if (runner.EnableDebugLog)
             {
                 Debug.Log($"[MissionNode F] 任务失败：{missionA.Title}");
             }
@@ -199,7 +199,7 @@ public class MissionNodeFStrategy : NodeStrategy
         PropagateSignal(missionNode, context, pack);
     }
 
-    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         // 任务节点通常不直接响应外部事件
         // 事件监听由 TriggerNode 负责
@@ -237,11 +237,11 @@ public class MissionNodeFStrategy : NodeStrategy
 /// </summary>
 public class MissionNodeRStrategy : NodeStrategy
 {
-    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         if (data is not MissionNode_R_Data missionNode) return;
 
-        if (GraphRunner.Instance.EnableDebugLog)
+        if (runner.EnableDebugLog)
         {
             Debug.Log($"[MissionNode R] 刷新节点触发：{missionNode.NodeID} (MissionID: {missionNode.MissionID})");
         }
@@ -268,7 +268,7 @@ public class MissionNodeRStrategy : NodeStrategy
                 missionA.IsCompleted = false;
                 missionA.IsFailed = false;
 
-                if (GraphRunner.Instance.EnableDebugLog)
+                if (runner.EnableDebugLog)
                 {
                     Debug.Log($"[MissionNode R] 任务已重新激活：{missionA.Title}");
                 }
@@ -282,7 +282,7 @@ public class MissionNodeRStrategy : NodeStrategy
         PropagateSignal(missionNode, context, pack);
     }
 
-    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack)
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         // 任务节点通常不直接响应外部事件
         // 事件监听由 TriggerNode 负责

@@ -5,9 +5,10 @@
   "Description": "虚拟文件系统包",
   "Author": "NekoTeam",
   "Version": "1.0.0",
-  "AccessLevel": 1,
+  "ReadableFrom": 0,
+  "WritableFrom": 0,
   "CreatedAt": 1774068445,
-  "ModifiedAt": 1774187191,
+  "ModifiedAt": 1774235708,
   "Nodes": {
     "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[BaseNodeData, Assembly-CSharp]], mscorlib",
     "f3cde239-1963-4ca2-adc0-a7b63a3c99e3": {

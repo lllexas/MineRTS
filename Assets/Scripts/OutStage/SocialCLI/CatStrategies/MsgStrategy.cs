@@ -83,7 +83,9 @@ namespace CatStrategies
                 return;
             }
 
-            var node = analyser.GetNode(SocialManager.SOCIAL_PACK_ID, vfsPath);
+            // 从 GraphRunner 获取当前执行主体的权限喵~
+            int subjectLevel = GraphRunner.Instance?.GetSubjectLevel() ?? PackAccessSubjects.Player;
+            var node = analyser.GetNode(SocialManager.SOCIAL_PACK_ID, vfsPath, subjectLevel);
             if (node is VFSNodeData vfs && !string.IsNullOrEmpty(vfs.DataJson))
             {
                 var pack = JsonConvert.DeserializeObject<BasePackData>(vfs.DataJson, MetaLib.JsonSettings);

@@ -36,14 +36,16 @@ public class GraphAnalyser
     private Dictionary<string, BasePackData> _packs;
 
     private Dictionary<string, BasePackData> Packs => _packs;
+    private readonly int _subjectLevel;
 
     /// <summary>
     /// 默认 Pack ID（用于单实例模式）
     /// </summary>
     private string _defaultPackId = "default";
 
-    public GraphAnalyser(Dictionary<string, BasePackData> packs = null)
+    public GraphAnalyser(Dictionary<string, BasePackData> packs = null, int subjectLevel = PackAccessSubjects.Player)
     {
+        _subjectLevel = subjectLevel;
         SetPackDataDict(packs);
     }
 
@@ -162,7 +164,10 @@ public class GraphAnalyser
     /// Hidden 始终拒绝；write=true 时 ReadOnly 也拒绝。
     /// 返回 null 表示无权限或 Pack 不存在。
     /// </summary>
-    private BasePackData Resolve(string packID, bool write = false)
+    /// <param name="packID">Pack ID</param>
+    /// <param name="write">是否需要写权限</param>
+    /// <param name="subjectLevel">主体等级（强制传入，不允许默认值）喵~</param>
+    private BasePackData Resolve(string packID, bool write, int subjectLevel)
     {
         var pack = FindPackByPackID(packID);
         if (pack == null)
@@ -170,17 +175,41 @@ public class GraphAnalyser
             Debug.LogWarning($"[GraphAnalyser] Pack 不存在：{packID} 喵~");
             return null;
         }
-        if (pack.AccessLevel == PackAccessLevel.Hidden)
+
+        PackAccessLevel accessLevel = GetPackAccessLevel(pack, subjectLevel);
+        if (accessLevel == PackAccessLevel.Hidden)
         {
             Debug.LogWarning($"[GraphAnalyser] 拒绝访问：{packID} 已隐藏喵~");
             return null;
         }
-        if (write && pack.AccessLevel != PackAccessLevel.ReadWrite)
+        if (write && accessLevel != PackAccessLevel.ReadWrite)
         {
-            Debug.LogWarning($"[GraphAnalyser] 拒绝写入：{packID} 权限为 {pack.AccessLevel} 喵~");
+            Debug.LogWarning($"[GraphAnalyser] 拒绝写入：{packID} 权限为 {accessLevel} 喵~");
             return null;
         }
         return pack;
+    }
+
+    /// <summary>
+    /// 获取对 Pack 的访问级别喵~
+    /// </summary>
+    /// <param name="pack">Pack 数据</param>
+    /// <param name="subjectLevel">主体等级（强制传入，不允许默认值）喵~</param>
+    public PackAccessLevel GetPackAccessLevel(BasePackData pack, int subjectLevel)
+    {
+        if (pack == null)
+            return PackAccessLevel.Hidden;
+
+        if (GraphHub.Instance != null)
+            return GraphHub.Instance.GetPackAccessLevel(subjectLevel, pack);
+
+        if (subjectLevel < pack.ReadableFrom)
+            return PackAccessLevel.Hidden;
+
+        if (subjectLevel < pack.WritableFrom)
+            return PackAccessLevel.ReadOnly;
+
+        return PackAccessLevel.ReadWrite;
     }
 
     // =========================================================
@@ -241,9 +270,13 @@ public class GraphAnalyser
     /// <summary>
     /// 写入或创建文件喵~【echo "xxx" > path】
     /// </summary>
-    public bool WriteFile(string packID, string path, string content)
+    /// <param name="packID">Pack ID</param>
+    /// <param name="path">节点路径</param>
+    /// <param name="content">文件内容</param>
+    /// <param name="subjectLevel">主体等级（强制传入，不允许默认值）喵~</param>
+    public bool WriteFile(string packID, string path, string content, int subjectLevel)
     {
-        var pack = Resolve(packID, write: true);
+        var pack = Resolve(packID, write: true, subjectLevel: subjectLevel);
         if (pack == null) return false;
 
         path = VFSPathResolver.Normalize(path);
@@ -287,18 +320,24 @@ public class GraphAnalyser
     /// <summary>
     /// 创建目录喵~【mkdir -p path】
     /// </summary>
-    public bool CreateDirectory(string packID, string path)
+    /// <param name="packID">Pack ID</param>
+    /// <param name="path">目录路径</param>
+    /// <param name="subjectLevel">主体等级（强制传入，不允许默认值）喵~</param>
+    public bool CreateDirectory(string packID, string path, int subjectLevel)
     {
-        var pack = Resolve(packID, write: true);
+        var pack = Resolve(packID, write: true, subjectLevel: subjectLevel);
         return pack != null && EnsureDirectory(pack, VFSPathResolver.Normalize(path));
     }
 
     /// <summary>
     /// 删除节点喵~【rm -rf path】
     /// </summary>
-    public bool Delete(string packID, string path)
+    /// <param name="packID">Pack ID</param>
+    /// <param name="path">节点路径</param>
+    /// <param name="subjectLevel">主体等级（强制传入，不允许默认值）喵~</param>
+    public bool Delete(string packID, string path, int subjectLevel)
     {
-        var pack = Resolve(packID, write: true);
+        var pack = Resolve(packID, write: true, subjectLevel: subjectLevel);
         if (pack == null) return false;
 
         var node = BfsGetNode(pack, path);
@@ -375,35 +414,48 @@ public class GraphAnalyser
     /// <summary>
     /// 按路径查询节点喵~
     /// </summary>
-    public BaseNodeData GetNode(string packID, string path)
+    /// <param name="packID">Pack ID</param>
+    /// <param name="path">节点路径</param>
+    /// <param name="subjectLevel">主体等级（强制传入，不允许默认值）喵~</param>
+    public BaseNodeData GetNode(string packID, string path, int subjectLevel)
     {
-        var pack = Resolve(packID);
+        var pack = Resolve(packID, write: false, subjectLevel: subjectLevel);
         return pack == null ? null : BfsGetNode(pack, path);
     }
 
     /// <summary>
     /// 查询默认 Pack 的节点喵~
     /// </summary>
-    public BaseNodeData GetNode(string path) => GetNode(_defaultPackId, path);
+    /// <param name="path">节点路径</param>
+    /// <param name="subjectLevel">主体等级（强制传入，不允许默认值）喵~</param>
+    public BaseNodeData GetNode(string path, int subjectLevel) => GetNode(_defaultPackId, path, subjectLevel);
 
     /// <summary>
     /// 获取路径下的直接子节点列表喵~
     /// </summary>
-    public List<BaseNodeData> GetChildren(string packID, string path)
+    /// <param name="packID">Pack ID</param>
+    /// <param name="path">节点路径</param>
+    /// <param name="subjectLevel">主体等级（强制传入，不允许默认值）喵~</param>
+    public List<BaseNodeData> GetChildren(string packID, string path, int subjectLevel)
     {
-        var pack = Resolve(packID);
+        var pack = Resolve(packID, write: false, subjectLevel: subjectLevel);
         return pack == null ? new List<BaseNodeData>() : BfsGetChildren(pack, path);
     }
 
     /// <summary>
     /// 获取默认 Pack 路径下的子节点列表喵~
     /// </summary>
-    public List<BaseNodeData> GetChildren(string path) => GetChildren(_defaultPackId, path);
+    /// <param name="path">节点路径</param>
+    /// <param name="subjectLevel">主体等级（强制传入，不允许默认值）喵~</param>
+    public List<BaseNodeData> GetChildren(string path, int subjectLevel) => GetChildren(_defaultPackId, path, subjectLevel);
 
     /// <summary>
     /// 检查路径是否存在喵~
     /// </summary>
-    public bool PathExists(string packID, string path) => GetNode(packID, path) != null;
+    /// <param name="packID">Pack ID</param>
+    /// <param name="path">节点路径</param>
+    /// <param name="subjectLevel">主体等级（强制传入，不允许默认值）喵~</param>
+    public bool PathExists(string packID, string path, int subjectLevel) => GetNode(packID, path, subjectLevel) != null;
 
     // =========================================================
     //  Pack 管理喵~
@@ -441,9 +493,18 @@ public class GraphAnalyser
     /// <summary>
     /// 获取已挂载的 Pack 喵~
     /// </summary>
-    public BasePackData GetPack(string packID)
+    /// <param name="packID">Pack ID</param>
+    /// <param name="subjectLevel">主体等级（强制传入，不允许默认值）喵~</param>
+    public BasePackData GetPack(string packID, int subjectLevel)
     {
-        return FindPackByPackID(packID);
+        var pack = FindPackByPackID(packID);
+        if (pack == null) return null;
+        
+        // 检查读权限
+        if (subjectLevel < pack.ReadableFrom)
+            return null;
+        
+        return pack;
     }
 
     /// <summary>
@@ -456,11 +517,21 @@ public class GraphAnalyser
     }
 
     /// <summary>
-    /// 获取所有已挂载的 Pack ID 列表喵~
+    /// 获取所有已挂载的 Pack ID 列表喵~（过滤隐藏的 Pack）
     /// </summary>
-    public List<string> GetAllPackIds()
+    /// <param name="subjectLevel">主体等级（强制传入，不允许默认值）喵~</param>
+    public List<string> GetAllPackIds(int subjectLevel)
     {
-        return new List<string>(_packIDToGuid.Keys);
+        var result = new List<string>();
+        foreach (var kvp in _packIDToGuid)
+        {
+            var pack = FindPackByPackID(kvp.Key);
+            if (pack != null && subjectLevel >= pack.ReadableFrom)
+            {
+                result.Add(kvp.Key);
+            }
+        }
+        return result;
     }
 
     // =========================================================
@@ -478,7 +549,7 @@ public class GraphAnalyser
             sb.Append($"\n  Pack：{kvp.Value.PackID}\n");
             sb.Append($"    节点数：{kvp.Value.Nodes.Count}\n");
             sb.Append($"    根节点：{kvp.Value.RootNodeId ?? "null"}\n");
-            sb.Append($"    权限：{kvp.Value.AccessLevel}\n");
+            sb.Append($"    权限：{GetPackAccessLevel(kvp.Value, _subjectLevel)}\n");
         }
         return sb.ToString();
     }

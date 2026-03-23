@@ -25,14 +25,14 @@ public class TriggerNodeStrategy : NodeStrategy
 
     private HashSet<string> _registeredNodes = new HashSet<string>();
 
-    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack)
+    public override void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack, GraphRunner runner, string packInstanceID)
     {
         if (data is not TriggerNodeData triggerNode) return;
 
         // 如果已经注册过，跳过（防止重复注册）喵~
         if (_registeredNodes.Contains(triggerNode.NodeID)) return;
 
-        if (GraphRunner.Instance.EnableDebugLog)
+        if (runner.EnableDebugLog)
         {
             Debug.Log($"[TriggerNode] 信号进入，开始监听事件：{triggerNode.Event} (NodeID: {triggerNode.NodeID}) 喵~");
         }
@@ -41,7 +41,7 @@ public class TriggerNodeStrategy : NodeStrategy
         RegisterTrigger(triggerNode, context, pack);
     }
 
-    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack) { }
+    public override void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack, GraphRunner runner, string packInstanceID) { }
 
     private void RegisterTrigger(TriggerNodeData node, SignalContext context, BasePackData pack)
     {

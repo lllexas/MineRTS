@@ -291,8 +291,11 @@ public class WarehouseCLI : DeveloperConsole
         {
             string packID = ResolveWarehousePackID();
             var analyser = GraphAnalyser.Instance;
-            var pack = !string.IsNullOrWhiteSpace(packID) ? analyser?.GetPack(packID) : null;
-            string access = pack != null ? pack.AccessLevel.ToString() : "(unmounted)";
+            var pack = !string.IsNullOrWhiteSpace(packID) ? analyser?.GetPack(packID, PackAccessSubjects.Player) : null;
+            string access = pack != null
+                ? (GraphHub.Instance?.GetPackAccessLevel(GraphInstanceSlot.Player, pack)
+                    ?? analyser.GetPackAccessLevel(pack, PackAccessSubjects.Player)).ToString()
+                : "(unmounted)";
             string system = pack != null ? pack.System.ToString() : "(unknown)";
 
             return new[]

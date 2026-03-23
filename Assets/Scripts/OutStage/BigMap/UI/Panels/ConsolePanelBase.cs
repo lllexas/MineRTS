@@ -882,85 +882,51 @@ namespace MineRTS.BigMap.UI.Panels
         {
             if (inputField == null || !inputField.isFocused) return;
 
-            // 输入处理器激活时：数字键（1-9）直接走提交通道
+            // 有 InputHandler 时，所有输入打包成 KeyInfo 直接交给它处理喵~
             if (ConsoleLogic != null && ConsoleLogic.HasInputHandler)
             {
-                for (int i = 1; i <= 9; i++)
+                var handler = ConsoleLogic.CurrentInputHandler;
+
+                // 检测按下的键
+                KeyCode? pressedKey = null;
+
+                if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+                    pressedKey = KeyCode.Return;
+                else if (Input.GetKeyDown(KeyCode.Escape))
+                    pressedKey = KeyCode.Escape;
+                else if (Input.GetKeyDown(KeyCode.UpArrow))
+                    pressedKey = KeyCode.UpArrow;
+                else if (Input.GetKeyDown(KeyCode.DownArrow))
+                    pressedKey = KeyCode.DownArrow;
+                else if (Input.GetKeyDown(KeyCode.Home))
+                    pressedKey = KeyCode.Home;
+                else if (Input.GetKeyDown(KeyCode.End))
+                    pressedKey = KeyCode.End;
+                else if (Input.GetKeyDown(KeyCode.LeftArrow))
+                    pressedKey = KeyCode.LeftArrow;
+                else if (Input.GetKeyDown(KeyCode.RightArrow))
+                    pressedKey = KeyCode.RightArrow;
+
+                // 有键按下就打包丢给 Handler
+                if (pressedKey.HasValue)
                 {
-                    if (Input.GetKeyDown(KeyCode.Alpha0 + i) || Input.GetKeyDown(KeyCode.Keypad0 + i))
+                    var keyInfo = new KeyInfo
                     {
-                        ConsoleLogic.ProcessCommand(i.ToString());
-                        inputField.text = "";
-                        _lastInputText = "";
-                        return;
-                    }
+                        keyCode = pressedKey.Value,
+                        isShiftDown = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift),
+                        isCtrlDown = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl),
+                        isAltDown = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)
+                    };
+
+                    if (handler.HandleKey(keyInfo))
+                        return; // Handler 处理了，返回
                 }
-            }
 
-            if (Input.GetKeyDown(KeyCode.Escape))
-            {
-                if (ConsoleLogic != null && ConsoleLogic.TryHandleCancel())
-                    return;
-            }
-
-            if (Input.GetKeyDown(KeyCode.UpArrow))
-            {
-                if (ConsoleLogic != null && ConsoleLogic.TryHandleNavigation(ConsoleNavKey.Up))
-                    return;
-
-                HandleVerticalNavigation(true);
+                // 其他输入（文本输入）通过输入框内容提交
                 return;
             }
 
-            if (Input.GetKeyDown(KeyCode.DownArrow))
-            {
-                if (ConsoleLogic != null && ConsoleLogic.TryHandleNavigation(ConsoleNavKey.Down))
-                    return;
-
-                HandleVerticalNavigation(false);
-                return;
-            }
-
-            // Home 键：移到行首
-            if (Input.GetKeyDown(KeyCode.Home))
-            {
-                if (ConsoleLogic != null && ConsoleLogic.TryHandleNavigation(ConsoleNavKey.Home))
-                    return;
-
-                MoveToLineStart();
-                return;
-            }
-
-            // End 键：移到行尾
-            if (Input.GetKeyDown(KeyCode.End))
-            {
-                if (ConsoleLogic != null && ConsoleLogic.TryHandleNavigation(ConsoleNavKey.End))
-                    return;
-
-                MoveToLineEnd();
-                return;
-            }
-
-            // 左右移动时重置目标列
-            if (Input.GetKeyDown(KeyCode.LeftArrow))
-            {
-                if (ConsoleLogic != null && ConsoleLogic.TryHandleNavigation(ConsoleNavKey.Left))
-                    return;
-
-                _targetColumn = -1;
-                _isVerticalNavigationActive = false;
-            }
-
-            if (Input.GetKeyDown(KeyCode.RightArrow))
-            {
-                if (ConsoleLogic != null && ConsoleLogic.TryHandleNavigation(ConsoleNavKey.Right))
-                    return;
-
-                _targetColumn = -1;
-                _isVerticalNavigationActive = false;
-            }
-
-            // 回车提交命令（Shift+Enter 换行）
+            // 没有 InputHandler，走默认处理逻辑
             if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
             {
                 // Shift+Enter 不提交，只换行（由 inputField 自动处理）
@@ -972,26 +938,12 @@ namespace MineRTS.BigMap.UI.Panels
 
                 if (string.IsNullOrWhiteSpace(inputField.text))
                 {
-                    if (ConsoleLogic != null && ConsoleLogic.TryHandleConfirm())
-                    {
-                        inputField.text = "";
-                        _lastInputText = "";
-                        UpdateInputLine("", 0);
-                        return;
-                    }
-                }
-
-                // 用上一帧末尾的文本，避免 TMP 在当前帧已把 \n 插入光标位置喵~
-                // Shift+Enter 产生的多行内容合并为单行
-                string input = System.Text.RegularExpressions.Regex.Replace(_lastInputText, @"\s*\n\s*", " ").Trim();
-
-                if (ConsoleLogic != null && ConsoleLogic.TryHandleSubmit(input))
-                {
-                    inputField.text = "";
                     _lastInputText = "";
                     UpdateInputLine("", 0);
                     return;
                 }
+
+                string input = System.Text.RegularExpressions.Regex.Replace(_lastInputText, @"\s*\n\s*", " ").Trim();
 
                 string prompt = GetPrompt();
                 string echoedInput = prompt + input;

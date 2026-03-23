@@ -51,12 +51,12 @@ public abstract class NodeStrategy
     /// <summary>
     /// 子类实现：处理信号进入节点喵~
     /// </summary>
-    public abstract void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack);
+    public abstract void OnSignalEnter(BaseNodeData data, SignalContext context, BasePackData pack, GraphRunner runner, string packInstanceID);
 
     /// <summary>
     /// 子类实现：处理外部事件喵~
     /// </summary>
-    public abstract void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack);
+    public abstract void OnEvent(BaseNodeData data, string eventName, object eventData, BasePackData pack, GraphRunner runner, string packInstanceID);
 }
 
 /// <summary>
@@ -96,6 +96,7 @@ public static class NodeStrategyFactory
         Register<SocialMsgContentNodeData>(new SocialMsgContentNodeStrategy());
         Register<ChoiceTextNodeData>(new ChoiceTextNodeStrategy());
         Register<SocialMsgEndNodeData>(new SocialMsgEndNodeStrategy());
+        Register<DestroyNodeData>(new DestroyNodeStrategy());
     }
 
     public static void Register<T>(NodeStrategy strategy) where T : BaseNodeData

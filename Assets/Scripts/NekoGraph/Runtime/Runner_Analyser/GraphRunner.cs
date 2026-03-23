@@ -3,13 +3,91 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
+// ═══════════════════════════════════════════════════════════════
+// GraphRunner - 图执行器喵~ 💓
+// ═══════════════════════════════════════════════════════════════
+//
+// 【操作系统类比】CPU + 进程执行环境 🖥️
+// ┌─────────────────────────────────────────────────────────────┐
+// │  概念              │  操作系统          │  GraphRunner      │
+// ├─────────────────────────────────────────────────────────────┤
+// │  执行器            │  CPU 核心          │  GraphRunner      │
+// │  进程 UID          │  UID/EUID         │  _subjectLevel    │
+// │  指令集            │  机器指令          │  NodeStrategy     │
+// │  指令执行          │  取指 - 译码 - 执行  │  ProcessSignal()  │
+// │  信号/中断         │  Interrupt/Signal │  SignalContext    │
+// │  地址空间          │  页表基址寄存器    │  PackDataDict     │
+// │  时间片调度        │  Tick/Scheduler   │  Tick()           │
+// └─────────────────────────────────────────────────────────────┘
+//
+// 【执行模型】
+// 1. 每个 GraphRunner 实例是一个独立的"CPU"，有自己的"UID"(_subjectLevel)
+// 2. CPU 执行"指令"(NodeStrategy) 时，硬件自动携带当前进程的 UID
+// 3. "指令"本身是无状态的（类似机器码），执行时才有权限概念
+// 4. 当"指令"需要访问内存时，会触发"内存异常"(Analyser API)，由 MMU 检查权限
+//
+// 【与 GraphAnalyser 的关系】
+// ┌─────────────────────────────────────────────────────────────┐
+// │  GraphRunner (CPU)          │  GraphAnalyser (MMU)          │
+// │  • 驱动信号流动              │  • 存储空间结构               │
+// │  • Tick() 驱动执行           │  • BFS 路径查询               │
+// │  • 携带 _subjectLevel        │  • 检查 _subjectLevel         │
+// │  • 调用 NodeStrategy         │  • Resolve() 权限网关         │
+// └─────────────────────────────────────────────────────────────┘
+//
+// 【权限传递链】
+// EntityGraphContext (PCB)
+//   ├── Runner._subjectLevel = 100 (AI_1 的 UID)
+//   │     ↓ 执行时携带
+//   │   NodeStrategy.OnSignalEnter()
+//   │     ↓ 需要访问数据
+//   │   Analyser.GetNode(packID, path, subjectLevel: 100)
+//   │     ↓ 权限检查
+//   │   Resolve() → subjectLevel(100) >= ReadableFrom(0)? OK!
+//   └── Analyser._subjectLevel = 100 (AI_1 的 MMU)
+//
+// 【设计原则】
+// 1. CPU 和 MMU 分离：Runner 专注执行，Analyser 专注访问控制
+// 2. 权限与执行绑定：_subjectLevel 跟随 Runner，不是 NodeStrategy
+// 3. 最小权限原则：代码 (NodeStrategy) 本身无权限，执行时才有
+// ═══════════════════════════════════════════════════════════════
+
 /// <summary>
-/// 图运行器 - 管理所有运行时图实例的中央调度器喵~
-/// 直接操作 BasePackData，不再需要 RuntimeGraphInstance 中间层喵！
+/// ═══════════════════════════════════════════════════════════════
+/// GraphRunner - 图运行器（CPU）喵~ 🖥️
+/// ═══════════════════════════════════════════════════════════════
+///
+/// 职责：
+/// 1. 驱动信号在图中的流动（类似 CPU 执行指令）
+/// 2. 管理所有已加载的 Pack 实例（类似进程的地址空间）
+/// 3. 持有执行主体的等级（类似进程的 UID）
+///
+/// 生命周期：
+/// - 每个 GraphInstanceSlot 对应一个 GraphRunner 实例
+/// - Player、AI_1、AI_2 等各有独立的 Runner
+/// - Runner 和 Analyser 一对一绑定，共享同一个 subjectLevel
+/// ═══════════════════════════════════════════════════════════════
 /// </summary>
 public class GraphRunner
 {
     public static GraphRunner Instance => GraphHub.Instance?.DefaultRunner;
+
+    /// <summary>
+    /// 主体等级（类比操作系统的进程 UID）喵~ 🔑
+    /// 每个 GraphRunner 实例对应一个执行主体（Player/AI/System）
+    /// 
+    /// 【操作系统类比】
+    /// - 类似 Linux 的 UID (User ID)
+    /// - CPU 执行指令时，硬件自动携带当前进程的 UID
+    /// - 系统调用时，内核用 UID 检查权限
+    /// 
+    /// 【使用场景】
+    /// - NodeStrategy 执行时，通过 GraphRunner.Instance.GetSubjectLevel() 获取
+    /// - 调用 Analyser API 时传入，用于权限校验
+    /// - 默认值来自 EntityGraphContext 的 GraphInstanceSlot
+    /// </summary>
+    private readonly int _subjectLevel;
+
     /// <summary>
     /// 持久化 GUID 到实例化 Pack 字典喵~
     /// Key: InstanceID (运行时生成的 GUID), Value: BasePackData 本体
@@ -34,10 +112,31 @@ public class GraphRunner
     /// </summary>
     public bool EnableDebugLog = false;
 
-    public GraphRunner(Dictionary<string, BasePackData> dict = null)
+    /// <summary>
+    /// 构造函数喵~ 🔧
+    /// </summary>
+    /// <param name="dict">Pack 数据字典（类似进程的地址空间）</param>
+    /// <param name="subjectLevel">
+    /// 主体等级（类比进程 UID）喵~
+    /// - Player = 0 (类似 root)
+    /// - AI = 100+ (类似普通用户)
+    /// - System = 1000+ (类似系统进程)
+    /// </param>
+    public GraphRunner(Dictionary<string, BasePackData> dict = null, int subjectLevel = PackAccessSubjects.Player)
     {
+        _subjectLevel = subjectLevel;
         SetPackDataDict(dict);
     }
+
+    /// <summary>
+    /// 获取当前 Runner 的主体等级喵~ 🔑
+    /// 【操作系统类比】类似 getuid() 系统调用
+    /// 
+    /// 【使用示例】
+    /// var subjectLevel = GraphRunner.Instance.GetSubjectLevel();
+    /// var node = GraphAnalyser.Instance.GetNode(packID, path, subjectLevel);
+    /// </summary>
+    public int GetSubjectLevel() => _subjectLevel;
 
     private void StartCompatibility()
     {
@@ -239,7 +338,7 @@ public class GraphRunner
             {
                 if (pack.ActiveSignals.Count > 0)
                 {
-                    TickPack(pack);
+                    TickPack(pack, instanceID);
                 }
             }
         }
@@ -249,7 +348,7 @@ public class GraphRunner
     /// 驱动单个 Pack 的信号步进喵~
     /// 限制每帧处理的信号数量，防止卡顿
     /// </summary>
-    private void TickPack(BasePackData pack)
+    private void TickPack(BasePackData pack, string instanceID)
     {
         int signalsToProcess = Math.Min(pack.ActiveSignals.Count, 50);
 
@@ -259,7 +358,7 @@ public class GraphRunner
 
             var signal = pack.ActiveSignals.Dequeue();
 
-            ProcessSignal(signal, pack);
+            ProcessSignal(signal, pack, instanceID);
         }
     }
 
@@ -267,7 +366,7 @@ public class GraphRunner
     /// 处理单个信号的传播喵~
     /// 包含深度检查，防止死循环喵~
     /// </summary>
-    private void ProcessSignal(SignalContext signal, BasePackData pack)
+    private void ProcessSignal(SignalContext signal, BasePackData pack, string instanceID)
     {
         // 深度检查：防止死循环喵~
         if (signal.Depth > MaxSignalDepth)
@@ -295,7 +394,7 @@ public class GraphRunner
             var strategy = GetStrategy(currentNode);
             if (strategy != null)
             {
-                strategy.OnSignalEnter(currentNode, signal, pack);
+                strategy.OnSignalEnter(currentNode, signal, pack, this, instanceID);
             }
         }
         else

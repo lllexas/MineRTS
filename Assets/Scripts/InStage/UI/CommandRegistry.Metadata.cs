@@ -16,7 +16,8 @@ using UnityEngine;
 public static partial class CommandRegistry
 {
     // 命令执行委托喵~（新管道版本）
-    public delegate CommandOutput CommandHandlerWithOutput(DeveloperConsole console, string[] args, object payload);
+    // subjectLevel 是第二个参数，在 console 之后，args 之前喵~
+    public delegate CommandOutput CommandHandlerWithOutput(DeveloperConsole console, int subjectLevel, string[] args, object payload);
 
     // 命令执行委托喵~（旧版本，兼容用）
     public delegate CommandResult CommandHandler(DeveloperConsole console, string[] args);
@@ -81,12 +82,13 @@ public static partial class CommandRegistry
             var attr = method.GetCustomAttribute<CommandInfoAttribute>();
             if (attr != null)
             {
-                // 检查方法签名是否正确：(DeveloperConsole, string[], object) 返回 CommandOutput
+                // 检查方法签名是否正确：(DeveloperConsole, int, string[], object) 返回 CommandOutput
                 var parameters = method.GetParameters();
-                if (parameters.Length == 3 &&
+                if (parameters.Length == 4 &&
                     parameters[0].ParameterType == typeof(DeveloperConsole) &&
-                    parameters[1].ParameterType == typeof(string[]) &&
-                    parameters[2].ParameterType == typeof(object) &&
+                    parameters[1].ParameterType == typeof(int) &&  // ← subjectLevel
+                    parameters[2].ParameterType == typeof(string[]) &&
+                    parameters[3].ParameterType == typeof(object) &&
                     method.ReturnType == typeof(CommandOutput))
                 {
                     // 创建委托
@@ -121,7 +123,9 @@ public static partial class CommandRegistry
 
             console.AddCommand(commandName, (args) =>
             {
-                var output = handler.Invoke(console, args, null);  // 控制台调用没有 payload
+                // 从 console 获取 subjectLevel 传入喵~
+                var subjectLevel = console.GetSubjectLevel();
+                var output = handler.Invoke(console, subjectLevel, args, null);  // 控制台调用没有 payload
                 // 如果有消息，打印到控制台
                 if (!string.IsNullOrEmpty(output.Message))
                 {
@@ -136,7 +140,12 @@ public static partial class CommandRegistry
     /// <summary>
     /// 统一的命令执行入口喵~（返回 CommandOutput）
     /// </summary>
-    public static CommandOutput Execute(string commandName, string[] args, object payload = null, DeveloperConsole console = null)
+    /// <param name="commandName">命令名称</param>
+    /// <param name="subjectLevel">主体等级（强制传入，在命令名之后）喵~</param>
+    /// <param name="args">命令参数</param>
+    /// <param name="payload">管道负载（可选）</param>
+    /// <param name="console">控制台实例（可选）</param>
+    public static CommandOutput Execute(string commandName, int subjectLevel, string[] args, object payload = null, DeveloperConsole console = null)
     {
         Initialize();
 
@@ -150,7 +159,7 @@ public static partial class CommandRegistry
         {
             try
             {
-                return handler.Invoke(console, args, payload);
+                return handler.Invoke(console, subjectLevel, args, payload);
             }
             catch (Exception e)
             {

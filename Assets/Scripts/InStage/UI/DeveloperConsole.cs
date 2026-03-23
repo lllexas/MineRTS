@@ -44,6 +44,25 @@ public class DeveloperConsole : TUIManager
     public bool EnableUnityLogging = false;
 
     // =========================================================
+    //  权限支持喵~
+    // =========================================================
+
+    /// <summary>
+    /// 当前控制台的主体等级（默认 Player）喵~
+    /// </summary>
+    private int _subjectLevel = PackAccessSubjects.Player;
+
+    /// <summary>
+    /// 获取当前控制台的主体等级喵~
+    /// </summary>
+    public int GetSubjectLevel() => _subjectLevel;
+
+    /// <summary>
+    /// 设置当前控制台的主体等级喵~
+    /// </summary>
+    public void SetSubjectLevel(int level) => _subjectLevel = level;
+
+    // =========================================================
     //  VFS 文件系统支持
     // =========================================================
 
@@ -64,16 +83,16 @@ public class DeveloperConsole : TUIManager
             if (analyser == null) return null;
 
             // 1. 运行时显式切换的盘符优先喵~
-            if (!string.IsNullOrEmpty(_currentVFSPackID) && analyser.GetPack(_currentVFSPackID) != null)
+            if (!string.IsNullOrEmpty(_currentVFSPackID) && analyser.GetPack(_currentVFSPackID, _subjectLevel) != null)
                 return _currentVFSPackID;
 
             // 2. 子类首选盘喵~
             string preferred = GetPreferredPackID();
-            if (!string.IsNullOrEmpty(preferred) && analyser.GetPack(preferred) != null)
+            if (!string.IsNullOrEmpty(preferred) && analyser.GetPack(preferred, _subjectLevel) != null)
                 return preferred;
 
             // 3. 兜底：第一个挂载的盘喵~
-            var ids = analyser.GetAllPackIds();
+            var ids = analyser.GetAllPackIds(_subjectLevel);
             return (ids != null && ids.Count > 0) ? ids[0] : null;
         }
     }
@@ -97,10 +116,12 @@ public class DeveloperConsole : TUIManager
         var analyser = GraphAnalyser.Instance;
         if (analyser == null) return result;
         char letter = 'A';
-        foreach (var id in analyser.GetAllPackIds())
+        foreach (var id in analyser.GetAllPackIds(_subjectLevel))
         {
-            var pack = analyser.GetPack(id);
-            if (pack != null && pack.AccessLevel != PackAccessLevel.Hidden)
+            var pack = analyser.GetPack(id, _subjectLevel);
+            var accessLevel = GraphHub.Instance?.GetPackAccessLevel(GraphInstanceSlot.Player, pack)
+                ?? analyser.GetPackAccessLevel(pack, _subjectLevel);
+            if (pack != null && accessLevel != PackAccessLevel.Hidden)
             {
                 result.Add((letter, id));
                 letter++;
@@ -171,13 +192,15 @@ public class DeveloperConsole : TUIManager
             return false;
         }
 
-        var pack = analyser.GetPack(packID);
+        var pack = analyser.GetPack(packID, _subjectLevel);
         if (pack == null)
         {
             Log($"盘符不存在：{packID}", Color.red);
             return false;
         }
-        if (pack.AccessLevel == PackAccessLevel.Hidden)
+        PackAccessLevel accessLevel = GraphHub.Instance?.GetPackAccessLevel(GraphInstanceSlot.Player, pack)
+            ?? analyser.GetPackAccessLevel(pack, _subjectLevel);
+        if (accessLevel == PackAccessLevel.Hidden)
         {
             Log($"盘符不可访问：{packID}", Color.red);
             return false;
@@ -227,13 +250,13 @@ public class DeveloperConsole : TUIManager
             return false;
         }
 
-        if (!analyser.PathExists(CurrentVFSPackID, path))
+        if (!analyser.PathExists(CurrentVFSPackID, path, _subjectLevel))
         {
             Log($"路径不存在：{path}", Color.red);
             return false;
         }
 
-        var node = analyser.GetNode(CurrentVFSPackID, path);
+        var node = analyser.GetNode(CurrentVFSPackID, path, _subjectLevel);
         if (node is VFSNodeData vfs && !vfs.IsDirectory)
         {
             Log($"不是目录：{path}", Color.red);
@@ -256,7 +279,7 @@ public class DeveloperConsole : TUIManager
         // 固定首选盘符（如果有）；否则清空让属性自动回退
         string preferred = GetPreferredPackID();
         _currentVFSPackID = (!string.IsNullOrEmpty(preferred) &&
-                             GraphAnalyser.Instance?.GetPack(preferred) != null)
+                             GraphAnalyser.Instance?.GetPack(preferred, _subjectLevel) != null)
             ? preferred
             : null;
 
@@ -300,6 +323,9 @@ public class DeveloperConsole : TUIManager
         if (_currentInputHandler == null) return;
         if (handler != null && !ReferenceEquals(_currentInputHandler, handler)) return;
 
+        // 先解除绑定，再清空处理器（状态机闭环）喵~
+        UnbindInputHandleHost();
+        
         _currentInputHandler = null;
     }
 
@@ -349,26 +375,6 @@ public class DeveloperConsole : TUIManager
 
     /// <summary>将回车确认转发给当前活跃策略喵~</summary>
     public void ConfirmStrategySelection() => _activeStrategy?.OnConfirm();
-
-    public bool TryHandleSubmit(string input)
-    {
-        return _currentInputHandler != null && _currentInputHandler.HandleSubmit(input);
-    }
-
-    public bool TryHandleNavigation(ConsoleNavKey key)
-    {
-        return _currentInputHandler != null && _currentInputHandler.HandleNavigation(key);
-    }
-
-    public bool TryHandleConfirm()
-    {
-        return _currentInputHandler != null && _currentInputHandler.HandleConfirm();
-    }
-
-    public bool TryHandleCancel()
-    {
-        return _currentInputHandler != null && _currentInputHandler.HandleCancel();
-    }
 
     /// <summary>触发清屏请求喵~</summary>
     public virtual void ClearConsole() => InvokeClearRequested();
@@ -432,7 +438,7 @@ public class DeveloperConsole : TUIManager
         if (string.IsNullOrWhiteSpace(input)) return;
 
         // 策略拦截：有活跃策略时直接转发，不走命令系统喵~
-        if (TryHandleSubmit(input))
+        if (HasInputHandler && _currentInputHandler.HandleSubmit(input))
         {
             return;
         }
@@ -518,7 +524,7 @@ public class DeveloperConsole : TUIManager
             string[] args = parts.Skip(1).ToArray();
             // 【索引替换】执行命令前替换参数中的索引喵~
             args = ResolveIndexArguments(args);
-            output = CommandRegistry.Execute(cmdName, args, null, this);
+            output = CommandRegistry.Execute(cmdName, _subjectLevel, args, null, this);
         }
 
         if (output == null || output.Result == CommandRegistry.CommandResult.Failed)
@@ -536,7 +542,7 @@ public class DeveloperConsole : TUIManager
             var analyserRedirect = GraphAnalyser.Instance;
             if (analyserRedirect != null)
             {
-                var children = analyserRedirect.GetChildren(CurrentVFSPackID, CurrentPath);
+                var children = analyserRedirect.GetChildren(CurrentVFSPackID, CurrentPath, _subjectLevel);
                 var validChildren = children.Where(c => c is VFSNodeData vfs && vfs.IsEnabled)
                                             .Cast<VFSNodeData>()
                                             .ToList();
@@ -568,12 +574,12 @@ public class DeveloperConsole : TUIManager
 
         if (isAppend)
         {
-            var existing = analyser.GetNode(redirectPackID, fullPath);
+            var existing = analyser.GetNode(redirectPackID, fullPath, _subjectLevel);
             if (existing is VFSNodeData existingVfs)
                 content = existingVfs.DataJson + "\n" + content;
         }
 
-        if (analyser.WriteFile(redirectPackID, fullPath, content))
+        if (analyser.WriteFile(redirectPackID, fullPath, content, _subjectLevel))
             Log($"内容已{(isAppend ? "追加" : "写入")}到：{fullPath}", Color.green);
         else
             Log($"写入失败，请检查路径是否正确喵：{fullPath}", Color.red);
@@ -602,7 +608,7 @@ public class DeveloperConsole : TUIManager
             // 【索引替换】管道中也要替换索引喵~
             args = ResolveIndexArguments(args);
 
-            lastOutput = CommandRegistry.Execute(commandName, args, payload, this);
+            lastOutput = CommandRegistry.Execute(commandName, _subjectLevel, args, payload, this);
             payload = lastOutput.Payload;
 
             if (lastOutput.Result == CommandRegistry.CommandResult.Failed)
@@ -636,7 +642,7 @@ public class DeveloperConsole : TUIManager
         if (analyser == null) return args;
 
         // 获取当前目录的子节点列表
-        var children = analyser.GetChildren(CurrentVFSPackID, CurrentPath);
+        var children = analyser.GetChildren(CurrentVFSPackID, CurrentPath, _subjectLevel);
         var validChildren = children.Where(c => c is VFSNodeData vfs && vfs.IsEnabled)
                                     .Cast<VFSNodeData>()
                                     .ToList();
@@ -727,7 +733,7 @@ public class DeveloperConsole : TUIManager
             args = ResolveIndexArguments(args);
 
             // 执行命令，传入上游的 payload
-            var output = CommandRegistry.Execute(commandName, args, payload, this);
+            var output = CommandRegistry.Execute(commandName, _subjectLevel, args, payload, this);
 
             // 将输出 Payload 传递给下游
             payload = output.Payload;
