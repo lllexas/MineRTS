@@ -80,63 +80,95 @@ Two singleton implementations in `Assets/Scripts/InStage/Singleton.cs`:
 
 ## NekoGraph Visual Scripting System
 
-> **Core highlight** - Located at `Assets/Scripts/Common/NekoGraph/`
+> **Core highlight** - Located at `Assets/Scripts/NekoGraph/`
 
-NekoGraph 2.0 uses a fully decoupled **Trigger (listener) + Comparer (logic gate)** architecture. Logic flow is a "protocol signal chain" of composable building blocks, not monolithic nodes.
+NekoGraph 3.0 uses a **full operating system-level architecture** with permission isolation, multiple execution contexts, and a Unix-style VFS interface.
 
-### Core Concepts
-- **Trigger (🔔 Listener)**: Subscribes to PostSystem; when its target event fires, packages the Payload and forwards the signal downstream.
-- **Comparer (⚖️ Gate)**: Receives the signal from Trigger and applies logic checks (numeric/ID/state). On failure, signal backtracks to re-activate upstream Triggers.
-- **Backtrace (🔄 Fail Backtrack)**: On Comparer failure, the signal automatically retraces the path and re-activates upstream Triggers, eliminating redundant callback wiring.
+### Core Architecture (OS Analogy)
 
-### Architecture
+| OS Concept | NekoGraph Equivalent | Description |
+|------------|------------------------|-------------|
+| Process Scheduler | `GraphHub` | Global hub managing all execution contexts |
+| Process (PCB) | `EntityGraphContext` | Execution context for a single subject (Player/AI/System) |
+| CPU | `GraphRunner` | Drives signal execution with time-slicing |
+| MMU | `GraphAnalyser` | Memory management unit with permission checking |
+| UID | `subjectLevel` | Subject identifier (0=Player, 100+=AI, 1000+=System) |
+| Virtual Address Space | `PackDataDict` | Isolated data space per subject |
+| Code Segment | `NodeStrategy` | Stateless node execution strategies |
+| rwx Permissions | `PackAccessLevel` | Hidden/ReadOnly/ReadWrite access levels |
+
+### Permission System
+- **Isolation**: Each subject (Player/AI/System) has its own isolated `PackDataDict`
+- **Three Levels**:
+  - `Hidden`: subjectLevel < ReadableFrom (no access)`
+  - `ReadOnly`: ReadableFrom ≤ subjectLevel < WritableFrom
+  - `ReadWrite`: subjectLevel ≥ WritableFrom
+- **Check Point**: All IO operations go through `GraphAnalyser.Resolve()`
+
+### Key Files (`Assets/Scripts/NekoGraph/Runtime/`)
+- **Runner_Analyser/`GraphHub.cs`: Global scheduler, manages all execution contexts
+- **Runner_Analyser/`GraphRunner.cs`: CPU - drives signal flow, carries subjectLevel
+- **Runner_Analyser/`GraphAnalyser.cs`: MMU - manages static graphs, VFS, permission checking
+- **Runner_Analyser/`NodeStrategy.cs`: Abstract base class for node strategies
+- **Runner_Analyser/`SignalContext.cs`: Signal data carrier with traveled path tracking
+- **Common/`: TriggerNode, ComparerNode, CommandNode, DestroyNode strategies
+- **Social/`: Social-specific node strategies
+
+### Architecture Diagram
 ```
-[Game Logic] -> PostSystem -> PostSystem
-                                   ↓
-┌────────────┐      ┌────────────┐      ┌────────────┐
-│ TriggerNode│─────▶│ComparerNode│─────▶│ CommandNode│
-│ (接收信号包)│      │ (逻辑判定)  │      │ (执行后果)  │
-└────────────┘      └─────┬──────┘      └────────────┘
-             ▲            │
-             └────────────┘
-               Fail Backtrace
+                    ┌─────────────────────────────────────────────────┐
+                    │         GraphHub (Process Scheduler)              │
+                    │  ┌───────────────────────────────────────┐  │
+                    │  │ EntityGraphContext[Player] (UID=0)  │  │
+                    │  │   ├─ GraphRunner (CPU)                 │  │
+                    │  │   └─ GraphAnalyser (MMU)        │  │
+                    │  └───────────────────────────────────────┘  │
+                    │  ┌───────────────────────────────────────┐  │
+                    │  │ EntityGraphContext[AI_1] (UID=100)    │  │
+                    │  │   ├─ GraphRunner (CPU)                 │  │
+                    │  │   └─ GraphAnalyser (MMU)        │  │
+                    │  └───────────────────────────────────────┘  │
+                    └─────────────────────────────────────────────────┘
+                                         │
+                                         ▼
+                    ┌─────────────────────────────────────────────────┐
+                    │         Signal Flow (Per Runner.Tick())                    │
+                    │  ┌───────────────────────────────────────┐  │
+                    │  │ 1. Dequeue signal from ActiveSignals  │  │
+                    │  │ 2. Get NodeStrategy for current node    │  │
+                    │  │ 3. Execute OnSignalEnter() with subjectLevel│  │
+                    │  │ 4. Enqueue new signals to downstream │  │
+                    │  └───────────────────────────────────────┘  │
+                    └─────────────────────────────────────────────────┘
 ```
 
-### Key Files (`Assets/Scripts/Common/NekoGraph/Runtime/`)
-- `GraphRunner.cs`: Central dispatcher (Singleton), drives all graph instances each frame
-- `RuntimeGraphInstance.cs`: One "circuit board" per loaded PackData, supports parallel graphs
-- `SignalContext.cs`: Data carrier flowing between nodes (`CurrentNodeId` + `Args`)
-- `INodeStrategy.cs`: Node strategy interface + `NodeStrategyFactory` (auto-registers all strategies)
-- `GraphLoader.cs`: Loads PackData JSON into RuntimeGraphInstances
-
-### Node Strategy Directory (`Runtime/Strategies/`)
-- `FlowNodeStrategies.cs`: Root / Spine / LeafNode_A / LeafNode_B strategies
-- `MissionNodeStrategies.cs`: MissionNode_A / S / F / R strategies (UI only, no reward logic)
-- `CommandTriggerStrategies.cs`: CommandNode + TriggerNode strategies
+### VFS (Virtual File System)
+NekoGraph provides a Unix-style file system interface for graph manipulation:
+- `WriteFile(packID, path, content, subjectLevel)` - Write or create a file
+- `CreateDirectory(packID, path, subjectLevel)` - Create a directory
+- `Delete(packID, path, subjectLevel)` - Delete a node
+- `GetNode(packID, path, subjectLevel)` - Get node by path
+- `GetChildren(packID, path, subjectLevel)` - Get child nodes
 
 ### Node Types Summary
 
-| Node | Role | Blocks Signal |
-|------|------|---------------|
-| RootNode | Entry point | No |
-| SpineNode | Main flow; matches LeafNodes by `ProcessID` | Yes (waits for all LeafNode_B) |
-| LeafNode_A | Activates a task, pushes to UI | No |
-| LeafNode_B | Terminal node; signals completion back to Spine | No |
-| TriggerNode | Listens to PostSystem; forwards Payload | Waits for event |
-| ComparerNode | Logic gate; backtracks on fail | No |
-| MissionNode_A/S/F/R | UI refresh only | No |
-| CommandNode | Executes a registered command | No |
-
-### Strong-Typed Event Contracts
-- **GameEvent enum**: Each event is bound to an `EventProtocol` (Entity / Numeric / String)
-- **PostOffice**: The single authorised dispatch point; runtime protocol auditing built in
-- **Static Analyzer**: Editor tool that scans code and blocks bypassing PostOffice for contract events
+| Node | Role |
+|------|------|
+| RootNode | Entry point |
+| SpineNode | Main flow; waits for LeafNode_B completion |
+| LeafNode_A | Activates task, pushes to UI |
+| LeafNode_B | Terminal node, signals completion |
+| TriggerNode | Listens to PostSystem events |
+| ComparerNode | Logic gate with fail backtrace |
+| CommandNode | Executes registered commands |
+| DestroyNode | Destroys entities/nodes |
+| Social*Node | Social system-specific nodes |
 
 ### Adding a New Node Type
-1. Create a `*NodeData` class in `Common/NekoGraph/`
-2. Implement `INodeStrategy` in `Runtime/Strategies/`
+1. Create a `*NodeData` class in `Runtime/` or appropriate subfolder
+2. Implement `NodeStrategy` subclass in corresponding location
 3. Register in `NodeStrategyFactory` static constructor
-4. No changes to core `GraphRunner` required (Open/Closed Principle)
+4. No changes to core `GraphRunner`/`GraphAnalyser` required
 
 ---
 
@@ -179,8 +211,9 @@ Commands are auto-registered via reflection — any static method with `[Command
 
 ### Scripts (`Assets/Scripts/`)
 - `Common/`: Shared systems
-  - `NekoGraph/Runtime/`: GraphRunner, RuntimeGraphInstance, strategies
-  - `NekoGraph/Editor/`: GraphView, editor windows
+- `NekoGraph/`: NekoGraph visual scripting system
+  - `Runtime/`: Core runtime (GraphRunner, GraphAnalyser, GraphHub)
+  - `Editor/`: Visual editor tools
 - `InStage/`: Core gameplay systems
   - `Component/`: Data structs for ECS
   - `Controller/`: Player input and camera control

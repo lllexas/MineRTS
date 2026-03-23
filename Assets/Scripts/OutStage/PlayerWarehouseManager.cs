@@ -9,6 +9,7 @@ using NekoGraph;
 /// VFS 是这个 Pack 的用途。
 /// 本类只负责对这个仓库 Pack 做批处理预演与提交。
 /// </summary>
+[Obsolete("等待重构：实体仓库管理器将由 EntityWarehouseManager 替代")]
 public class PlayerWarehouseManager : SingletonData<PlayerWarehouseManager>
 {
     public const string DefaultWarehousePackID = "player_warehouse";

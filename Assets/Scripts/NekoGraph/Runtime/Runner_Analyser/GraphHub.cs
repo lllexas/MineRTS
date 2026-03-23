@@ -51,6 +51,7 @@ public enum PackAccessLevel
 public static class PackAccessSubjects
 {
     public const int Player = 0;      // 玩家等级 (类似 root/UID 0)
+    public const int EntitySystem = 200;  // ECS 系统等级 (单位创建/管理喵~)
     public const int AIMin = 100;     // AI 起始等级 (类似普通用户/UID 1000+)
     public const int SystemMin = 1000; // 系统起始等级 (类似系统进程/UID 10000+)
 }

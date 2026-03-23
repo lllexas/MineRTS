@@ -6,21 +6,39 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Newtonsoft.Json;
 
+/// <summary>
+/// 核心组件 - 实体的基本身份信息喵~ 🏷️
+/// </summary>
+[EntityComponent("Core", DisplayName = "核心组件", Description = "实体的基本身份信息")]
 public struct CoreComponent
 {
+    // --- 运行时状态（不在蓝图中）---
     public bool Active;
     public EntityHandle SelfHandle;
     public int Team; // 是否属于玩家阵营，或者敌对阵营（可以用不同的数字表示不同的敌对阵营）
+    
+    // --- 蓝图配置字段 ---
+    [BlueprintField(DisplayName = "单位类型", Tooltip = "位掩码定义单位类型（英雄/小兵/建筑/资源/子弹/飞行）")]
     public int Type; // 位掩码
+    
+    [BlueprintField(DisplayName = "位置", Group = "Transform")]
     public SerializableVector2 Position;
+    
+    [BlueprintField(DisplayName = "旋转", Group = "Transform")]
     public SerializableVector2Int Rotation;
+    
     // 逻辑尺寸：例如 1x1, 2x2, 3x3。用于 GridSystem 的占据计算和视觉中心偏移计算
+    [BlueprintField(DisplayName = "逻辑尺寸", Tooltip = "占据的格子数（如 1x1, 3x3）")]
     public SerializableVector2Int LogicSize;
 
     // 视觉缩放：大部分建筑设为 (1,1) 即可，资源实体可以设为 (0.4, 0.4)
+    [BlueprintField(DisplayName = "视觉缩放", Tooltip = "渲染时的缩放比例")]
     public SerializableVector2 VisualScale;
+    
     // 蓝图名称，用于反查端口定义等静态数据
+    [BlueprintField(DisplayName = "蓝图名称", Tooltip = "用于反查端口定义等静态数据")]
     public string BlueprintName;
+    
     // 建造序号 (或叫创建索引)
     public int CreationIndex;
 }
@@ -36,21 +54,44 @@ public static class UnitType
     // ... 以后可以加 Flying, Boss 等
 }
 
+/// <summary>
+/// 移动组件 - 单位移动相关数据喵~ 🏃
+/// </summary>
+[EntityComponent("Move", DisplayName = "移动组件", Description = "单位移动相关数据")]
 public struct MoveComponent
 {
-    // --- 逻辑数据 ---
-    public SerializableVector2Int LogicalPosition;    // 当前（或即将到达的）格子
-    public SerializableVector2Int PreviousLogicalPosition; // 正在离开的格子
-    public SerializableVector2Int TargetGridPosition; // 最终想要去的格子
+    // --- 运行时状态（不在蓝图中）---
+    public SerializableVector2Int LogicalPosition;
+    public SerializableVector2Int PreviousLogicalPosition;
+    public SerializableVector2Int TargetGridPosition;
+    public int MoveTimerTicks;
+    public int StuckTimerTicks;
+    public SerializableVector2 LastVisualPosition;
+    public bool IsBlocked;
+    public int BlockWaitTimerTicks;
+    public bool IsPathPending;
+    public bool IsPathStale;
+    public SerializableVector2Int? TargetPortalExit;
+    public NavPortal CurrentReservedPortal;
+    public int CurrentReservedLane;
+    public ulong CurrentReservedMask;
+    public List<ReservationRecord> ActiveReservations;
 
-    // --- 节奏控制 (Tick 化) ---
-    public int MoveIntervalTicks; // 移动一格所需的总 Tick 数 (例如：0.5s = 5 Ticks)
-    public int MoveTimerTicks;    // 剩余 Tick 倒计时
-    public int StuckTimerTicks; // 🔥 新增：用于记录连续被堵了多少个 Tick
+    // --- 蓝图配置字段 ---
+    [BlueprintField(DisplayName = "移动间隔", Tooltip = "移动一格所需的时间（秒）", Min = 0.1f, Max = 10f)]
+    public int MoveIntervalTicks; // 注意：这是 Tick 数，运行时通过 MoveInterval 访问
 
-    // --- 【新增：旧代码兼容访问器】 ---
-    // 允许旧代码继续使用 .MoveInterval, .Timer, .BlockWaitTimer (float)
+    [BlueprintField(DisplayName = "是否飞行", Tooltip = "飞行单位无视地形")]
+    public bool IsFlyer;
 
+    // --- 寻路相关（运行时生成，不在蓝图中）---
+    public List<PathfindingSystem.Waypoint> Waypoints;
+    public int WaypointIndex;
+    public SerializableVector2Int CurrentReservedTile;
+    public SerializableVector2Int NextStepTile;
+    public bool HasNextStep;
+
+    // --- 【兼容访问器】供旧代码使用喵~
     public float MoveInterval => MoveIntervalTicks * TimeTicker.SecondsPerTick;
 
     public float Timer
@@ -64,7 +105,7 @@ public struct MoveComponent
     }
 
     public float BlockWaitTimer
-    {   
+    {
         get
         {
             float t = BlockWaitTimerTicks * TimeTicker.SecondsPerTick - TimeTicker.SubTickOffset;
@@ -72,126 +113,119 @@ public struct MoveComponent
         }
         set => BlockWaitTimerTicks = TimeTicker.ToTicks(value);
     }
-    // ----------------------------------
-
-    // --- 视觉插值 ---
-    public SerializableVector2 LastVisualPosition;
-
-    public bool IsFlyer;
-
-    //------
-    // 【修改】核心路径数据
-    // 旧的 List<Vector2Int> CurrentPath 被废弃。
-    // 我们不再存储一整条确定的格子路径，而是存储"战略骨架"。
-
-    // 1. 战略层 (Strategy)：由 PathfindingSystem 生成
-    // 存储的是带有 RangeMin/RangeMax 的门户序列
-    public List<PathfindingSystem.Waypoint> Waypoints;
-    public int WaypointIndex; // 当前目标是 Waypoints[WaypointIndex]
-    public SerializableVector2Int CurrentReservedTile; // 用于 Gizmos 绘制预定路径
-
-    // 2. 战术层 (Tactics)：由 ArbitrationSystem (仲裁系统) 生成
-    // 仲裁系统每一帧 (或每一步) 会根据 Waypoints 和当前拥堵情况，计算出"当下这一步"具体踩哪
-    public SerializableVector2Int NextStepTile;
-    public bool HasNextStep; // true 表示仲裁系统已经下达了下一步指令，MoveSystem 可以执行了
-
-    // 3. 避让与状态 (Avoidance)
-    // 用于实现类似星际的"撞墙 - 等待 - 侧滑"逻辑
-    public bool IsBlocked;       // 当前是否因为拥堵而无法移动
-    public int BlockWaitTimerTicks; // 阻塞等待 Tick 数
-    //-----
-
-    public bool IsPathPending; // 是否正在等待寻路结果
-    public bool IsPathStale;   // 路径是否过期
-
-    /// <summary>
-    /// 当前正在前往的门后格子（如果非空，表示单位已预约并正在前往此出口）
-    /// 到达后应推进 WaypointIndex
-    /// </summary>
-    public SerializableVector2Int? TargetPortalExit;
-    public NavPortal CurrentReservedPortal;  // 当前成功预约的门户
-    public int CurrentReservedLane;          // 预约的车道索引
-    public ulong CurrentReservedMask;        // 预约的掩码（用于释放）
-    public List<ReservationRecord> ActiveReservations;
 }
 
+/// <summary>
+/// 攻击组件 - 单位攻击相关数据喵~ ⚔️
+/// </summary>
+[EntityComponent("Attack", DisplayName = "攻击组件", Description = "单位攻击相关数据")]
 public struct AttackComponent
 {
-    public int TargetEntityId;      // 当前锁定的目标 ID
-
-    // --- 攻击属性 (从蓝图复制，可能被 Buff 修改) ---
+    // --- 运行时状态（不在蓝图中）---
+    public int TargetEntityId;
+    public int AttackCooldownTicks;
+    public long LastAttackTick;
+    public float WindUpTimer;
+    
+    // --- 蓝图配置字段 ---
+    [BlueprintField(DisplayName = "攻击射程", Tooltip = "攻击范围（格）", Min = 0.5f, Max = 10f)]
     public float AttackRange;
+    
+    [BlueprintField(DisplayName = "攻击伤害", Tooltip = "每次攻击的伤害值", Min = 0, Max = 1000)]
     public float AttackDamage;
-
-    // --- Tick 化攻击属性 ---
-    public int AttackCooldownTicks;  // 攻击冷却 tick 数
-    public long LastAttackTick;      // 上次攻击的 tick
-
-    // --- 兼容性属性 (秒为单位) ---
-    public float AttackCooldown
-    {
-        get => AttackCooldownTicks * TimeTicker.SecondsPerTick;
-        set => AttackCooldownTicks = TimeTicker.ToTicks(value);
-    }
-
-    public float LastAttackTime
-    {
-        get => LastAttackTick * TimeTicker.SecondsPerTick;
-        set => LastAttackTick = TimeTicker.ToTicks(value); // ToTicks 返回 int，隐式转换为 long
-    }
-
-    // --- 状态控制 ---
-    public float WindUpTimer;       // 前摇计时 (可选，用于更细腻的手感)
-
-    // --- 子弹模式 ---
-    public int ProjectileSpriteId;  // -1: 近战直接结算; >=0: 发射子弹实体
-    public float ProjectileSpeed;   // 子弹飞行速度
+    
+    [BlueprintField(DisplayName = "攻击冷却", Tooltip = "两次攻击之间的间隔（秒）", Min = 0.1f, Max = 5f)]
+    public float AttackCooldown;
+    
+    [BlueprintField(DisplayName = "子弹贴图 ID", Tooltip = "-1=近战，>=0=子弹贴图 ID")]
+    public int ProjectileSpriteId;
+    
+    [BlueprintField(DisplayName = "子弹速度", Tooltip = "子弹飞行速度", Min = 1f, Max = 20f)]
+    public float ProjectileSpeed;
 }
 
+/// <summary>
+/// 生命组件 - 单位生命值相关数据喵~ ❤️
+/// </summary>
+[EntityComponent("Health", DisplayName = "生命组件", Description = "单位生命值相关数据")]
 public struct HealthComponent
 {
+    // --- 运行时状态（不在蓝图中）---
     public float Health;
-    public float MaxHealth;
     public bool IsAlive;
-
-    // --- 死亡行为 (从蓝图复制) ---
-    public bool ExplodeOnDeath;     // 是否殉爆 (如：自爆虫，净化者)
-    // 殉爆伤害通常直接取 AttackDamage，范围取 AttackRange
-    public int LastAttackerFaction;     // 最后造成伤害的阵营，用于任务广播
+    public int LastAttackerFaction;
+    
+    // --- 蓝图配置字段 ---
+    [BlueprintField(DisplayName = "最大生命值", Tooltip = "单位最大生命值", Min = 1, Max = 10000)]
+    public float MaxHealth;
+    
+    [BlueprintField(DisplayName = "死亡殉爆", Tooltip = "死亡时是否殉爆")]
+    public bool ExplodeOnDeath;
 }
+
+/// <summary>
+/// 子弹组件 - 投射物相关数据喵~ 🎯
+/// </summary>
+[EntityComponent("Projectile", DisplayName = "子弹组件", Description = "投射物相关数据")]
 public struct ProjectileComponent
 {
-    public int SourceEntityId;      // 谁射的？(防止打到自己人，或者计算击杀统计)
-    public int TargetEntityId;      // 锁定目标 (如果是追踪弹)
-    public SerializableVector2 TargetPosition;  // 目标地点 (如果是非追踪弹)
-
+    // --- 运行时状态（不在蓝图中）---
+    public int SourceEntityId;
+    public int TargetEntityId;
+    public SerializableVector2 TargetPosition;
+    
+    // --- 蓝图配置字段 ---
+    [BlueprintField(DisplayName = "子弹速度", Tooltip = "子弹飞行速度", Min = 1f, Max = 20f)]
     public float Speed;
+    
+    [BlueprintField(DisplayName = "伤害", Tooltip = "子弹命中造成的伤害", Min = 0, Max = 1000)]
     public float Damage;
-    public float HitRadius;         // 判定半径 (通常 0.5f)
-
-    public bool IsHoming;           // 是否追踪
+    
+    [BlueprintField(DisplayName = "命中半径", Tooltip = "命中判定半径", Min = 0.1f, Max = 2f)]
+    public float HitRadius;
+    
+    [BlueprintField(DisplayName = "是否追踪", Tooltip = "是否追踪目标")]
+    public bool IsHoming;
 }
+
+/// <summary>
+/// 产兵组件 - 生产单位相关数据喵~ 🏭
+/// </summary>
+[EntityComponent("Spawn", DisplayName = "产兵组件", Description = "生产单位相关数据")]
 public struct SpawnComponent
 {
-    // 生产队列逻辑
-    public string SpawnBlueprint; // <--- 修改：存蓝图名，而不是 Type
-    public float SpawnInterval;
+    // --- 运行时状态（不在蓝图中）---
     public float Timer;
-
-    // 限制最大子单位数量 (比如虫母最多带 5 个小虫)
-    public int MaxMinions;
     public int CurrentMinions;
+    
+    // --- 蓝图配置字段 ---
+    [BlueprintField(DisplayName = "生产蓝图", Tooltip = "生产的单位蓝图名称")]
+    public string SpawnBlueprint;
+    
+    [BlueprintField(DisplayName = "生产间隔", Tooltip = "生产间隔时间（秒）", Min = 1f, Max = 60f)]
+    public float SpawnInterval;
+    
+    [BlueprintField(DisplayName = "最大子单位数", Tooltip = "最多同时存在的子单位数量", Min = 1, Max = 20)]
+    public int MaxMinions;
 }
 
+/// <summary>
+/// 渲染组件 - 单位渲染相关数据喵~ 🎨
+/// </summary>
+[EntityComponent("Draw", DisplayName = "渲染组件", Description = "单位渲染相关数据")]
 public struct DrawComponent
 {
+    // --- 运行时状态（不在蓝图中）---
     [JsonIgnore]
     public Matrix4x4 Matrix;
-    public int SpriteId;
     [JsonIgnore]
     public Color TeamColor;
     public float AnimationFrame;
-    public bool IsSelected; // <--- 新增：是否被选中
+    public bool IsSelected;
+    
+    // --- 蓝图配置字段 ---
+    [BlueprintField(DisplayName = "贴图 ID", Tooltip = "单位贴图 ID")]
+    public int SpriteId;
 }
 
 public struct EntityHandle : IEquatable<EntityHandle>
@@ -226,27 +260,47 @@ public enum UnitCommand
     AttackTarget // 锁定攻击：死磕这个目标，直到它死或者我死
 }
 
+/// <summary>
+/// AI 组件 - 单位 AI 行为相关数据喵~ 🤖
+/// </summary>
+[EntityComponent("AI", DisplayName = "AI 组件", Description = "单位 AI 行为相关数据")]
 public struct AIComponent
 {
-    public UnitCommand CurrentCommand; // 当前脊髓指令
-    public AIState CurrentState;       // 脊髓当前的执行状态 (Idle, Moving, Attacking)
-
-    public EntityHandle TargetEntity;  // 锁定的目标
-    public SerializableVector2Int CommandPos;      // 目标坐标 (Move 或 AttackMove 的终点)
-
-    public float ScanTimer;            // 扫描计时器 (脊髓不需要每帧扫描，0.2s 一次足矣)
-    public float ScanRange;            // 索敌半径
+    // --- 运行时状态（不在蓝图中）---
+    public UnitCommand CurrentCommand;
+    public AIState CurrentState;
+    public EntityHandle TargetEntity;
+    public SerializableVector2Int CommandPos;
+    public float ScanTimer;
+    
+    // --- 蓝图配置字段 ---
+    [BlueprintField(DisplayName = "扫描范围", Tooltip = "索敌半径（格）", Min = 1f, Max = 20f)]
+    public float ScanRange;
 }
+
+/// <summary>
+/// 用户控制组件 - 玩家快捷键相关数据喵~ 🎮
+/// </summary>
+[EntityComponent("UserControl", DisplayName = "用户控制组件", Description = "玩家快捷键相关数据")]
 public struct UserControlComponent
 {
-    // 0: 无，1-4: 对应快捷键槽位
+    // --- 蓝图配置字段 ---
+    [BlueprintField(DisplayName = "英雄槽位", Tooltip = "快捷键槽位（0=无，1-4=对应槽位）", Min = 0, Max = 4)]
     public int HeroSlot;
 }
 
+/// <summary>
+/// 资源组件 - 资源实体相关数据喵~ 💰
+/// </summary>
+[EntityComponent("Resource", DisplayName = "资源组件", Description = "资源实体相关数据")]
 public struct ResourceComponent
 {
-    public int ResourceType; // 0: 无，1: 铁矿，2: 铜矿，3: 加工后的补给物资
-    public float Amount;     // 物资含量 (比如一坨矿石代表 5 个单位)
+    // --- 蓝图配置字段 ---
+    [BlueprintField(DisplayName = "资源类型", Tooltip = "0=无，1=铁矿，2=铜矿，3=补给物资", Min = 0, Max = 10)]
+    public int ResourceType;
+    
+    [BlueprintField(DisplayName = "资源数量", Tooltip = "物资含量", Min = 1, Max = 1000)]
+    public float Amount;
 }
 
 // 单个槽位的定义
@@ -301,22 +355,7 @@ public struct InventorySlot
     }
 }
 
-public struct InventoryComponent
-{
-    // 输入槽
-    public int InputSlotCount;
-    public InventorySlot Input0;
-    public InventorySlot Input1;
-    public InventorySlot Input2;
-    public InventorySlot Input3;
-
-    // 输出槽
-    public int OutputSlotCount;
-    public InventorySlot Output0;
-    public InventorySlot Output1;
-    public InventorySlot Output2;
-    public InventorySlot Output3;
-}
+// InventoryComponent 已移动到下方带标签的版本
 
 public enum HandoverMode { None, Eject, Grab }
 public enum HandoverStatus { Flying, Returning }
@@ -385,21 +424,16 @@ public enum WorkType
     PowerPole   // 电线杆/电网桩
 }
 
+/// <summary>
+/// 工作组件 - 建筑工作相关数据喵~ ⚒️
+/// </summary>
+[EntityComponent("Work", DisplayName = "工作组件", Description = "建筑工作相关数据")]
 public struct WorkComponent
 {
-    public WorkType WorkType;
-
-    // --- 生产相关 ---
-    public float Progress;      // 当前进度 (0-1)
-    public float WorkSpeed;     // 生产速度
-
-    // --- 矿机专属参数 ---
-    public int DrillRange;      // 矿机探测线的长度
-
-    public bool RequiresPower; // 是否需要电力才能工作
-    public bool IsPowered;     // 当前是否通电 (由 PowerSystem 刷新)
-    public float EnergyBuffer; // 蓄电池或机器内部存储的能量
-
+    // --- 运行时状态（不在蓝图中）---
+    public float Progress;
+    public bool IsPowered;
+    public float EnergyBuffer;
     public HandoverTask Task0;
     public HandoverTask Task1;
     public HandoverTask Task2;
@@ -408,8 +442,24 @@ public struct WorkComponent
     public HandoverTask Task5;
     public HandoverTask Task6;
     public HandoverTask Task7;
+    
+    // --- 蓝图配置字段 ---
+    [BlueprintField(DisplayName = "工作类型", Tooltip = "None/Drill/Generator/Conveyor/Factory/Buffer/Battery/Seller/PowerPole")]
+    public WorkType WorkType;
+    
+    [BlueprintField(DisplayName = "工作速度", Tooltip = "生产速度倍率", Min = 0.1f, Max = 10f)]
+    public float WorkSpeed;
+    
+    [BlueprintField(DisplayName = "探测范围", Tooltip = "矿机探测线长度", Min = 1, Max = 20)]
+    public int DrillRange;
+    
+    [BlueprintField(DisplayName = "需要电力", Tooltip = "是否需要电力才能工作")]
+    public bool RequiresPower;
 }
 
+/// <summary>
+/// WorkComponent 扩展方法喵~ 🔧
+/// </summary>
 public static class WorkComponentExtensions
 {
     public static ref HandoverTask GetTask(ref this WorkComponent work, int index)
@@ -429,6 +479,30 @@ public static class WorkComponentExtensions
     }
 }
 
+/// <summary>
+/// 库存组件 - 建筑库存相关数据喵~ 📦
+/// </summary>
+[EntityComponent("Inventory", DisplayName = "库存组件", Description = "建筑库存相关数据")]
+public struct InventoryComponent
+{
+    // --- 蓝图配置字段 ---
+    [BlueprintField(DisplayName = "输入槽数量", Tooltip = "输入槽位数量", Min = 0, Max = 4)]
+    public int InputSlotCount;
+    
+    [BlueprintField(DisplayName = "输出槽数量", Tooltip = "输出槽位数量", Min = 0, Max = 4)]
+    public int OutputSlotCount;
+    
+    // --- 运行时状态（槽位数据，不在蓝图中）---
+    public InventorySlot Input0;
+    public InventorySlot Input1;
+    public InventorySlot Input2;
+    public InventorySlot Input3;
+    public InventorySlot Output0;
+    public InventorySlot Output1;
+    public InventorySlot Output2;
+    public InventorySlot Output3;
+}
+
 public enum PortType
 {
     DirectIn,   // 直连吃：传送带的终点（被动接收）
@@ -445,30 +519,66 @@ public struct BuildingPort
     public int MapToSlotIndex;   // <--- 【关键新增】该端口关联的槽位序号
 }
 
+/// <summary>
+/// 传送带组件 - 传送带相关数据喵~ 📦
+/// </summary>
+[EntityComponent("Conveyor", DisplayName = "传送带组件", Description = "传送带相关数据")]
 public struct ConveyorComponent
 {
-    public int LineID;        // 我属于哪条传输线？ (-1 表示不属于任何线)
-    public int SegmentIndex;  // 我是这条线的第几个格子？
-
-    // (未来可以加更多状态，比如 IsJammed, PowerStatus 等)
+    // --- 蓝图配置字段 ---
+    [BlueprintField(DisplayName = "传输线 ID", Tooltip = "所属传输线 ID (-1=不属于任何线)")]
+    public int LineID;
+    
+    [BlueprintField(DisplayName = "段落索引", Tooltip = "在该传输线中的索引")]
+    public int SegmentIndex;
 }
 
+/// <summary>
+/// 电力组件 - 电力系统相关数据喵~ ⚡
+/// </summary>
+[EntityComponent("Power", DisplayName = "电力组件", Description = "电力系统相关数据")]
 public struct PowerComponent
 {
-    // --- 状态 ---
-    public int NetID;           // 所属电网 ID，-1 表示未联网
-
-    // --- 属性 (来自蓝图) ---
-    public bool IsNode;         // 是否为电网节点（供电桩/发电机/蓄电池）
-    public float SupplyRange;   // 供电半径：覆盖消费建筑
-    public float ConnRange;     // 连接半径：与其他节点连线并网
-
-    public float Production;    // 能量产出 (J/s)
-    public float Demand;        // 能量需求 (J/s)
-    public float Capacity;      // 蓄电池容量 (J)
-    public float StoredEnergy;  // 当前存储能量 (J)
+    // --- 运行时状态（不在蓝图中）---
+    public int NetID;
+    public float Demand;
+    public float StoredEnergy;
     public float CurrentSatisfaction;
+    
+    // --- 蓝图配置字段 ---
+    [BlueprintField(DisplayName = "电网节点", Tooltip = "是否为电网节点（供电桩/发电机/蓄电池）")]
+    public bool IsNode;
+    
+    [BlueprintField(DisplayName = "供电半径", Tooltip = "覆盖消费建筑的半径（格）", Min = 1f, Max = 50f)]
+    public float SupplyRange;
+    
+    [BlueprintField(DisplayName = "连接半径", Tooltip = "与其他节点连线的半径（格）", Min = 1f, Max = 50f)]
+    public float ConnRange;
+    
+    [BlueprintField(DisplayName = "能量产出", Tooltip = "每秒能量产出 (J/s)", Min = 0, Max = 1000)]
+    public float Production;
+    
+    [BlueprintField(DisplayName = "电池容量", Tooltip = "蓄电池容量 (J)", Min = 0, Max = 10000)]
+    public float Capacity;
 }
+
+/// <summary>
+/// 围棋组件 - 围棋规则相关数据喵~ ⚫
+/// </summary>
+[EntityComponent("Go", DisplayName = "围棋组件", Description = "围棋规则相关数据")]
+public struct GoComponent
+{
+    // --- 蓝图配置字段 ---
+    [BlueprintField(DisplayName = "是否棋子", Tooltip = "是否为围棋棋子（需要呼吸）")]
+    public bool IsGoPiece;
+    
+    // --- 运行时状态（不在蓝图中）---
+    public int CurrentLiberties;
+}
+
+/// <summary>
+/// 电力网络 - 电网管理类喵~ ⚡
+/// </summary>
 public class PowerNet
 {
     public int NetID;
@@ -489,24 +599,4 @@ public class PowerNet
         TotalStorage = 0;
         // CurrentStorage 保持持续
     }
-}
-
-/// <summary>
-/// 围棋规则组件
-/// 标记实体是否为围棋棋子，并记录当前气数
-/// 注意：建筑虽然参与网格投影（作为墙壁），但 IsGoPiece 为 false
-/// </summary>
-public struct GoComponent
-{
-    /// <summary>
-    /// 是否为围棋棋子（需要呼吸）
-    /// 地面单位（Hero/Minion）为 true，建筑、飞行单位、子弹、掉落物等为 false
-    /// </summary>
-    public bool IsGoPiece;
-
-    /// <summary>
-    /// 当前这块棋的气数（空相邻格子数量）
-    /// 供 UI 显示或 AI 逃跑参考
-    /// </summary>
-    public int CurrentLiberties;
 }

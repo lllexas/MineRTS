@@ -107,6 +107,25 @@ public class PackWindow : EditorWindow
         _graphView = new BaseGraphView { name = "NekoGraph" };
         _graphView.StretchToParentSize();
         _viewContainer.Add(_graphView);
+        
+        // 立即初始化SearchWindow，确保右键菜单立即可用
+        InitializeDefaultPack();
+        SetupSearchWindow(_currentPack);
+    }
+    
+    /// <summary>
+    /// 初始化默认Pack，窗口刚打开时使用
+    /// </summary>
+    private void InitializeDefaultPack()
+    {
+        _currentPack = new BasePackData
+        {
+            PackID = "new_pack",
+            System = NodeSystem.Common,
+            ReadableFrom = 100,
+            WritableFrom = 1000
+        };
+        _currentPack.Initialize();
     }
 
     private void GenerateToolbar()
@@ -147,8 +166,9 @@ public class PackWindow : EditorWindow
         leftContainer.Add(systemLabel);
         leftContainer.Add(_systemField);
 
-        // 读取/保存按钮喵~
-        leftContainer.Add(new Button(LoadData) { text = "读取", style = { marginLeft = 10, marginRight = 5 } });
+        // 读取/保存/新文件按钮喵~
+        leftContainer.Add(new Button(NewFile) { text = "新文件", style = { marginLeft = 10, marginRight = 5 } });
+        leftContainer.Add(new Button(LoadData) { text = "读取", style = { marginRight = 5 } });
         leftContainer.Add(new Button(SaveData) { text = "保存", style = { marginRight = 10 } });
 
         toolbar.Add(leftContainer);
@@ -238,7 +258,38 @@ public class PackWindow : EditorWindow
         rootVisualElement.Add(toolbar);
     }
 
-    #region Load / Save
+    #region New / Load / Save
+
+    private void NewFile()
+    {
+        _currentPack = new BasePackData
+        {
+            PackID = "new_pack",
+            System = NodeSystem.Common,
+            ReadableFrom = 100,
+            WritableFrom = 1000
+        };
+        _currentPack.Initialize();
+        _currentFilePath = null;
+        
+        _graphView.PopulateFromPack(_currentPack);
+        _packIDField.SetValueWithoutNotify(_currentPack.PackID);
+        _graphView.SetPackID(_currentPack.PackID);
+        _systemField.SetValueWithoutNotify(_currentPack.System);
+        
+        _readableFromSlider.SetValueWithoutNotify(ValueToSlider(_currentPack.ReadableFrom));
+        _writableFromSlider.SetValueWithoutNotify(ValueToSlider(_currentPack.WritableFrom));
+        _readableFromValueLabel.text = _currentPack.ReadableFrom.ToString();
+        _writableFromValueLabel.text = _currentPack.WritableFrom.ToString();
+        _readableFromSlider.tooltip = BuildAccessTooltip(_currentPack.ReadableFrom, "可读");
+        _writableFromSlider.tooltip = BuildAccessTooltip(_currentPack.WritableFrom, "可写");
+        ValidateAccessConfig();
+        
+        SetupSearchWindow(_currentPack);
+        
+        titleContent = new GUIContent("Pack Editor [New]");
+        Debug.Log("[PackWindow] 创建新文件");
+    }
 
     private void LoadData()
     {

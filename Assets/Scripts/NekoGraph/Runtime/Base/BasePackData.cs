@@ -135,10 +135,22 @@ public class BasePackData
         NullValueHandling = NullValueHandling.Ignore
     };
 
-    protected BasePackData()
+    public BasePackData()
     {
+        PackID = Guid.NewGuid().ToString("N")[..8];
         CreatedAt = DateTimeOffset.Now.ToUnixTimeSeconds();
         ModifiedAt = CreatedAt;
+        // 注意：不在构造函数中自动调用EnsureRootNode()
+        // 避免反序列化时出现重复root节点的问题
+        // Initialize()应在创建新Pack时显式调用
+    }
+
+    /// <summary>
+    /// 初始化新Pack，确保有root节点
+    /// 只在创建新Pack时调用，不要在反序列化后调用
+    /// </summary>
+    public void Initialize()
+    {
         EnsureRootNode();
     }
 
