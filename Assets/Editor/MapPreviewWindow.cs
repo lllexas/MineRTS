@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -7,8 +8,20 @@ using UnityEngine.UIElements;
 /// <summary>
 /// 地图预览窗口 - 用于可视化选择坐标喵~
 /// </summary>
+[InitializeOnLoad]
 public class MapPreviewWindow : EditorWindow
 {
+    static MapPreviewWindow()
+    {
+        // MapNode 在 NekoGraph.Editor 程序集，Assembly-CSharp-Editor 不直接引用它，用反射注册委托喵~
+        var mapNodeType = Type.GetType("MapNode, NekoGraph.Editor");
+        if (mapNodeType != null)
+        {
+            var field = mapNodeType.GetField("OpenMapPreview", BindingFlags.Public | BindingFlags.Static);
+            field?.SetValue(null, (Action<string, Action<Vector2Int>>)Open);
+        }
+    }
+
     private string _mapId;
     private Action<Vector2Int> _onCoordinateSelected;
     private Texture2D _mapPreviewTexture;

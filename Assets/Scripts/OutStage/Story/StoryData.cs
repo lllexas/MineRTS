@@ -72,56 +72,7 @@ public class DialogueLineCSV
 // 命令数据喵~
 // =========================================================
 
-/// <summary>
-/// 命令数据喵~
-/// 统一结构：命令名 + 参数列表
-/// </summary>
-[Serializable]
-public class CommandData
-{
-    [Tooltip("命令名（对应 CommandRegistryInfo 中的注册名）")]
-    public string CommandName = "";  // 如 "spawn", "PlayCG"
-
-    [Tooltip("命令主参数（快捷访问第一个参数）")]
-    public string Parameter = "";  // 快捷访问 Parameters[0]
-
-    [Tooltip("命令参数列表，数量和含义由 CommandName 决定")]
-    public List<string> Parameters = new List<string>();  // 灵活支持多个参数
-
-    /// <summary>
-    /// 获取参数值（安全访问）喵~
-    /// </summary>
-    public string GetParam(int index, string defaultValue = "")
-    {
-        if (Parameters == null || index < 0 || index >= Parameters.Count)
-            return defaultValue;
-        return Parameters[index] ?? defaultValue;
-    }
-
-    /// <summary>
-    /// 设置参数值（自动扩展列表）喵~
-    /// </summary>
-    public void SetParam(int index, string value)
-    {
-        if (Parameters == null)
-            Parameters = new List<string>();
-
-        while (Parameters.Count <= index)
-            Parameters.Add("");
-
-        Parameters[index] = value;
-    }
-
-    /// <summary>
-    /// 同步 Parameter 和 Parameters[0] 喵~
-    /// </summary>
-    public void SyncParameters()
-    {
-        if (Parameters == null) Parameters = new List<string>();
-        if (Parameters.Count == 0) Parameters.Add("");
-        Parameters[0] = Parameter;
-    }
-}
+// CommandData 已迁移到 NekoGraph.Runtime/Common/CommandData.cs 喵~
 
 // =========================================================
 // Story 系统专用节点数据

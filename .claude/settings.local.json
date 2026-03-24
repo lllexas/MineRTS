@@ -17,7 +17,26 @@
       "Bash(find G:ProjectOfGameMineRTS -name *MetaLib* -type f)",
       "Bash(find G:ProjectOfGameMineRTS -type f -name *Social*)",
       "Bash(grep -E \"\\\\.\\(cs\\)$\")",
-      "Bash(find G:ProjectOfGameMineRTSAssetsScriptsOutStageMission -type f -name *.cs)"
+      "Bash(find G:ProjectOfGameMineRTSAssetsScriptsOutStageMission -type f -name *.cs)",
+      "Bash(tree /g/ProjectOfGame/MineRTS/Assets/Scripts/NekoGraph -I *.meta -d)",
+      "Bash(find G:/ProjectOfGame/MineRTS -name *.sln)",
+      "Bash(dotnet build:*)",
+      "Bash(node:*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"G:/ProjectOfGame/MineRTS/fix_csproj.ps1\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File fix_csproj.ps1)",
+      "Bash(head -10 grep -rn \"struct TUISelectionConfig\\\\|class TUISelectionConfig\" \"G:/ProjectOfGame/MineRTS/Assets/Scripts/\" --include=\"*.cs\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File fix_social.ps1)",
+      "Bash(rm fix_social.ps1)",
+      "Bash(python fix_social.py)",
+      "Bash(rm fix_social.py)",
+      "Bash(python3 fix_social.py)",
+      "Read(//c/Windows/System32/**)",
+      "Bash(ls /c/Python*)",
+      "Bash(/c/Users/SeBenux/AppData/Local/Programs/Python/Launcher/py fix_social.py)",
+      "Bash(cd /tmp)",
+      "Bash(rm -rf nekograph_push)",
+      "Bash(mkdir nekograph_push)",
+      "Bash(cp -r \"G:/ProjectOfGame/MineRTS/Assets/Scripts/NekoGraph/.\" nekograph_push/)"
     ]
   },
   "outputStyle": "neko-chan"

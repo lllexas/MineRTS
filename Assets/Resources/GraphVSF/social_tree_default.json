@@ -1,5 +1,5 @@
 {
-  "$type": "BasePackData, Assembly-CSharp",
+  "$type": "BasePackData, NekoGraph.Runtime",
   "PackID": "social_tree_default",
   "DisplayName": "New VFS Pack",
   "Description": "虚拟文件系统包",
@@ -8,23 +8,23 @@
   "ReadableFrom": 0,
   "WritableFrom": 0,
   "CreatedAt": 1774068445,
-  "ModifiedAt": 1774235708,
+  "ModifiedAt": 1774352145,
   "Nodes": {
-    "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[BaseNodeData, Assembly-CSharp]], mscorlib",
+    "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[BaseNodeData, NekoGraph.Runtime]], mscorlib",
     "f3cde239-1963-4ca2-adc0-a7b63a3c99e3": {
-      "$type": "RootNodeData, Assembly-CSharp",
+      "$type": "RootNodeData, NekoGraph.Runtime",
       "_": [
         "d5a50c62-8c4c-4b2d-bbdc-e1d6f79fdaaf"
       ],
       "NodeID": "f3cde239-1963-4ca2-adc0-a7b63a3c99e3",
       "EditorPosition": {
-        "$type": "SerializableVector2, Assembly-CSharp",
+        "$type": "SerializableVector2, NekoGraph.Runtime",
         "x": 32.0,
         "y": 220.799988
       },
       "OutputConnections": [
         {
-          "$type": "ConnectionData, Assembly-CSharp",
+          "$type": "ConnectionData, NekoGraph.Runtime",
           "FromPortIndex": 0,
           "TargetNodeID": "d5a50c62-8c4c-4b2d-bbdc-e1d6f79fdaaf",
           "ToPortIndex": 0
@@ -33,7 +33,7 @@
       "IsChecked": false
     },
     "d5a50c62-8c4c-4b2d-bbdc-e1d6f79fdaaf": {
-      "$type": "VFSNodeData, Assembly-CSharp",
+      "$type": "VFSNodeData, NekoGraph.Runtime",
       "ParentNodeID": "f3cde239-1963-4ca2-adc0-a7b63a3c99e3",
       "ChildNodeIDs": [
         "ac5a84ed-e971-41df-8827-7466c0440021",
@@ -43,19 +43,19 @@
       "NodeID": "d5a50c62-8c4c-4b2d-bbdc-e1d6f79fdaaf",
       "Name": "You",
       "EditorPosition": {
-        "$type": "SerializableVector2, Assembly-CSharp",
+        "$type": "SerializableVector2, NekoGraph.Runtime",
         "x": 267.2,
         "y": 220.0
       },
       "OutputConnections": [
         {
-          "$type": "ConnectionData, Assembly-CSharp",
+          "$type": "ConnectionData, NekoGraph.Runtime",
           "FromPortIndex": 0,
           "TargetNodeID": "ac5a84ed-e971-41df-8827-7466c0440021",
           "ToPortIndex": 0
         },
         {
-          "$type": "ConnectionData, Assembly-CSharp",
+          "$type": "ConnectionData, NekoGraph.Runtime",
           "FromPortIndex": 0,
           "TargetNodeID": "3c10e4bd-cad7-4e2a-a53b-d79e76bcbe0e",
           "ToPortIndex": 0
@@ -67,16 +67,16 @@
       "IsFile": false
     },
     "3c10e4bd-cad7-4e2a-a53b-d79e76bcbe0e": {
-      "$type": "VFSNodeData, Assembly-CSharp",
+      "$type": "VFSNodeData, NekoGraph.Runtime",
       "ParentNodeID": "d5a50c62-8c4c-4b2d-bbdc-e1d6f79fdaaf",
       "ChildNodeIDs": [],
       "IsEnabled": true,
       "NodeID": "3c10e4bd-cad7-4e2a-a53b-d79e76bcbe0e",
       "Name": "qq",
       "EditorPosition": {
-        "$type": "SerializableVector2, Assembly-CSharp",
-        "x": 558.4,
-        "y": 313.6
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 566.4,
+        "y": 320.0
       },
       "OutputConnections": [],
       "IsChecked": false,
@@ -85,14 +85,14 @@
       "IsFile": true
     },
     "ac5a84ed-e971-41df-8827-7466c0440021": {
-      "$type": "VFSNodeData, Assembly-CSharp",
+      "$type": "VFSNodeData, NekoGraph.Runtime",
       "ParentNodeID": "d5a50c62-8c4c-4b2d-bbdc-e1d6f79fdaaf",
       "ChildNodeIDs": [],
       "IsEnabled": true,
       "NodeID": "ac5a84ed-e971-41df-8827-7466c0440021",
       "Name": "xx",
       "EditorPosition": {
-        "$type": "SerializableVector2, Assembly-CSharp",
+        "$type": "SerializableVector2, NekoGraph.Runtime",
         "x": 567.2,
         "y": 95.2
       },
@@ -110,7 +110,7 @@
   "System": 0,
   "HasStarted": false,
   "ActiveSignals": {
-    "$type": "System.Collections.Generic.Queue`1[[SignalContext, Assembly-CSharp]], mscorlib",
+    "$type": "System.Collections.Generic.Queue`1[[SignalContext, NekoGraph.Runtime]], mscorlib",
     "$values": []
   }
 }

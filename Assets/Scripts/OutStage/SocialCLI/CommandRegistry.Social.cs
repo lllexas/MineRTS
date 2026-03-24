@@ -13,7 +13,7 @@ using UnityEngine;
 /// 集成 GraphAnalyser 实现 VFS 路径管理喵~
 /// ═══════════════════════════════════════════════════════════════
 /// </summary>
-public static partial class CommandRegistry
+public static class SocialCommandBricks
 {
     // =========================================================
     //  辅助方法
@@ -38,62 +38,62 @@ public static partial class CommandRegistry
     [CommandInfo("pwd", "📍 显示当前路径", "Social", null,
         Tooltip = "显示当前目录路径喵~",
         Color = "0.3,0.5,0.9")]
-    [SocialCommand]
-    public static CommandOutput Pwd(DeveloperConsole console, int subjectLevel, string[] args, object payload)
+    public static CommandOutput Pwd(IConsoleController console, int subjectLevel, string[] args, object payload)
     {
-        return CommandOutput.Success($"当前目录：{console.FullCurrentPath}");
+        var dc = console as DeveloperConsole;
+        return CommandOutput.Success($"当前目录：{dc.FullCurrentPath}");
     }
 
     [CommandInfo("cd", "📂 切换目录", "Social", new[] { "path" },
         Tooltip = "切换当前目录喵~\n示例：cd friends  cd A:/messages  cd ..",
         Color = "0.3,0.5,0.8")]
-    [SocialCommand]
-    public static CommandOutput Cd(DeveloperConsole console, int subjectLevel, string[] args, object payload)
+    public static CommandOutput Cd(IConsoleController console, int subjectLevel, string[] args, object payload)
     {
+        var dc = console as DeveloperConsole;
         if (args.Length < 1)
         {
-            console.SetCurrentPath("/");
-            return CommandOutput.Success($"当前目录：{console.FullCurrentPath}");
+            dc.SetCurrentPath("/");
+            return CommandOutput.Success($"当前目录：{dc.FullCurrentPath}");
         }
 
         string path = args[0];
 
         if (path == "..")
         {
-            string parentPath = VFSPathResolver.GetParentPath(console.CurrentPath);
-            console.SetCurrentPath(parentPath);
+            string parentPath = VFSPathResolver.GetParentPath(dc.CurrentPath);
+            dc.SetCurrentPath(parentPath);
         }
         else if (path == "/" || path == "~")
         {
-            console.SetCurrentPath("/");
+            dc.SetCurrentPath("/");
         }
         else
         {
-            var (packID, vfsPath) = console.ResolveDrivePath(path);
+            var (packID, vfsPath) = dc.ResolveDrivePath(path);
             if (packID == null)
                 return CommandOutput.Fail($"未知盘符：{path}");
 
             // 跨盘则先切盘（SetCurrentPackID 会把路径重置到 /）
-            if (packID != console.CurrentVFSPackID)
-                console.SetCurrentPackID(packID);
+            if (packID != dc.CurrentVFSPackID)
+                dc.SetCurrentPackID(packID);
 
-            console.SetCurrentPath(vfsPath);
+            dc.SetCurrentPath(vfsPath);
         }
 
-        return CommandOutput.Success($"当前目录：{console.FullCurrentPath}");
+        return CommandOutput.Success($"当前目录：{dc.FullCurrentPath}");
     }
 
     [CommandInfo("ls", "📋 列出目录", "Social", new[] { "[path]" },
         Tooltip = "列出目录内容喵~\n示例：ls  ls /messages/  ls A:/shop",
         Color = "0.3,0.5,0.7")]
-    [SocialCommand]
-    public static CommandOutput List(DeveloperConsole console, int subjectLevel, string[] args, object payload)
+    public static CommandOutput List(IConsoleController console, int subjectLevel, string[] args, object payload)
     {
-        if (string.IsNullOrEmpty(console.CurrentVFSPackID))
+        var dc = console as DeveloperConsole;
+        if (string.IsNullOrEmpty(dc.CurrentVFSPackID))
             return CommandOutput.Fail("未挂载文件系统喵！");
 
-        string rawPath = args.Length > 0 ? args[0] : console.CurrentPath;
-        var (packID, path) = console.ResolveDrivePath(rawPath);
+        string rawPath = args.Length > 0 ? args[0] : dc.CurrentPath;
+        var (packID, path) = dc.ResolveDrivePath(rawPath);
         if (packID == null)
             return CommandOutput.Fail($"未知盘符：{rawPath}");
 
@@ -131,7 +131,7 @@ public static partial class CommandRegistry
 
         // 构建表格
         var table = new TUITableBuilder()
-            .SetTitle($"📁 {console.FullCurrentPath}")
+            .SetTitle($"📁 {dc.FullCurrentPath}")
             .SetFooter($"共 {validChildren.Count} 项")
             .UseBorder(true)
             .SetBorderStyle(BorderStyle.Classic)
@@ -192,7 +192,7 @@ public static partial class CommandRegistry
         }
 
         // 渲染表格
-        int consoleWidth = console.ConsoleWidth;
+        int consoleWidth = dc.ConsoleWidth;
         string[] lines = table.Render(consoleWidth);
 
         // 输出
@@ -208,9 +208,9 @@ public static partial class CommandRegistry
     [CommandInfo("help", "❓ 显示帮助", "Social", new[] { "command" },
         Tooltip = "显示帮助信息喵~\n示例：help ls",
         Color = "0.5,0.5,0.5")]
-    [SocialCommand]
-    public static CommandOutput SocialHelp(DeveloperConsole console, int subjectLevel, string[] args, object payload)
+    public static CommandOutput SocialHelp(IConsoleController console, int subjectLevel, string[] args, object payload)
     {
+        var dc = console as DeveloperConsole;
         StringBuilder sb = new StringBuilder();
         sb.AppendLine("=== 社交终端帮助 ===");
         sb.AppendLine();
@@ -229,15 +229,15 @@ public static partial class CommandRegistry
     [CommandInfo("cat", "📖 读取文件内容", "Social", new[] { "path" },
         Tooltip = "读取 VFS 文件内容喵~\n示例：cat message.txt  cat A:/messages/test.msg",
         Color = "0.3,0.7,0.3")]
-    [SocialCommand]
-    public static CommandOutput Cat(DeveloperConsole console, int subjectLevel, string[] args, object payload)
+    public static CommandOutput Cat(IConsoleController console, int subjectLevel, string[] args, object payload)
     {
-        if (string.IsNullOrEmpty(console.CurrentVFSPackID))
+        var dc = console as DeveloperConsole;
+        if (string.IsNullOrEmpty(dc.CurrentVFSPackID))
             return CommandOutput.Fail("未挂载文件系统喵！");
 
         if (args.Length < 1) return CommandOutput.Fail("请指定要读取的文件路径喵~");
 
-        var (packID, targetPath) = console.ResolveDrivePath(args[0]);
+        var (packID, targetPath) = dc.ResolveDrivePath(args[0]);
         if (packID == null)
             return CommandOutput.Fail($"未知盘符：{args[0]}");
 
@@ -258,7 +258,7 @@ public static partial class CommandRegistry
                     if (msgData != null && !string.IsNullOrEmpty(msgData.PackID))
                     {
                         // 使用策略模式接管喵！✨
-                        console.SetActiveStrategy(new CatStrategies.MsgStrategy(console), targetPath, msgData.PackID);
+                        dc.SetActiveStrategy(new CatStrategies.MsgStrategy(dc), targetPath, msgData.PackID);
                         return CommandOutput.Success(""); // 逻辑已接管，无需额外输出
                     }
                 }
@@ -277,9 +277,9 @@ public static partial class CommandRegistry
     [CommandInfo("echo", "🗣️ 输出文本", "Social", new[] { "text" },
         Tooltip = "输出指定文本喵~\n示例：echo \"Hello World\"",
         Color = "0.8,0.8,0.3")]
-    [SocialCommand]
-    public static CommandOutput Echo(DeveloperConsole console, int subjectLevel, string[] args, object payload)
+    public static CommandOutput Echo(IConsoleController console, int subjectLevel, string[] args, object payload)
     {
+        var dc = console as DeveloperConsole;
         string content = string.Join(" ", args);
         // 如果是从上游传下来的 payload 且 args 为空，则优先显示 payload
         if (string.IsNullOrEmpty(content) && payload != null)
@@ -293,12 +293,12 @@ public static partial class CommandRegistry
     [CommandInfo("mount", "💾 浏览/切换盘符", "Social", null,
         Tooltip = "打开交互式盘符选择界面，↑↓ 导航，Enter 确认切换喵~",
         Color = "0.5,0.8,0.5")]
-    [SocialCommand]
-    public static CommandOutput Mount(DeveloperConsole console, int subjectLevel, string[] args, object payload)
+    public static CommandOutput Mount(IConsoleController console, int subjectLevel, string[] args, object payload)
     {
+        var dc = console as DeveloperConsole;
         if (console == null) return CommandOutput.Fail("console 为空");
 
-        var driveMap = console.GetDriveMap();
+        var driveMap = dc.GetDriveMap();
         if (driveMap.Count == 0)
             return CommandOutput.Fail("当前无可见盘符喵~");
 
@@ -312,7 +312,7 @@ public static partial class CommandRegistry
                 ?? analyser?.GetPackAccessLevel(pack, PackAccessSubjects.Player)
                 ?? PackAccessLevel.Hidden;
             string rw = accessLevel == PackAccessLevel.ReadWrite ? "RW" : "RO";
-            bool isCurrent = packID == console.CurrentVFSPackID;
+            bool isCurrent = packID == dc.CurrentVFSPackID;
             items.Add(new TUISelectionItem
             {
                 key = i,
@@ -323,14 +323,14 @@ public static partial class CommandRegistry
             });
         }
 
-        int currentIdx = driveMap.FindIndex(d => d.packID == console.CurrentVFSPackID);
+        int currentIdx = driveMap.FindIndex(d => d.packID == dc.CurrentVFSPackID);
         var config = new TUISelectionConfig
         {
             title = "══ 选择盘符 ══",
             helpText = "↑↓ 导航  Enter 确认  Esc 取消",
             emptyText = "无可见盘符",
             initialSelectedKey = currentIdx >= 0 ? currentIdx : 0,
-            console = console,
+            console = dc,
             items = items,
             viewStyle = TUISelectionViewStyle.Default,
             interaction = new TUISelectionInteractionConfig
@@ -341,7 +341,7 @@ public static partial class CommandRegistry
                 onConfirmSelection = (idx, item) =>
                 {
                     string pid = (string)item.payload;
-                    console.SetCurrentPackID(pid);
+                    dc.SetCurrentPackID(pid);
                     console.Log($"已切换到盘符 {item.indexText}: ({pid})", Color.green);
                 },
                 onCancel = () => console.Log("已取消", Color.gray)
@@ -349,41 +349,8 @@ public static partial class CommandRegistry
         };
 
         var handler = new TUIListSelectionHandler(config);
-        console.MountInputHandler(handler);
+        dc.MountInputHandler(handler);
         return CommandOutput.Success("");
     }
 
-    [CommandInfo("social_isolation", "🔓 切换 CLI 隔离模式", "Debug", new[] { "enable (0/1)" },
-        Tooltip = "解除/启用社交 CLI 的命令隔离喵~\n此命令只能在大控制台执行！\n示例：social_isolation 0 (解除隔离)\nsocial_isolation 1 (启用隔离)",
-        Color = "0.8,0.4,0.2")]
-    public static CommandOutput SocialIsolation(DeveloperConsole console, int subjectLevel, string[] args, object payload)
-    {
-        // 此命令只能在大控制台（DeveloperConsole）执行，不能在社交终端执行喵~
-        if (console is SocialCLI)
-        {
-            return CommandOutput.Fail("此命令只能在大控制台执行喵！社交终端无法修改隔离设置。");
-        }
-
-        // 从场景中查找 SocialCLI 实例
-        var scli = UnityEngine.Object.FindFirstObjectByType<SocialCLI>();
-        if (scli == null)
-        {
-            return CommandOutput.Fail("找不到 SocialCLI 实例喵~");
-        }
-
-        if (args.Length < 1)
-        {
-            // 不传参数则显示当前状态
-            string status = scli.EnableCommandIsolation ? "已启用（安全模式）" : "已解除（调试模式）";
-            return CommandOutput.Success($"当前 CLI 隔离状态：{status}");
-        }
-
-        bool enable = args[0] == "1" || args[0].ToLower() == "true" || args[0].ToLower() == "on";
-        scli.EnableCommandIsolation = enable;
-
-        string newState = enable ? "已启用（安全模式）" : "已解除（调试模式）";
-        string warning = enable ? "" : "\n<color=yellow>警告：解除隔离后可以执行任意命令，请谨慎操作喵~</color>";
-
-        return CommandOutput.Success($"CLI 隔离模式：{newState}{warning}");
-    }
 }

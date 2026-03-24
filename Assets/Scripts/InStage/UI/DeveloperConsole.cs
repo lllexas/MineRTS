@@ -25,7 +25,7 @@ using static CommandRegistry;
 ///
 /// ═══════════════════════════════════════════════════════════════
 /// </summary>
-public class DeveloperConsole : TUIManager
+public class DeveloperConsole : TUIManager, IConsoleController
 {
     // =========================================================
     //  输出事件数据结构
@@ -48,9 +48,9 @@ public class DeveloperConsole : TUIManager
     // =========================================================
 
     /// <summary>
-    /// 当前控制台的主体等级（默认 Player）喵~
+    /// 当前控制台的主体等级（默认 SystemMin，开发者工具）喵~
     /// </summary>
-    private int _subjectLevel = PackAccessSubjects.Player;
+    private int _subjectLevel = PackAccessSubjects.SystemMin;
 
     /// <summary>
     /// 获取当前控制台的主体等级喵~
@@ -527,7 +527,7 @@ public class DeveloperConsole : TUIManager
             output = CommandRegistry.Execute(cmdName, _subjectLevel, args, null, this);
         }
 
-        if (output == null || output.Result == CommandRegistry.CommandResult.Failed)
+        if (output == null || output.Result == CommandResult.Failed)
         {
             Log($"命令执行失败，重定向已终止喵：{output?.Message}", Color.red);
             return;
@@ -611,7 +611,7 @@ public class DeveloperConsole : TUIManager
             lastOutput = CommandRegistry.Execute(commandName, _subjectLevel, args, payload, this);
             payload = lastOutput.Payload;
 
-            if (lastOutput.Result == CommandRegistry.CommandResult.Failed)
+            if (lastOutput.Result == CommandResult.Failed)
             {
                 Log($"Pipeline failed at '{commandName}': {lastOutput.Message}", Color.red);
                 break;
@@ -739,7 +739,7 @@ public class DeveloperConsole : TUIManager
             payload = output.Payload;
 
             // 如果失败，停止管道
-            if (output.Result == CommandRegistry.CommandResult.Failed)
+            if (output.Result == CommandResult.Failed)
             {
                 Log($"Pipeline failed at '{commandName}': {output.Message}", Color.red);
                 break;
@@ -812,7 +812,17 @@ public class DeveloperConsole : TUIManager
     /// </summary>
     private void RegisterCommands()
     {
-        CommandRegistry.RegisterAll(this);
+        // 从 NekoGraph CommandRegistry 全域扫描结果中注册所有命令到控制台喵~
+        foreach (var name in CommandRegistry.GetAllCommandNames())
+        {
+            string captured = name;
+            AddCommand(captured, (args) =>
+            {
+                var output = CommandRegistry.Execute(captured, GetSubjectLevel(), args, null, this);
+                if (!string.IsNullOrEmpty(output.Message))
+                    Log(output.Message, output.Result == CommandResult.Success ? UnityEngine.Color.green : UnityEngine.Color.red);
+            });
+        }
     }
 }
 

@@ -1,0 +1,3 @@
+[submodule "Assets/Scripts/NekoGraph"]
+	path = Assets/Scripts/NekoGraph
+	url = https://github.com/lllexas/NekoGraph.git

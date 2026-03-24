@@ -42,7 +42,7 @@ public class StageSaveData
 /// 使用 Newtonsoft.Json 序列化，支持 Dictionary 直接序列化
 /// </summary>
 [Serializable]
-public class UserModel
+public class UserModel : IUserPackData
 {
     public SaveMetadata Metadata = new SaveMetadata();
     public GlobalProgression Progression = new GlobalProgression();
@@ -84,6 +84,13 @@ public class UserModel
     /// Value: BasePackData 本体（支持多态序列化，System 字段区分类型）
     /// </summary>
     public Dictionary<string, BasePackData> PackDataDict = new Dictionary<string, BasePackData>();
+
+    // IUserPackData 接口实现喵~
+    public Dictionary<string, BasePackData> GetPlayerPackDict()
+    {
+        PackDataDict ??= new Dictionary<string, BasePackData>();
+        return PackDataDict;
+    }
 
     /// <summary>
     /// 实体持有的图数据包字典

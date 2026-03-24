@@ -23,12 +23,12 @@ public class CommandExecutor : SingletonMono<CommandExecutor>
     /// <summary>
     /// 执行单个命令喵~
     /// </summary>
-    public CommandRegistry.CommandResult ExecuteCommand(CommandData command)
+    public CommandResult ExecuteCommand(CommandData command)
     {
         if (string.IsNullOrEmpty(command.CommandName))
         {
             Debug.LogWarning("[CommandExecutor] 命令名为空，跳过执行喵~");
-            return CommandRegistry.CommandResult.Skipped;
+            return CommandResult.Skipped;
         }
 
         // 从 GraphRunner 获取当前执行主体的权限喵~
