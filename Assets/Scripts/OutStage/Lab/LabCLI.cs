@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using CatStrategies;
 using UnityEngine;
+using SpaceTUI;
 
 public class LabCLI : DeveloperConsole
 {
@@ -183,7 +184,7 @@ public class LabCLI : DeveloperConsole
                 contentColor = new Color(0.8f, 1f, 0.95f),
                 titleColor = new Color(0.8f, 1f, 0.95f),
                 backgroundColor = null,
-                alignment = TextAlignment.Left,
+                alignment = SpaceTUI.TextAlignment.Left,
                 expandArtSpaces = false
             };
             viewStyle.itemStyle = new TSSStyle
@@ -197,7 +198,7 @@ public class LabCLI : DeveloperConsole
                 contentColor = new Color(0.75f, 0.9f, 1f),
                 titleColor = Color.white,
                 backgroundColor = null,
-                alignment = TextAlignment.Left,
+                alignment = SpaceTUI.TextAlignment.Left,
                 expandArtSpaces = false
             };
             viewStyle.helpStyle = new TSSStyle
@@ -211,7 +212,7 @@ public class LabCLI : DeveloperConsole
                 contentColor = new Color(0.65f, 0.75f, 0.8f),
                 titleColor = Color.white,
                 backgroundColor = null,
-                alignment = TextAlignment.Left,
+                alignment = SpaceTUI.TextAlignment.Left,
                 expandArtSpaces = false
             };
             viewStyle.emptyStyle = viewStyle.helpStyle;

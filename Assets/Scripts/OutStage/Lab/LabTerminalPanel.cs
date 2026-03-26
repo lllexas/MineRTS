@@ -2,6 +2,7 @@ using System.Collections;
 using MineRTS.BigMap.UI.Panels;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using SpaceTUI;
 
 namespace MineRTS.BigMap.UI.Panels
 {

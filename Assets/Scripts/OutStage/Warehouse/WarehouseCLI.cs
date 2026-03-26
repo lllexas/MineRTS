@@ -5,6 +5,7 @@ using System.Linq;
 using CatStrategies;
 using NekoGraph;
 using UnityEngine;
+using SpaceTUI;
 
 public class WarehouseCLI : DeveloperConsole
 {
@@ -227,7 +228,7 @@ public class WarehouseCLI : DeveloperConsole
                 contentColor = new Color(1f, 0.92f, 0.68f),
                 titleColor = new Color(1f, 0.92f, 0.68f),
                 backgroundColor = null,
-                alignment = TextAlignment.Left,
+                alignment = SpaceTUI.TextAlignment.Left,
                 expandArtSpaces = false
             };
             viewStyle.itemStyle = new TSSStyle
@@ -241,7 +242,7 @@ public class WarehouseCLI : DeveloperConsole
                 contentColor = new Color(0.95f, 0.86f, 0.72f),
                 titleColor = Color.white,
                 backgroundColor = null,
-                alignment = TextAlignment.Left,
+                alignment = SpaceTUI.TextAlignment.Left,
                 expandArtSpaces = false
             };
             viewStyle.helpStyle = new TSSStyle
@@ -255,7 +256,7 @@ public class WarehouseCLI : DeveloperConsole
                 contentColor = new Color(0.72f, 0.72f, 0.72f),
                 titleColor = Color.white,
                 backgroundColor = null,
-                alignment = TextAlignment.Left,
+                alignment = SpaceTUI.TextAlignment.Left,
                 expandArtSpaces = false
             };
             viewStyle.emptyStyle = viewStyle.helpStyle;

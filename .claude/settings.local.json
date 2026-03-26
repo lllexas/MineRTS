@@ -36,7 +36,13 @@
       "Bash(cd /tmp)",
       "Bash(rm -rf nekograph_push)",
       "Bash(mkdir nekograph_push)",
-      "Bash(cp -r \"G:/ProjectOfGame/MineRTS/Assets/Scripts/NekoGraph/.\" nekograph_push/)"
+      "Bash(cp -r \"G:/ProjectOfGame/MineRTS/Assets/Scripts/NekoGraph/.\" nekograph_push/)",
+      "Bash(find G:ProjectOfGameMineRTSAssetsScripts -type f -name *TUI*)",
+      "Bash(NEKO=\"G:/ProjectOfGame/MineRTS/Assets/Scripts/NekoGraph\")",
+      "Bash(mkdir -p \"$NEKO/SpaceTUI/TUI\" \"$NEKO/SpaceTUI/Console\" \"$NEKO/SpaceTUI/Animator\")",
+      "Bash(/dev/null find:*)",
+      "Bash(find G:/ProjectOfGame/MineRTS/Assets -name *.asmdef)",
+      "Bash(find G:/ProjectOfGame/MineRTS/Assets -name DOTween* -o -name Demigiant*)"
     ]
   },
   "outputStyle": "neko-chan"

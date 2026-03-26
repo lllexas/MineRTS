@@ -4,6 +4,7 @@ using System.Text;
 using UnityEngine;
 using NekoGraph;
 using Newtonsoft.Json;
+using SpaceTUI;
 
 namespace CatStrategies
 {
@@ -40,7 +41,7 @@ namespace CatStrategies
             paddingY = 1,
             borderColor = new Color(0.5f, 0.5f, 0.5f),
             contentColor = Color.white,
-            alignment = TextAlignment.Left,
+            alignment = SpaceTUI.TextAlignment.Left,
             expandArtSpaces = false
         };
 
@@ -275,7 +276,7 @@ namespace CatStrategies
                     titleStyle = TSSStyle.Default,
                     itemStyle = new TSSStyle
                     {
-                        alignment = TextAlignment.Left
+                        alignment = SpaceTUI.TextAlignment.Left
                     },
                     helpStyle = HelpStyle,
                     emptyStyle = TSSStyle.Default,

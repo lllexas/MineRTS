@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using SpaceTUI;
 
 namespace MineRTS.BigMap.UI.Panels
 {
@@ -47,7 +48,7 @@ namespace MineRTS.BigMap.UI.Panels
             borderColor = borderColor,
             contentColor = titleColor,
             backgroundColor = null,
-            alignment = TextAlignment.Center,
+            alignment = SpaceTUI.TextAlignment.Center,
             expandArtSpaces = true
         };
 
@@ -60,7 +61,7 @@ namespace MineRTS.BigMap.UI.Panels
             borderColor = borderColor,
             contentColor = accentColor,
             backgroundColor = null,
-            alignment = TextAlignment.Center,
+            alignment = SpaceTUI.TextAlignment.Center,
             expandArtSpaces = false
         };
 

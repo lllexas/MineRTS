@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using UnityEngine;
+using SpaceTUI;
+using CatStrategies;
 
 /// <summary>
 /// ═══════════════════════════════════════════════════════════════
@@ -143,14 +145,14 @@ public static class SocialCommandBricks
                 paddingX = 1,
                 paddingY = 0,
                 spacingX = 1,
-                alignment = TextAlignment.Left
+                alignment = SpaceTUI.TextAlignment.Left
             })
             // 列定义：类型 (0)、时间 (1)、大小 (2)、#(3)、名称 (4,自动宽)
-            .AddColumn("类型", 6, TextAlignment.Left)
-            .AddColumn("时间", 12, TextAlignment.Left)
-            .AddColumn("大小", 8, TextAlignment.Right)
-            .AddColumn("#", 4, TextAlignment.Center)
-            .AddColumn("名称", 0, TextAlignment.Left);
+            .AddColumn("类型", 6, SpaceTUI.TextAlignment.Left)
+            .AddColumn("时间", 12, SpaceTUI.TextAlignment.Left)
+            .AddColumn("大小", 8, SpaceTUI.TextAlignment.Right)
+            .AddColumn("#", 4, SpaceTUI.TextAlignment.Center)
+            .AddColumn("名称", 0, SpaceTUI.TextAlignment.Left);
             // .SetConnectorColumn(4, '─');  // 名称列 (4) 通过连接器指向 #(3) - 已禁用，保留方法
 
         // 添加数据行
