@@ -598,10 +598,10 @@ public static class GameCommandBricks
         {
             if (GraphRunner.Instance != null)
             {
-                GraphRunner.Instance.SetPackDataDict(MainModel.Instance.CurrentUser.PackDataDict);
-                var instanceID = GraphRunner.Instance.LoadPack(pack);
-                GraphRunner.Instance.InjectSignalFromRoot(instanceID);
-                return CommandOutput.Success($"Pack 已加载并运行：{packID} → InstanceID: {instanceID}");
+                GraphRunner.Instance.SetPackTable(MainModel.Instance.CurrentUser.PackDataDict);
+                var loadedPackID = GraphRunner.Instance.LoadPack(pack);
+                GraphRunner.Instance.InjectSignalFromRoot(loadedPackID);
+                return CommandOutput.Success($"Pack 已加载并运行：{packID} → PackID: {loadedPackID}");
             }
         }
 

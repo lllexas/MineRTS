@@ -102,7 +102,7 @@ public class LabCLI : DeveloperConsole
             config.interaction = BuildInteractionConfig();
 
             _slot = new LabSelectionSlot(config);
-            _console.MountInputHandler(_slot);
+            _console.BeginSession(_slot);
             _console.ScrollConsoleToTop();
 
             if (items.Count > 0)
@@ -120,7 +120,7 @@ public class LabCLI : DeveloperConsole
         {
             if (_slot != null)
             {
-                _console.UnmountInputHandler(_slot);
+                _console.EndSession(_slot);
                 _slot = null;
             }
 

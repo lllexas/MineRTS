@@ -352,7 +352,7 @@ public static class SocialCommandBricks
         };
 
         var handler = new TUIListSelectionHandler(config);
-        dc.MountInputHandler(handler);
+        dc.BeginSession(handler);
         return CommandOutput.Success("");
     }
 

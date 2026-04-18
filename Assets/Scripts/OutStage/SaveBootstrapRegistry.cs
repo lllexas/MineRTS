@@ -128,7 +128,7 @@ public static class SaveBootstrapRegistry
         }
 
         PreparePack(pack);
-        user.PackDataDict[Guid.NewGuid().ToString("N")] = pack;
+        user.PackDataDict[pack.PackID] = pack;
     }
 
     private static void PreparePack(BasePackData pack)

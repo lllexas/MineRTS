@@ -15,7 +15,7 @@ public static class VFSMsgResource
         SignalContext context,
         BasePackData pack,
         GraphRunner runner,
-        string packInstanceID,
+        string packIDKey,
         System.Action continueAction)
     {
         var msg = content.GetUnityObject<VFSMsgSO>();
@@ -27,19 +27,11 @@ public static class VFSMsgResource
 
         // 新 .msg 先只承担“消息资源”本身，不再默认把载荷解释成整个 pack。
         // 当前执行语义保持保守：发出一份显式消息展示请求，后续再决定是否挂接专门的 Player。
-        PostSystem.Instance.Send("VFS.Msg.Execute", new VFSMsgPresentation
+        PostSystem.Instance.Send("VFS.Msg.Execute", new VFSMsgQueryPayload
         {
-            MessageId = msg.MessageId,
-            Sender = msg.Sender,
-            Title = msg.Title,
-            Preview = msg.Preview,
-            Body = msg.Body,
-            Timestamp = msg.Timestamp,
-            DefaultUnread = msg.DefaultUnread,
-            ConversationPackID = msg.ConversationPackID,
-            NextVfsPath = msg.NextVfsPath,
+            Message = msg,
             PackID = pack?.PackID,
-            PackInstanceID = packInstanceID,
+            PackIDKey = packIDKey,
             SourceNodeId = context?.CurrentNodeId
         });
 
@@ -64,17 +56,9 @@ public static class VFSMsgResource
             presentationType: "social.msg",
             title: string.IsNullOrWhiteSpace(msg.Title) ? msg.Sender : msg.Title,
             summary: string.IsNullOrWhiteSpace(msg.Preview) ? msg.Body : msg.Preview,
-            payload: new VFSMsgPresentation
+            payload: new VFSMsgQueryPayload
             {
-                MessageId = msg.MessageId,
-                Sender = msg.Sender,
-                Title = msg.Title,
-                Preview = msg.Preview,
-                Body = msg.Body,
-                Timestamp = msg.Timestamp,
-                DefaultUnread = msg.DefaultUnread,
-                ConversationPackID = msg.ConversationPackID,
-                NextVfsPath = msg.NextVfsPath,
+                Message = msg,
                 PackID = context?.PackID,
                 VfsPath = context?.VfsPath
             },
@@ -83,22 +67,14 @@ public static class VFSMsgResource
 }
 
 /// <summary>
-/// .msg 面向前端的统一展示包。
-/// Execute 和 Query 都可以复用这一份显式数据，而不是再把业务约定散落在外部代码里。
+/// .msg 的 Query / Execute 薄上下文包。
+/// 资源本体仍然是 VFSMsgSO；这里只补宿主和来源路径等运行时信息。
 /// </summary>
-public sealed class VFSMsgPresentation
+public sealed class VFSMsgQueryPayload
 {
-    public string MessageId;
-    public string Sender;
-    public string Title;
-    public string Preview;
-    public string Body;
-    public long Timestamp;
-    public bool DefaultUnread;
-    public string ConversationPackID;
-    public string NextVfsPath;
+    public VFSMsgSO Message;
     public string PackID;
-    public string PackInstanceID;
+    public string PackIDKey;
     public string VfsPath;
     public string SourceNodeId;
 }

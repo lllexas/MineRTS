@@ -8,8 +8,8 @@ using NekoGraph;
 /// </summary>
 public class SocialManager : SingletonData<SocialManager>
 {
-    public const string MESSAGES_FOLDER = "/messages/";
-    public const string SOCIAL_PACK_ID = "social_tree_default";
+    public const string MESSAGES_FOLDER = SocialPackFacade.MessagesFolder;
+    public const string SOCIAL_PACK_ID = SocialPackFacade.FrontendPackID;
 
     /// <summary>
     /// 发送一条社交消息给玩家喵~
@@ -22,7 +22,7 @@ public class SocialManager : SingletonData<SocialManager>
         var analyser = GraphAnalyser.Instance;
         if (analyser == null) return;
 
-        if (analyser.GetPack(SOCIAL_PACK_ID, PackAccessSubjects.Player) == null)
+        if (SocialPackFacade.EnsureFrontendPack(analyser) == null)
         {
             Debug.LogError($"[SocialManager] VFS 未挂载：{SOCIAL_PACK_ID}，请检查存档加载流程喵！");
             return;
@@ -39,12 +39,11 @@ public class SocialManager : SingletonData<SocialManager>
         string fullVfsPath;
         if (!string.IsNullOrEmpty(vfsPath))
         {
-            fullVfsPath = vfsPath.StartsWith("/") ? vfsPath : VFSPathResolver.Combine(MESSAGES_FOLDER, vfsPath);
+            fullVfsPath = SocialPackFacade.ResolveMessagePath(vfsPath);
         }
         else
         {
-            string fileName = packID + ".msg";
-            fullVfsPath = VFSPathResolver.Combine(MESSAGES_FOLDER, fileName);
+            fullVfsPath = SocialPackFacade.BuildMessageFilePath(packID);
         }
 
         // 2. 直接从 MetaLib 获取原始 JSON 字符串喵！✨

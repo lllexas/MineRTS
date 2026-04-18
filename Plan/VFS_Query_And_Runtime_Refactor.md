@@ -191,6 +191,164 @@ NekoGraph 的核心能力应理解为：
 2. 把当前消息显示拆成专门的 `ConversationPlayer` 或类似前端仲裁器
 3. 让 console / `cat` / 文件点击等入口统一走 query 协议
 
+## Current .msg Direction
+
+`.msg` 现已明确不再沿用旧 `MsgStrategy` 那套“把 pack 塞进文件内容然后直接拉起整条神秘链”的方式。
+
+### 1. .msg 的资源本体
+
+`.msg` 的资源本体应是一个轻量消息资源，而不是整个对话 pack。
+
+当前方向：
+
+- 用 `ScriptableObject` 承载 `.msg`
+- `DataType = VFSMsgSO`
+- `ContentKind = UnityObject`
+
+这比把完整 pack 当作 `.msg` 载荷更合理，也更符合 Query / Execute 分离后的资源语义。
+
+### 2. Query 与 Execute 的职责
+
+`.msg` 的职责分工现已基本确定：
+
+- `Query`
+  - 负责前台显示入口
+  - 返回 `VFSQueryResult`
+  - 再由 `ConsoleClientRuntime` 决定是否开启 session
+
+- `Execute`
+  - 负责后端运行入口
+  - 不再直接承担 console 前台显示责任
+  - 主要用于故事网中的信号推进与消息投递
+
+### 3. 不可见故事网 + 玩家可见复制体
+
+`.msg` 的正确运行模型不是“前台 Query 直接驱动后端状态机”，而是：
+
+1. 不可见故事 pack 持有原版 `vfs.msg`
+2. 信号到达原版 `.msg` 时执行 `Execute`
+3. `Execute` 将原版消息复制/投递为玩家可见的 `.msg` 副本，写入玩家可读 pack
+4. 玩家通过 `ls / cat / Query / session` 访问的是这个复制体
+5. 玩家在复制体上的交互，通过复制体中携带的后端锚点回到不可见故事 pack，恢复原始挂起信号
+
+这样：
+
+- 玩家可见文件树只是前台镜像
+- 不可见故事网才是运行时真相
+
+### 4. .msg 复制体需要携带的后端锚点
+
+这里不需要再发明 callback token。
+
+当前确认可直接复用 NekoGraph 现有运行时主键体系：
+
+- `BackendPackID`
+- `BackendNodeID`
+- `SignalId`
+
+原因：
+
+- `BasePackData` 以 `PackID` 标识 pack
+- `BaseNodeData` 以 `NodeID` 标识节点
+- `SignalContext` 以 `SignalId` 标识挂起/恢复中的信号
+- `SuspendedSignals` 本来就是按 `SignalId` 存储
+
+因此，对 `.msg` 复制体来说，只要带上：
+
+- 后端 pack id
+- 后端当前 node id
+- 当前 signal id
+
+就已经足够稳定、可持久化、可恢复。
+
+### 5. 防重复放行
+
+玩家可见 `.msg` 复制体还需要额外带一个“已放行/已解决”状态位，用于避免重复触发后端恢复。
+
+这类状态位应作为复制体的运行时状态，而不是原版静态资源内容的一部分。
+
+## Console Session Direction
+
+Console/TUI 这条线目前已明确改用 `session` 语义描述，而不是旧的 “input handler / slot”。
+
+当前结构：
+
+- `ConsoleManager`
+  - session 宿主
+- `ConsoleClientRuntime`
+  - 宿主本地仲裁器
+- `IConsoleSession`
+  - 交互会话协议
+- `TUISelectSlot`
+  - 一种具体 console session
+
+这里的关键共识：
+
+- Query 不直接启动 session
+- Query 只返回包
+- `ConsoleClientRuntime` 负责仲裁并决定是否开启 session
+- 仲裁器不是全局单例，而是绑定到每个具体 `ConsoleManager`
+
+## PackID Primary Key Direction
+
+Pack 这一层当前最大的结构问题，不是“多一个索引有点烦”，而是把两种完全不同语义的键塞进了同一个底层容器：
+
+- `GraphAnalyser` 对外按 `PackID` 工作
+- `GraphRunner` 对内按 `InstanceID / guid` 工作
+- `EntityGraphContext.PackDataDict` 却把这两者混成同一个 `Dictionary<string, BasePackData>`
+
+这直接导致：
+
+- `GraphAnalyser` 需要 `_packIDToGuid` 二级索引来桥接
+- `GraphRunner` 把共享 pack 字典当成运行时实例表使用
+- `UserModel.PackDataDict` 也被迫用 `guid` 作为持久层 key
+
+### Current judgement
+
+`PackID` 应当成为统一主键。
+
+无论是：
+
+- `UserModel`
+- `GraphHub`
+- `EntityGraphContext`
+- `GraphAnalyser`
+- `GraphRunner`
+
+都应围绕同一张：
+
+- `PackID -> BasePackData`
+
+的表来组织。
+
+### Why this is now safe
+
+过去把 `guid` 作为主键，唯一像样的理由是“同一个 pack 可以多实例叠加”，例如 aura / 光环叠加。
+
+但现在随着 VFS 协议扩展，这种需求已经可以通过更局部、更清晰的机制处理，不再值得反过来污染整套 pack 容器模型。
+
+换句话说：
+
+- `PackID` 是业务身份
+- `guid / instanceID` 如果还需要存在，也只能是特例运行时句柄
+
+它不应该再是主 `PackDataDict` 的基础语义。
+
+### Refactor target
+
+目标不是简单“删掉一个索引”，而是纠正容器职责：
+
+1. `PackDataDict` 统一改为 `PackID -> BasePackData`
+2. `GraphAnalyser` 直接按 `PackID` 访问，不再维护 `_packIDToGuid`
+3. `GraphRunner` 不再把共享 `PackDataDict` 当作 `InstanceID -> BasePackData` 的实例表
+4. 若未来仍保留某些多实例运行时需求，应引入独立的运行时实例机制，而不是重新污染主 pack 表
+
+### Migration order
+
+1. 先统一 `UserModel`、`GraphHub`、`EntityGraphContext`、`GraphAnalyser` 的主键语义
+2. 再改 `GraphRunner`，让它基于统一的 `PackID` 表运行
+3. 最后评估是否还需要保留任何独立的运行时 `instanceID` 容器
+
 ## Non-Goals For Now
 
 当前阶段不追求：
@@ -205,4 +363,3 @@ NekoGraph 的核心能力应理解为：
 - 明确协议边界
 - 先为 Query 开新能力口
 - 用 `.msg` 做第一个可运行样板
-

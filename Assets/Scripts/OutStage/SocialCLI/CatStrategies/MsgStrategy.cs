@@ -102,7 +102,7 @@ namespace CatStrategies
                         return;
                     }
 
-                    GraphRunner.Instance.SetPackDataDict(MainModel.Instance.CurrentUser.PackDataDict);
+                    GraphRunner.Instance.SetPackTable(MainModel.Instance.CurrentUser.PackDataDict);
                     _instanceID = GraphRunner.Instance.LoadPack(pack);
 
                     if (_instanceID != null)
@@ -433,7 +433,6 @@ namespace CatStrategies
         }
     }
 }
-
 
 
 

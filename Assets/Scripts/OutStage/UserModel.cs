@@ -80,7 +80,7 @@ public class UserModel : IUserPackData
 
     /// <summary>
     /// 图数据包字典（科技树、剧情图、VFS 等）
-    /// Key: GUID
+    /// Key: PackID
     /// Value: BasePackData 本体（支持多态序列化，System 字段区分类型）
     /// </summary>
     public Dictionary<string, BasePackData> PackDataDict = new Dictionary<string, BasePackData>();
@@ -95,7 +95,7 @@ public class UserModel : IUserPackData
     /// <summary>
     /// 实体持有的图数据包字典
     /// 外层 Key: 实体/AI/进程实体 ID
-    /// 内层 Key: GUID
+    /// 内层 Key: PackID
     /// 内层 Value: BasePackData 本体
     /// </summary>
     public Dictionary<string, Dictionary<string, BasePackData>> EntityPackDataDict =
@@ -269,42 +269,35 @@ public class UserModel : IUserPackData
             return null;
         }
 
-        foreach (var pair in PackDataDict)
-        {
-            if (pair.Value != null && pair.Value.PackID == packID)
-            {
-                return pair.Value;
-            }
-        }
-
-        return null;
+        PackDataDict.TryGetValue(packID, out var pack);
+        return pack;
     }
 
     /// <summary>
     /// 设置或更新指定实体持有的 Pack
     /// </summary>
-    public void SetEntityPack(string entityID, string guid, BasePackData packData)
+    public void SetEntityPack(string entityID, string packID, BasePackData packData)
     {
-        if (string.IsNullOrEmpty(entityID) || string.IsNullOrEmpty(guid) || packData == null)
+        if (string.IsNullOrEmpty(entityID) || string.IsNullOrEmpty(packID) || packData == null)
         {
             return;
         }
 
         var packDict = GetEntityPackDict(entityID, createIfMissing: true);
-        packDict[guid] = packData;
+        packDict[packID] = packData;
     }
 
-    public void SetEntityPack(GraphInstanceSlot slot, string guid, BasePackData packData)
+    public void SetEntityPack(GraphInstanceSlot slot, string packID, BasePackData packData)
     {
-        SetEntityPack(slot.ToString(), guid, packData);
+        SetEntityPack(slot.ToString(), packID, packData);
     }
 
     /// <summary>
     /// 移除指定实体持有的 Pack
     /// </summary>
-    public void RemoveEntityPack(string entityID, string guid)
+    public void RemoveEntityPack(string entityID, string packID)
     {
-        if (string.IsNullOrEmpty(entityID) || string.IsNullOrEmpty(guid))
+        if (string.IsNullOrEmpty(entityID) || string.IsNullOrEmpty(packID))
         {
             return;
         }
@@ -316,7 +309,7 @@ public class UserModel : IUserPackData
 
         if (EntityPackDataDict.TryGetValue(entityID, out var packDict))
         {
-            packDict.Remove(guid);
+            packDict.Remove(packID);
             if (packDict.Count == 0)
             {
                 EntityPackDataDict.Remove(entityID);
@@ -324,9 +317,9 @@ public class UserModel : IUserPackData
         }
     }
 
-    public void RemoveEntityPack(GraphInstanceSlot slot, string guid)
+    public void RemoveEntityPack(GraphInstanceSlot slot, string packID)
     {
-        RemoveEntityPack(slot.ToString(), guid);
+        RemoveEntityPack(slot.ToString(), packID);
     }
 
     /// <summary>

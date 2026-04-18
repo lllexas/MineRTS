@@ -121,7 +121,7 @@ public class WarehouseCLI : DeveloperConsole
 
             var config = BuildConfig();
             _slot = new WarehouseTerminalSlot(config, BuildDetailLines);
-            _console.MountInputHandler(_slot);
+            _console.BeginSession(_slot);
             _console.ScrollConsoleToTop();
         }
 
@@ -134,7 +134,7 @@ public class WarehouseCLI : DeveloperConsole
         {
             if (_slot != null)
             {
-                _console.UnmountInputHandler(_slot);
+                _console.EndSession(_slot);
                 _slot = null;
             }
 

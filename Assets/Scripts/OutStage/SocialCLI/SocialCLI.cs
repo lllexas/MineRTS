@@ -37,7 +37,7 @@ public class SocialCLI : DeveloperConsole
 
     /// <summary>社交终端首选的 VFS 盘符喵~ 默认 social_tree_default，Inspector 可覆盖</summary>
     [Tooltip("首选 VFS 包 ID（盘符），不存在时自动回退到第一个可用盘")]
-    [SerializeField] private string _preferredVFSPackID = "social_tree_default";
+    [SerializeField] private string _preferredVFSPackID = SocialPackFacade.FrontendPackID;
 
     protected override string GetPreferredPackID() => _preferredVFSPackID;
 
