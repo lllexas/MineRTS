@@ -214302,9 +214302,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 1053915637}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 525efcab95080984985e89bae95c7bcc, type: 3}
+  m_Script: {fileID: 11500000, guid: 655a30b211c621b469df6d8e250b9cf5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  EnableUnityLogging: 0
 --- !u!1 &1076529012
 GameObject:
   m_ObjectHideFlags: 0
@@ -217207,7 +217208,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f4a152648ac4fd045b9395317e8db8d1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  DontDestroyOnLoadEnabled: 1
 --- !u!114 &1533200065
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -9,9 +9,11 @@ using SpaceTUI;
 namespace CatStrategies
 {
     /// <summary>
-    /// 社交消息 (.msg) 策略。
-    /// 负责消息包加载、消息框渲染，以及把选项转换为列表选择组件配置。
+    /// 遗留的社交消息 (.msg) 策略。
+    /// 这套实现把 pack 加载、运行时事件、TUI 渲染和输入会话耦合在同一个类里，
+    /// 仅保留作历史参考；其中 TUI 排版与选择器接管逻辑仍可借鉴。
     /// </summary>
+    [Obsolete("MsgStrategy 已废弃。vfs.msg 正在迁移到 VFSResource + VFSExecute + VFSQuery 新协议，此类后续将被删除。", false)]
     public class MsgStrategy : CatStrategyBase
     {
         private const int BleedX = 4;
@@ -431,7 +433,6 @@ namespace CatStrategies
         }
     }
 }
-
 
 
 

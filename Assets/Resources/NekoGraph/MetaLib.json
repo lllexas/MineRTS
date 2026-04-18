@@ -1,24 +1,104 @@
 {
-  "test_event_01": {
-    "PackID": "test_event_01",
-    "Storage": 0,
-    "ResourcePath": "Msg/test_event_01",
-    "GraphType": "Msg",
-    "DisplayName": "新社交消息",
-    "Author": "NekoTeam",
-    "Version": "1.0.0",
-    "Description": null,
-    "CustomFields": {}
-  },
   "social_tree_default": {
+    "ID": "social_tree_default",
     "PackID": "social_tree_default",
+    "Kind": 1,
     "Storage": 0,
     "ResourcePath": "GraphVSF/social_tree_default",
+    "ObjectType": "BasePackData",
     "GraphType": "Base",
     "DisplayName": "New VFS Pack",
     "Author": "NekoTeam",
     "Version": "1.0.0",
+    "Description": "虚拟文件系统包",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/GraphVSF/social_tree_default.json"
+    },
+    "EffectiveID": "social_tree_default"
+  },
+  "2d44d56f": {
+    "ID": "2d44d56f",
+    "PackID": "2d44d56f",
+    "Kind": 1,
+    "Storage": 0,
+    "ResourcePath": "Levels/Level_Test",
+    "ObjectType": "BasePackData",
+    "GraphType": "Base",
+    "DisplayName": "2d44d56f",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
     "Description": null,
-    "CustomFields": {}
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Levels/Level_Test.json"
+    },
+    "EffectiveID": "2d44d56f"
+  },
+  "871f656a-5a12-469a-bf22-4a0ec50b803a": {
+    "ID": "871f656a-5a12-469a-bf22-4a0ec50b803a",
+    "PackID": "871f656a-5a12-469a-bf22-4a0ec50b803a",
+    "Kind": 1,
+    "Storage": 0,
+    "ResourcePath": "Missions/Test_Missions",
+    "ObjectType": "BasePackData",
+    "GraphType": "Mission",
+    "DisplayName": "871f656a-5a12-469a-bf22-4a0ec50b803a",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": null,
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Missions/Test_Missions.json"
+    },
+    "EffectiveID": "871f656a-5a12-469a-bf22-4a0ec50b803a"
+  },
+  "test_event_01": {
+    "ID": "test_event_01",
+    "PackID": "test_event_01",
+    "Kind": 1,
+    "Storage": 0,
+    "ResourcePath": "Msg/test_event_01",
+    "ObjectType": "BasePackData",
+    "GraphType": "Base",
+    "DisplayName": "新社交消息",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "一个由 NekoGraph 驱动的交互式社交对话图喵~",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Msg/test_event_01.json"
+    },
+    "EffectiveID": "test_event_01"
+  },
+  "dd2cd3bf": {
+    "ID": "dd2cd3bf",
+    "PackID": "dd2cd3bf",
+    "Kind": 1,
+    "Storage": 0,
+    "ResourcePath": "NekoGraph/MetaLib",
+    "ObjectType": "BasePackData",
+    "GraphType": "Base",
+    "DisplayName": "dd2cd3bf",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": null,
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/NekoGraph/MetaLib.json"
+    },
+    "EffectiveID": "dd2cd3bf"
+  },
+  "7eda638e": {
+    "ID": "7eda638e",
+    "PackID": "7eda638e",
+    "Kind": 1,
+    "Storage": 0,
+    "ResourcePath": "Story/New_Story",
+    "ObjectType": "BasePackData",
+    "GraphType": "Story",
+    "DisplayName": "7eda638e",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": null,
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Story/New_Story.json"
+    },
+    "EffectiveID": "7eda638e"
   }
 }
