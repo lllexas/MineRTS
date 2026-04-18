@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using AIBrain;
 using UnityEngine;
 using SpaceTUI;
+using NekoGraph;
 
 /// <summary>
 /// ═══════════════════════════════════════════════════════════════

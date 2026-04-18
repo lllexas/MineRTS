@@ -1,6 +1,7 @@
 using UnityEngine;
 using CatStrategies;
 using SpaceTUI;
+using NekoGraph;
 
 /// <summary>
 /// ═══════════════════════════════════════════════════════════════

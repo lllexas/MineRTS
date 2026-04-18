@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using SpaceTUI;
+using NekoGraph;
 using CatStrategies;
 
 /// <summary>
