@@ -5,7 +5,7 @@
   "ReadableFrom": 100,
   "WritableFrom": 1000,
   "CreatedAt": 1775563233,
-  "ModifiedAt": 1776592907,
+  "ModifiedAt": 1776608513,
   "Nodes": {
     "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[BaseNodeData, NekoGraph.Runtime]], mscorlib",
     "02f7bc27-31d3-49cf-a6cd-496668b14546": {
@@ -287,8 +287,8 @@
       "NodeID": "6b0262cb-17c2-4bbe-b3a6-79f6f454e382",
       "EditorPosition": {
         "$type": "SerializableVector2, NekoGraph.Runtime",
-        "x": 2225.59985,
-        "y": 13.5999985
+        "x": 2528.8,
+        "y": -71.2
       },
       "OutputConnections": [
         {
@@ -396,7 +396,8 @@
       "$type": "VFSNodeData, NekoGraph.Runtime",
       "ParentNodeID": "cf21ab14-a8a0-4edc-b0c4-cc4b83a7fcbf",
       "ChildNodeIDs": [
-        "d164e8e4-774c-4513-8022-288d9b1daf91"
+        "d164e8e4-774c-4513-8022-288d9b1daf91",
+        "6b0262cb-17c2-4bbe-b3a6-79f6f454e382"
       ],
       "ContentKind": 2,
       "ContentSource": 1,
@@ -417,6 +418,12 @@
           "$type": "ConnectionData, NekoGraph.Runtime",
           "FromPortIndex": 0,
           "TargetNodeID": "d164e8e4-774c-4513-8022-288d9b1daf91",
+          "ToPortIndex": 0
+        },
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "6b0262cb-17c2-4bbe-b3a6-79f6f454e382",
           "ToPortIndex": 0
         }
       ],

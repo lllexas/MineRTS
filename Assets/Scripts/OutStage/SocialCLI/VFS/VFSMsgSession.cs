@@ -1,151 +1,115 @@
-using UnityEngine;
-using SpaceTUI;
+using System;
+using System.Collections.Generic;
+using System.Text;
 using NekoGraph;
+using SpaceTUI;
+using UnityEngine;
 
 /// <summary>
-/// vfs.msg 的最小 console session。
-/// 先承担最基本的消息阅读体验，后续再逐步补充选择、跳转和图驱动会话。
+/// 基于 TUISelectSlot 的 .msg console session。
+/// session 负责生命周期和后端放行；
+/// 具体的选择输入与重渲染节奏复用 TUISelectSlot。
 /// </summary>
-public sealed class VFSMsgSession : ConsoleSessionBase
+public sealed class VFSMsgSession : TUISelectSlot
 {
+    private const int BoxBleedX = 4;
+    private const int BoxBleedY = 1;
+
     private readonly VFSMsgQueryPayload _payload;
-    private ConsoleManager _console;
-    private int _selectedChoiceIndex;
 
     public VFSMsgSession(VFSMsgQueryPayload payload)
+        : base(BuildConfig(payload))
     {
         _payload = payload;
+        Refresh();
     }
 
     public override string SessionId => _payload?.Message?.MessageTag ?? "vfs.msg";
     public override string SessionName => "VFS Message";
-    public override bool ShouldRenderInputLine => false;
 
-    public override void OnSessionEnter(ConsoleManager console)
+    protected override bool TryNavigate(ConsoleNavKey key)
     {
-        _console = console;
-        if (console == null || _payload?.Message == null)
-            return;
-
-        _selectedChoiceIndex = 0;
-        Render();
-    }
-
-    public override void OnSessionExit(ConsoleManager console)
-    {
-        _console = null;
-    }
-
-    public override bool HandleKey(KeyInfo key)
-    {
-        if (TryHandleDigitChoice(key.keyCode))
-            return true;
-
-        if (key.keyCode == KeyCode.Return || key.keyCode == KeyCode.KeypadEnter)
-            return HandleConfirm();
-
-        if (key.keyCode == KeyCode.Escape)
-            return HandleCancel();
-
-        return false;
-    }
-
-    public override bool HandleSubmit(string input)
-    {
-        return HandleConfirm();
-    }
-
-    public override bool HandleNavigation(ConsoleNavKey key)
-    {
-        var choices = _payload?.Message?.Choices;
-        if (choices == null || choices.Count == 0)
-            return false;
-
-        if (key == ConsoleNavKey.Up)
+        switch (key)
         {
-            _selectedChoiceIndex = (_selectedChoiceIndex - 1 + choices.Count) % choices.Count;
-            Render();
-            return true;
-        }
+            case ConsoleNavKey.Up:
+            case ConsoleNavKey.Left:
+                MoveSelection(-1);
+                return true;
 
-        if (key == ConsoleNavKey.Down)
-        {
-            _selectedChoiceIndex = (_selectedChoiceIndex + 1) % choices.Count;
-            Render();
-            return true;
-        }
+            case ConsoleNavKey.Down:
+            case ConsoleNavKey.Right:
+                MoveSelection(1);
+                return true;
 
-        return false;
+            default:
+                return false;
+        }
     }
 
     public override bool HandleConfirm()
     {
-        var choices = _payload?.Message?.Choices;
-        if (choices == null || choices.Count == 0)
+        Debug.Log("[VFSMsgSession] HandleConfirm called");
+        if (!HasItems)
             return HandleCancel();
 
-        return ResumeSelectedChoice() || HandleCancel();
+        bool resumed = ResumeSelectedChoice();
+        Debug.Log($"[VFSMsgSession] ResumeSelectedChoice returned {resumed}");
+        return resumed || HandleCancel();
     }
 
     public override bool HandleCancel()
     {
-        _console?.EndSession(this);
+        Debug.Log("[VFSMsgSession] HandleCancel called");
+        Console?.EndSession(this);
         return true;
     }
 
-    private void Render()
+    protected override List<string> BuildLines()
     {
-        if (_console == null || _payload?.Message == null)
-            return;
+        Debug.Log($"[VFSMsgSession.BuildLines] SelectedIndex={SelectedIndex}, ItemCount={ItemCount}, HasItems={HasItems}");
+        var lines = new List<string>();
+        var style = Config.viewStyle;
+        var message = _payload?.Message;
+        if (message == null)
+            return lines;
 
-        _console.ClearConsole();
-        _console.ScrollConsoleToTop();
+        if (!string.IsNullOrWhiteSpace(Config.title))
+            lines.Add(RenderStyledLine(Config.title, style.titleStyle, true));
 
-        var msg = _payload.Message;
-        _console.Log("╔════════ MESSAGE ════════", Color.gray);
-        _console.Log($"From   : {msg.Sender}", Color.white);
-        _console.Log($"Title  : {msg.Title}", Color.cyan);
-        _console.Log(" ", Color.clear);
+        AddBlankLines(lines, style.topSpacing);
 
-        if (!string.IsNullOrWhiteSpace(msg.Body))
-            _console.Log(msg.Body, Color.white);
+        lines.AddRange(BuildMessageBoxLines(message));
 
-        if (msg.Choices != null && msg.Choices.Count > 0)
+        if (HasItems)
         {
-            _console.Log(" ", Color.clear);
-            _console.Log("Choices:", new Color(0.75f, 0.75f, 0.75f));
-            for (int i = 0; i < msg.Choices.Count; i++)
-            {
-                var choice = msg.Choices[i];
-                string text = string.IsNullOrWhiteSpace(choice?.Text) ? "(empty)" : choice.Text;
-                bool isSelected = i == _selectedChoiceIndex;
-                _console.Log($"{(isSelected ? ">" : " ")} [{i + 1}] {text}", isSelected ? Color.yellow : new Color(0.85f, 0.85f, 0.85f));
-            }
+            lines.Add(string.Empty);
 
-            _console.Log(" ", Color.clear);
-            _console.Log("Up/Down or 1-9 to choose, Enter confirm, Esc close", new Color(0.55f, 0.55f, 0.55f));
-            return;
+            for (int i = 0; i < ItemCount; i++)
+            {
+                var item = Config.items[i];
+                bool selected = i == SelectedIndex;
+                lines.Add(BuildItemLine(item, selected));
+            }
         }
 
-        _console.Log(" ", Color.clear);
-        _console.Log("Enter / Esc 关闭消息", new Color(0.55f, 0.55f, 0.55f));
+        AddBlankLines(lines, style.bottomSpacing);
+
+        if (!string.IsNullOrWhiteSpace(Config.helpText))
+            lines.Add(RenderStyledLine(Config.helpText, style.helpStyle, false));
+
+        return lines;
     }
 
     private bool ResumeSelectedChoice()
     {
+        if (!TryGetSelectedItem(out var item))
+            return false;
+
         var replicaMeta = _payload?.ReplicaMeta;
         if (replicaMeta == null || replicaMeta.IsResolved)
             return false;
 
-        if (replicaMeta.ChoiceTargetNodeIDs == null ||
-            _selectedChoiceIndex < 0 ||
-            _selectedChoiceIndex >= replicaMeta.ChoiceTargetNodeIDs.Count)
-        {
-            return false;
-        }
-
-        string targetNodeId = replicaMeta.ChoiceTargetNodeIDs[_selectedChoiceIndex];
-        if (string.IsNullOrWhiteSpace(targetNodeId))
+        if (item.payload is not string targetNodeId || string.IsNullOrWhiteSpace(targetNodeId))
             return false;
 
         var runner = GraphHub.Instance?.DefaultRunner;
@@ -163,7 +127,7 @@ public sealed class VFSMsgSession : ConsoleSessionBase
 
         replicaMeta.IsResolved = true;
         PersistReplicaMeta(replicaMeta);
-        return HandleCancel();
+        return true;
     }
 
     private void PersistReplicaMeta(VFSMsgReplicaMeta replicaMeta)
@@ -173,33 +137,308 @@ public sealed class VFSMsgSession : ConsoleSessionBase
 
         var analyser = GraphHub.Instance?.DefaultAnalyser;
         if (analyser?.GetNode(_payload.PackID, _payload.VfsPath, PackAccessSubjects.SystemMin) is VFSNodeData node)
-        {
             node.InlineText = VFSMsgReplicaMeta.Serialize(replicaMeta);
-        }
     }
 
-    private bool TryHandleDigitChoice(KeyCode keyCode)
+    private static TUISelectionConfig BuildConfig(VFSMsgQueryPayload payload)
     {
-        int index = keyCode switch
+        var config = TUISelectionConfig.Default;
+        config.console = payload?.FrontendContext as ConsoleManager;
+        config.title = BuildTitle(payload?.Message);
+        config.helpText = BuildHelpText(payload);
+        config.items = BuildItems(payload);
+        config.viewStyle = BuildViewStyle();
+
+        var interaction = TUISelectionInteractionConfig.Default;
+        interaction.wrapNavigation = true;
+        interaction.enableDigitSelect = true;
+        interaction.allowConfirmOnEmptySubmit = true;
+        interaction.onCancel = () => config.console?.EndSession();
+        config.interaction = interaction;
+        return config;
+    }
+
+    private static IReadOnlyList<TUISelectionItem> BuildItems(VFSMsgQueryPayload payload)
+    {
+        var items = new List<TUISelectionItem>();
+        var choices = payload?.Message?.Choices;
+        var targets = payload?.ReplicaMeta?.ChoiceTargetNodeIDs;
+        if (choices == null || targets == null)
+            return items;
+
+        if (choices.Count != targets.Count)
         {
-            KeyCode.Alpha1 or KeyCode.Keypad1 => 0,
-            KeyCode.Alpha2 or KeyCode.Keypad2 => 1,
-            KeyCode.Alpha3 or KeyCode.Keypad3 => 2,
-            KeyCode.Alpha4 or KeyCode.Keypad4 => 3,
-            KeyCode.Alpha5 or KeyCode.Keypad5 => 4,
-            KeyCode.Alpha6 or KeyCode.Keypad6 => 5,
-            KeyCode.Alpha7 or KeyCode.Keypad7 => 6,
-            KeyCode.Alpha8 or KeyCode.Keypad8 => 7,
-            KeyCode.Alpha9 or KeyCode.Keypad9 => 8,
-            _ => -1
+            Debug.LogError(
+                $"<color=red>[VFSMsgSession] 严重错误：VFSMsgSO 配置了 {choices.Count} 个选项，" +
+                $"但 graph 节点只连接了 {targets.Count} 个子节点。" +
+                $"选项与连线数量不匹配，已截断为 {Math.Min(choices.Count, targets.Count)} 个显示。" +
+                $"请检查节点 {payload?.SourceNodeId ?? "(unknown)"} 的连线。</color>");
+        }
+
+        int count = Math.Min(choices.Count, targets.Count);
+        for (int i = 0; i < count; i++)
+        {
+            var choice = choices[i];
+            items.Add(new TUISelectionItem
+            {
+                key = i + 1,
+                indexText = (i + 1).ToString(),
+                label = string.IsNullOrWhiteSpace(choice?.Text) ? "(empty)" : choice.Text,
+                subtitle = string.IsNullOrWhiteSpace(choice?.ChoiceTag) ? null : choice.ChoiceTag,
+                payload = targets[i]
+            });
+        }
+
+        return items;
+    }
+
+    private IEnumerable<string> BuildMessageBoxLines(VFSMsgSO message)
+    {
+        foreach (string blank in BuildBlankLines(BoxBleedY))
+            yield return blank;
+
+        int boxWidth = GetBoxWidth();
+        int contentWidth = Math.Max(1, TUITool.CalcContentWidth(boxWidth, MsgBoxStyle) - 2);
+        string speaker = SafeValue(message?.Sender);
+
+        var contentLines = new List<string>
+        {
+            $"Title  : {SafeValue(message?.Title)}",
+            string.Empty
         };
 
-        var choices = _payload?.Message?.Choices;
-        if (index < 0 || choices == null || index >= choices.Count)
-            return false;
+        if (!string.IsNullOrWhiteSpace(message?.Body))
+        {
+            foreach (string wrapped in WrapText(message.Body, contentWidth))
+                contentLines.Add("  " + wrapped);
+        }
+        else
+        {
+            contentLines.Add("  (empty)");
+        }
 
-        _selectedChoiceIndex = index;
-        Render();
-        return true;
+        foreach (string line in TUITool.GenerateTextBoxWithTitle(contentLines.ToArray(), speaker, boxWidth, MsgBoxStyle))
+            yield return BuildBoxLine(line);
+
+        foreach (string blank in BuildBlankLines(BoxBleedY))
+            yield return blank;
+    }
+
+    private static string BuildTitle(VFSMsgSO message)
+    {
+        if (message == null)
+            return "MESSAGE";
+
+        if (!string.IsNullOrWhiteSpace(message.Title))
+            return $"MESSAGE / {message.Title}";
+
+        if (!string.IsNullOrWhiteSpace(message.Sender))
+            return $"MESSAGE / {message.Sender}";
+
+        return "MESSAGE";
+    }
+
+    private static string BuildHelpText(VFSMsgQueryPayload payload)
+    {
+        int choiceCount = payload?.Message?.Choices?.Count ?? 0;
+        return choiceCount > 0
+            ? "Up/Down or 1-9 to choose, Enter confirm, Esc close."
+            : "Enter / Esc close.";
+    }
+
+    private static TSSStyle MsgBoxStyle => new TSSStyle
+    {
+        bleedX = 0,
+        bleedY = 0,
+        paddingX = 1,
+        paddingY = 1,
+        borderColor = new Color(0.5f, 0.5f, 0.5f),
+        contentColor = Color.white,
+        titleColor = new Color(0.82f, 0.93f, 1f),
+        backgroundColor = null,
+        alignment = SpaceTUI.TextAlignment.Left,
+        expandArtSpaces = false
+    };
+
+    private static TUISelectionViewStyle BuildViewStyle()
+    {
+        var viewStyle = TUISelectionViewStyle.Default;
+        viewStyle.topSpacing = 1;
+        viewStyle.bottomSpacing = 1;
+        viewStyle.titleStyle = new TSSStyle
+        {
+            bleedX = 0,
+            bleedY = 0,
+            paddingX = 0,
+            paddingY = 0,
+            spacingX = 1,
+            borderColor = new Color(0.35f, 0.7f, 0.9f),
+            contentColor = new Color(0.82f, 0.93f, 1f),
+            titleColor = new Color(0.82f, 0.93f, 1f),
+            backgroundColor = null,
+            alignment = SpaceTUI.TextAlignment.Left,
+            expandArtSpaces = false
+        };
+        viewStyle.itemStyle = new TSSStyle
+        {
+            bleedX = 0,
+            bleedY = 0,
+            paddingX = 0,
+            paddingY = 0,
+            spacingX = 1,
+            borderColor = Color.gray,
+            contentColor = new Color(0.92f, 0.92f, 0.92f),
+            titleColor = Color.white,
+            backgroundColor = null,
+            alignment = SpaceTUI.TextAlignment.Left,
+            expandArtSpaces = false
+        };
+        viewStyle.helpStyle = new TSSStyle
+        {
+            bleedX = 0,
+            bleedY = 0,
+            paddingX = 0,
+            paddingY = 0,
+            spacingX = 1,
+            borderColor = Color.gray,
+            contentColor = new Color(0.6f, 0.6f, 0.6f),
+            titleColor = Color.white,
+            backgroundColor = null,
+            alignment = SpaceTUI.TextAlignment.Left,
+            expandArtSpaces = false
+        };
+        viewStyle.emptyStyle = viewStyle.helpStyle;
+        viewStyle.normalState = new TUISelectionStateStyle
+        {
+            prefixText = "  ",
+            contentColor = new Color(0.9f, 0.9f, 0.9f),
+            indexColor = new Color(0.55f, 0.85f, 1f),
+            prefixColor = null
+        };
+        viewStyle.selectedState = new TUISelectionStateStyle
+        {
+            prefixText = "> ",
+            contentColor = new Color(1f, 0.96f, 0.72f),
+            indexColor = Color.white,
+            prefixColor = new Color(1f, 0.8f, 0.35f)
+        };
+        return viewStyle;
+    }
+
+    private string BuildItemLine(TUISelectionItem item, bool selected)
+    {
+        var state = selected ? Config.viewStyle.selectedState : Config.viewStyle.normalState;
+        string prefix = state.prefixText ?? string.Empty;
+        string indexText = string.IsNullOrWhiteSpace(item.indexText) ? item.key.ToString() : item.indexText;
+        string plain = $"{prefix}[{indexText}] {item.label}";
+        string padding = BuildLeftPadding(plain, Config.viewStyle.itemStyle.alignment);
+
+        string prefixHex = ColorUtility.ToHtmlStringRGB(state.prefixColor ?? state.contentColor);
+        string indexHex = ColorUtility.ToHtmlStringRGB(state.indexColor);
+        string contentHex = ColorUtility.ToHtmlStringRGB(state.contentColor);
+
+        return
+            $"{padding}<color=#{prefixHex}>{prefix}</color>" +
+            $"<color=#{indexHex}>[{indexText}]</color>" +
+            $"<color=#{contentHex}> {item.label}</color>";
+    }
+
+    private static string BuildSubtitleLine(string subtitle, bool selected)
+    {
+        Color color = selected ? new Color(0.9f, 0.82f, 0.64f) : new Color(0.65f, 0.65f, 0.65f);
+        string colorHex = ColorUtility.ToHtmlStringRGB(color);
+        return $"    <color=#{colorHex}>{subtitle}</color>";
+    }
+
+    private int GetBoxWidth()
+    {
+        int consoleWidth = Console?.ConsoleWidth ?? 64;
+        int width = Mathf.Max(consoleWidth - BoxBleedX * 2, 42);
+        if (width % 2 != 0)
+            width--;
+
+        return width;
+    }
+
+    private string BuildBoxLine(string line)
+    {
+        int consoleWidth = Console?.ConsoleWidth ?? 64;
+        int leftPad = Math.Max(0, (consoleWidth - GetBoxWidth()) / 2);
+        return leftPad > 0 ? new string(' ', leftPad) + line : line;
+    }
+
+    private static IEnumerable<string> BuildBlankLines(int count)
+    {
+        for (int i = 0; i < count; i++)
+            yield return string.Empty;
+    }
+
+    private static List<string> WrapText(string text, int maxVisualWidth)
+    {
+        var result = new List<string>();
+        if (string.IsNullOrEmpty(text))
+        {
+            result.Add(string.Empty);
+            return result;
+        }
+
+        string[] paragraphs = text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+        foreach (string rawPara in paragraphs)
+        {
+            string para = rawPara.Replace("\t", "    ");
+            if (string.IsNullOrEmpty(para))
+            {
+                result.Add(string.Empty);
+                continue;
+            }
+
+            var sb = new StringBuilder();
+            int width = 0;
+            bool inTag = false;
+
+            foreach (char c in para)
+            {
+                if (c == '<')
+                {
+                    inTag = true;
+                    sb.Append(c);
+                    continue;
+                }
+
+                if (c == '>')
+                {
+                    inTag = false;
+                    sb.Append(c);
+                    continue;
+                }
+
+                if (inTag)
+                {
+                    sb.Append(c);
+                    continue;
+                }
+
+                int charWidth = TUITool.IsWideChar(c) ? 2 : 1;
+                if (width + charWidth > maxVisualWidth)
+                {
+                    result.Add(sb.ToString());
+                    sb.Clear();
+                    width = 0;
+                }
+
+                sb.Append(c);
+                width += charWidth;
+            }
+
+            if (sb.Length > 0)
+                result.Add(sb.ToString());
+        }
+
+        return result;
+    }
+
+    private static string SafeValue(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "(none)" : value;
     }
 }

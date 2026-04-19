@@ -5,7 +5,6 @@ using System.Text;
 using UnityEngine;
 using SpaceTUI;
 using NekoGraph;
-using CatStrategies;
 
 /// <summary>
 /// ═══════════════════════════════════════════════════════════════
@@ -252,22 +251,30 @@ public static class SocialCommandBricks
         {
             if (vfs.IsDirectory) return CommandOutput.Fail($"无法读取目录：{targetPath}");
 
-            // --- 社交消息特化处理喵 ---
-            if (targetPath.EndsWith(".msg"))
+            if (!string.IsNullOrWhiteSpace(vfs.Extension) &&
+                VFSQueryRegistry.TryGetHandler(vfs.Extension, out var queryHandler))
             {
-                try
+                var queryContext = new VFSQueryContext
                 {
-                    var msgData = JsonUtility.FromJson<SocialManager.SocialMessageVFSData>(vfs.DataJson);
-                    if (msgData != null && !string.IsNullOrEmpty(msgData.PackID))
-                    {
-                        // 使用策略模式接管喵！✨
-                        dc.SetActiveStrategy(new CatStrategies.MsgStrategy(dc), targetPath, msgData.PackID);
-                        return CommandOutput.Success(""); // 逻辑已接管，无需额外输出
-                    }
-                }
-                catch
+                    Analyser = analyser,
+                    PackID = packID,
+                    VfsPath = targetPath,
+                    SubjectLevel = PackAccessSubjects.Player,
+                    Node = vfs,
+                    FrontendContext = dc
+                };
+
+                var result = queryHandler(VFSContentResolver.Resolve(vfs), queryContext);
+                if (result != null)
                 {
-                    return CommandOutput.Fail("消息文件损坏，无法读取源码喵~");
+                    if (dc.TryPresent(result))
+                        return CommandOutput.Success("");
+
+                    if (!string.IsNullOrWhiteSpace(result.Summary))
+                        return CommandOutput.Success(result.Summary, result.Payload);
+
+                    if (!string.IsNullOrWhiteSpace(result.Title))
+                        return CommandOutput.Success(result.Title, result.Payload);
                 }
             }
 

@@ -2,6 +2,7 @@ using UnityEngine;
 using NekoGraph;
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using SpaceTUI;
 
 /// <summary>
 /// vfs.msg 资源驱动。
@@ -94,6 +95,7 @@ public static class VFSMsgResource
                 PackID = context?.PackID,
                 VfsPath = context?.VfsPath,
                 SourceNodeId = context?.Node?.NodeID,
+                FrontendContext = context?.FrontendContext,
                 ReplicaMeta = VFSMsgReplicaMeta.FromNode(context?.Node)
             },
             isInteractive: true);
@@ -112,6 +114,7 @@ public sealed class VFSMsgQueryPayload
     public string VfsPath;
     public string SourceNodeId;
     public string SignalId;
+    public object FrontendContext;
     public VFSMsgReplicaMeta ReplicaMeta;
 }
 
@@ -144,5 +147,18 @@ public sealed class VFSMsgReplicaMeta
             return string.Empty;
 
         return JsonConvert.SerializeObject(meta);
+    }
+}
+
+public static class VFSMsgPresentationBootstrap
+{
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    public static void RegisterConsolePresentation()
+    {
+        ConsoleClientRuntime.RegisterSessionFactory(
+            "social.msg",
+            payload => payload is VFSMsgQueryPayload msgPayload && msgPayload.Message != null
+                ? new VFSMsgSession(msgPayload)
+                : null);
     }
 }
