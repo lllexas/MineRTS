@@ -1,5 +1,7 @@
 using UnityEngine;
 using NekoGraph;
+using System;
+using System.Collections.Generic;
 
 /// <summary>
 /// vfs.msg 的轻量载荷对象。
@@ -10,9 +12,20 @@ using NekoGraph;
 [VFSContentKind(VFSContentKind.UnityObject)]
 public class VFSMsgSO : ScriptableObject
 {
-    [Header("Identity")]
-    [Tooltip("消息唯一 ID，可选。用于前端缓存、已读记录或埋点。")]
-    public string MessageId;
+    [Serializable]
+    public sealed class VFSMsgChoice
+    {
+        [Tooltip("选项标识。用于前后端约定具体选择。")]
+        public string ChoiceTag;
+
+        [Tooltip("显示给玩家的选项文本。")]
+        [TextArea(1, 2)]
+        public string Text;
+    }
+
+    [Header("Message")]
+    [Tooltip("消息标签。纯标识，不直接承载运行时状态。")]
+    public string MessageTag;
 
     [Tooltip("发件人显示名。")]
     public string Sender = "系统";
@@ -29,16 +42,7 @@ public class VFSMsgSO : ScriptableObject
     [TextArea(4, 8)]
     public string Body;
 
-    [Header("Runtime")]
-    [Tooltip("初始是否为未读。运行时已读状态应由存档层维护，而不是回写资源本体。")]
-    public bool DefaultUnread = true;
-
-    [Tooltip("消息时间戳（Unix 秒，可选）。0 表示未指定。")]
-    public long Timestamp;
-
-    [Tooltip("后续若需要进入图驱动会话，可在这里引用目标 PackID。")]
-    public string ConversationPackID;
-
-    [Tooltip("后续若需要直接跳转到另一个 VFS 资源，可在这里填写路径。")]
-    public string NextVfsPath;
+    [Header("Choices")]
+    [Tooltip("消息可提供的选项列表。")]
+    public List<VFSMsgChoice> Choices = new();
 }

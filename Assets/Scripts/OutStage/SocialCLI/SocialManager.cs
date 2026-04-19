@@ -8,8 +8,13 @@ using NekoGraph;
 /// </summary>
 public class SocialManager : SingletonData<SocialManager>
 {
-    public const string MESSAGES_FOLDER = SocialPackFacade.MessagesFolder;
-    public const string SOCIAL_PACK_ID = SocialPackFacade.FrontendPackID;
+    public const string MESSAGES_FOLDER = SocialBoxFacade.MessagesFolder;
+    public const string SOCIAL_PACK_ID = SocialBoxFacade.DefaultFrontendPackID;
+
+    private static SocialBoxFacade GetSocialBoxFacade()
+    {
+        return GraphHub.Instance?.GetFacade<SocialBoxFacade>();
+    }
 
     /// <summary>
     /// 发送一条社交消息给玩家喵~
@@ -21,8 +26,10 @@ public class SocialManager : SingletonData<SocialManager>
     {
         var analyser = GraphAnalyser.Instance;
         if (analyser == null) return;
+        var facade = GetSocialBoxFacade();
+        if (facade == null) return;
 
-        if (SocialPackFacade.EnsureFrontendPack(analyser) == null)
+        if (facade.EnsureFrontendPack(analyser) == null)
         {
             Debug.LogError($"[SocialManager] VFS 未挂载：{SOCIAL_PACK_ID}，请检查存档加载流程喵！");
             return;
@@ -39,11 +46,11 @@ public class SocialManager : SingletonData<SocialManager>
         string fullVfsPath;
         if (!string.IsNullOrEmpty(vfsPath))
         {
-            fullVfsPath = SocialPackFacade.ResolveMessagePath(vfsPath);
+            fullVfsPath = facade.ResolveMessagePath(vfsPath);
         }
         else
         {
-            fullVfsPath = SocialPackFacade.BuildMessageFilePath(packID);
+            fullVfsPath = facade.BuildMessageFilePath(packID);
         }
 
         // 2. 直接从 MetaLib 获取原始 JSON 字符串喵！✨
@@ -55,7 +62,7 @@ public class SocialManager : SingletonData<SocialManager>
         }
 
         // 3. 动态写入 VFS 喵！✨
-        if (analyser.WriteFile(SOCIAL_PACK_ID, fullVfsPath, json, PackAccessSubjects.SystemMin))
+        if (facade.WriteMessage(analyser, fullVfsPath, json, PackAccessSubjects.SystemMin))
         {
             // 写入成功后，虽然 SyncAll 会在存档时做，但这里我们可以主动触发局部同步（可选）
             // vfsManager.SyncAll(SOCIAL_PACK_ID);
@@ -72,8 +79,10 @@ public class SocialManager : SingletonData<SocialManager>
     {
         var analyser = GraphAnalyser.Instance;
         if (analyser == null) return;
+        var facade = GetSocialBoxFacade();
+        if (facade == null) return;
 
-        var node = analyser.GetNode(SOCIAL_PACK_ID, vfsPath, PackAccessSubjects.Player);
+        var node = facade.GetMessageNode(analyser, vfsPath, PackAccessSubjects.Player);
         if (node is VFSNodeData vfs)
         {
             var data = JsonUtility.FromJson<SocialMessageVFSData>(vfs.DataJson);
@@ -81,7 +90,7 @@ public class SocialManager : SingletonData<SocialManager>
             {
                 data.IsRead = true;
                 vfs.DataJson = JsonUtility.ToJson(data);
-                analyser.WriteFile(SOCIAL_PACK_ID, vfsPath, vfs.DataJson, PackAccessSubjects.SystemMin);
+                facade.WriteMessage(analyser, vfsPath, vfs.DataJson, PackAccessSubjects.SystemMin);
                 Debug.Log($"[SocialManager] 消息已标记为已读：{vfsPath}");
             }
         }

@@ -42,7 +42,8 @@
       "Bash(mkdir -p \"$NEKO/SpaceTUI/TUI\" \"$NEKO/SpaceTUI/Console\" \"$NEKO/SpaceTUI/Animator\")",
       "Bash(/dev/null find:*)",
       "Bash(find G:/ProjectOfGame/MineRTS/Assets -name *.asmdef)",
-      "Bash(find G:/ProjectOfGame/MineRTS/Assets -name DOTween* -o -name Demigiant*)"
+      "Bash(find G:/ProjectOfGame/MineRTS/Assets -name DOTween* -o -name Demigiant*)",
+      "WebSearch"
     ]
   },
   "outputStyle": "neko-chan"

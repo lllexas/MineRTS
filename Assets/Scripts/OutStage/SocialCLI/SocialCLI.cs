@@ -35,11 +35,15 @@ public class SocialCLI : DeveloperConsole
 
     // CurrentPath / SetCurrentPath 已上移至基类喵~
 
-    /// <summary>社交终端首选的 VFS 盘符喵~ 默认 social_tree_default，Inspector 可覆盖</summary>
-    [Tooltip("首选 VFS 包 ID（盘符），不存在时自动回退到第一个可用盘")]
-    [SerializeField] private string _preferredVFSPackID = SocialPackFacade.FrontendPackID;
+    /// <summary>社交终端首选的 VFS 包 ID 回退值喵~ 正式优先取 GraphHub 中的 SocialBoxFacade 绑定。</summary>
+    [Tooltip("社交 VFS 首选包的回退值。正式运行优先使用 GraphHub 中 SocialBoxFacade 的绑定结果。")]
+    [SerializeField] private string _preferredVFSPackIDFallback = SocialBoxFacade.DefaultFrontendPackID;
 
-    protected override string GetPreferredPackID() => _preferredVFSPackID;
+    protected override string GetPreferredPackID()
+    {
+        var facade = GraphHub.Instance?.GetFacade<SocialBoxFacade>();
+        return facade?.ResolvedPackID ?? _preferredVFSPackIDFallback;
+    }
 
 
     // =========================================================
@@ -85,7 +89,7 @@ public class SocialCLI : DeveloperConsole
     /// </summary>
     public string GetVFSDebugInfo()
     {
-        var analyser = GraphAnalyser.Instance;
+        var analyser = GraphHub.Instance?.DefaultAnalyser;
         if (analyser == null) return "GraphAnalyser 实例不存在";
 
         if (analyser.GetPack(CurrentVFSPackID, PackAccessSubjects.Player) == null) return $"VFS Pack 不存在：{CurrentVFSPackID}";

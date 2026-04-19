@@ -100,5 +100,20 @@
       "AssetPath": "Assets/Resources/Story/New_Story.json"
     },
     "EffectiveID": "7eda638e"
+  },
+  "MainStory": {
+    "ID": "MainStory",
+    "PackID": "MainStory",
+    "Kind": 1,
+    "Storage": 0,
+    "ResourcePath": "Story/MainStory",
+    "ObjectType": null,
+    "GraphType": "Base",
+    "DisplayName": "MainStory",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": null,
+    "CustomFields": {},
+    "EffectiveID": "MainStory"
   }
 }

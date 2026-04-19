@@ -1,5 +1,7 @@
 using UnityEngine;
 using NekoGraph;
+using Newtonsoft.Json;
+using System.Collections.Generic;
 
 /// <summary>
 /// vfs.msg 资源驱动。
@@ -25,14 +27,44 @@ public static class VFSMsgResource
             return HandleResult.Error;
         }
 
-        // 新 .msg 先只承担“消息资源”本身，不再默认把载荷解释成整个 pack。
-        // 当前执行语义保持保守：发出一份显式消息展示请求，后续再决定是否挂接专门的 Player。
+        var socialBox = GraphHub.Instance?.GetFacade<SocialBoxFacade>();
+        var analyser = GraphHub.Instance?.DefaultAnalyser;
+        string deliveredPath = null;
+
+        if (socialBox == null || analyser == null || pack == null || context == null)
+        {
+            Debug.LogWarning("[VFSMsgResource] Execute 跳过投递：SocialBoxFacade / Analyser / Pack / Context 缺失");
+        }
+        else
+        {
+            bool delivered = socialBox.TryDeliverMessageCopy(
+                analyser,
+                pack.PackID,
+                context.CurrentNodeId,
+                context.SignalId,
+                out deliveredPath,
+                PackAccessSubjects.SystemMin);
+
+            Debug.LogFormat(
+                LogType.Log,
+                LogOption.NoStacktrace,
+                null,
+                "[vfs_msg] execute-deliver delivered={0} sourcePack={1} sourceNode={2} signal={3} targetPath={4}",
+                delivered,
+                pack.PackID,
+                context.CurrentNodeId,
+                context.SignalId,
+                deliveredPath ?? "(null)");
+        }
+
         PostSystem.Instance.Send("VFS.Msg.Execute", new VFSMsgQueryPayload
         {
             Message = msg,
             PackID = pack?.PackID,
             PackIDKey = packIDKey,
-            SourceNodeId = context?.CurrentNodeId
+            SourceNodeId = context?.CurrentNodeId,
+            SignalId = context?.SignalId,
+            VfsPath = deliveredPath
         });
 
         return HandleResult.Push;
@@ -55,12 +87,14 @@ public static class VFSMsgResource
         return VFSQueryResult.Create(
             presentationType: "social.msg",
             title: string.IsNullOrWhiteSpace(msg.Title) ? msg.Sender : msg.Title,
-            summary: string.IsNullOrWhiteSpace(msg.Preview) ? msg.Body : msg.Preview,
+            summary: msg.Body,
             payload: new VFSMsgQueryPayload
             {
                 Message = msg,
                 PackID = context?.PackID,
-                VfsPath = context?.VfsPath
+                VfsPath = context?.VfsPath,
+                SourceNodeId = context?.Node?.NodeID,
+                ReplicaMeta = VFSMsgReplicaMeta.FromNode(context?.Node)
             },
             isInteractive: true);
     }
@@ -77,4 +111,38 @@ public sealed class VFSMsgQueryPayload
     public string PackIDKey;
     public string VfsPath;
     public string SourceNodeId;
+    public string SignalId;
+    public VFSMsgReplicaMeta ReplicaMeta;
+}
+
+public sealed class VFSMsgReplicaMeta
+{
+    public string BackendPackID;
+    public string BackendNodeID;
+    public string SignalId;
+    public bool IsResolved;
+    public List<string> ChoiceTargetNodeIDs = new();
+
+    public static VFSMsgReplicaMeta FromNode(VFSNodeData node)
+    {
+        if (node == null || string.IsNullOrWhiteSpace(node.InlineText))
+            return null;
+
+        try
+        {
+            return JsonConvert.DeserializeObject<VFSMsgReplicaMeta>(node.InlineText);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public static string Serialize(VFSMsgReplicaMeta meta)
+    {
+        if (meta == null)
+            return string.Empty;
+
+        return JsonConvert.SerializeObject(meta);
+    }
 }

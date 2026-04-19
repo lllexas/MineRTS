@@ -17,11 +17,17 @@ public class SaveManager : SingletonMono<SaveManager>
 
     public string CurrentSaveFileName { get; private set; } = "default_save";
 
+    [Header("Boot")]
+    [SerializeField] private StartBoots _startBoots;
+
     private string SaveDirectory => Path.Combine(Application.persistentDataPath, "Saves");
 
     protected override void Awake()
     {
         base.Awake();
+
+        if (_startBoots == null)
+            _startBoots = GetComponent<StartBoots>();
 
         if (!Directory.Exists(SaveDirectory))
         {
@@ -63,16 +69,14 @@ public class SaveManager : SingletonMono<SaveManager>
             newUser.SetEconomyData(pair.Key, pair.Value);
         }
 
-        SaveBootstrapRegistry.ApplyDefaultPacks(newUser);
-
-        MainModel.Instance.SetCurrentUser(newUser);
-        GraphHub.Instance?.ApplyUser(newUser);
-        PostSystem.Instance.Send("VFS.IO_Ready", newUser);
+        if (_startBoots != null && _startBoots.HasEntries)
+            _startBoots.ApplyTo(newUser);
 
         CurrentSaveFileName = saveName;
-        SaveGameToDisk();
+        WriteUserToDisk(newUser, saveName);
 
         Debug.Log($"<color=green>[SaveManager]</color> Save created: {saveName}");
+        LoadSave(saveName);
     }
 
     private void LoadDefaultBigMap(UserModel user)
@@ -128,6 +132,7 @@ public class SaveManager : SingletonMono<SaveManager>
 
             MainModel.Instance.SetCurrentUser(loadedUser);
             GraphHub.Instance?.ApplyUser(loadedUser);
+            _startBoots?.ApplyHubBindings(GraphHub.Instance);
             PostSystem.Instance.Send("VFS.IO_Ready", loadedUser);
 
             CurrentSaveFileName = saveName;
@@ -177,8 +182,16 @@ public class SaveManager : SingletonMono<SaveManager>
             GameFlowController.Instance.SaveCurrentStageFromSystem();
         }
 
-        string json = JsonConvert.SerializeObject(currentUser, JsonSettings);
-        string fullPath = Path.Combine(SaveDirectory, CurrentSaveFileName + ".json");
+        WriteUserToDisk(currentUser, CurrentSaveFileName);
+    }
+
+    private void WriteUserToDisk(UserModel user, string saveName)
+    {
+        if (user == null || string.IsNullOrWhiteSpace(saveName))
+            return;
+
+        string json = JsonConvert.SerializeObject(user, JsonSettings);
+        string fullPath = Path.Combine(SaveDirectory, saveName + ".json");
         File.WriteAllText(fullPath, json);
 
         Debug.Log($"<color=cyan>[SaveManager]</color> Save written: {fullPath}");
@@ -271,6 +284,7 @@ public class SaveManager : SingletonMono<SaveManager>
         MainModel.Instance.ClearCurrentStage();
         MainModel.Instance.ClearCurrentUser();
         GraphHub.Instance?.ApplyUser(MainModel.Instance.CurrentUser);
+        GraphHub.Instance?.ClearFacadeBindings();
 
         System.GC.Collect();
     }

@@ -591,6 +591,7 @@ namespace MineRTS.BigMap
         private void ApplyGPUBuffersToMaterial()
         {
             if (_currentMaterial == null) return;
+            if (SingletonMono<BigMapGPUBufferManager>.IsApplicationQuitting) return;
 
             // 如果 GPU 缓冲区管理器存在，将缓冲区应用到材质
             if (BigMapGPUBufferManager.Instance != null)

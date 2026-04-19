@@ -349,6 +349,63 @@ Pack 这一层当前最大的结构问题，不是“多一个索引有点烦”
 2. 再改 `GraphRunner`，让它基于统一的 `PackID` 表运行
 3. 最后评估是否还需要保留任何独立的运行时 `instanceID` 容器
 
+## Facade And StartBoots Direction
+
+当前进一步确认：
+
+- 启动装配层与运行时动态层，应视为两套不同来源。
+- `Facade` 关心的是“我使用哪一类 pack”，而不是额外再发明一个新的运行时 key。
+
+### 启动装配层
+
+对 `SocialFacade`、`MainStoryFacade` 一类启动期固定装配的领域包来说：
+
+- 我们通常只在乎“这个 facade 绑定的那份 pack”
+- Inspector 拖拽绑定的 `.nekograph` / `TextAsset` 自身携带的 `PackID`
+- 这份 `PackID` 就应直接成为启动装配后进入存档的 pack 身份
+
+也就是说：
+
+- 启动装配层不需要再额外定义 `RuntimePackKey`
+- `StartBoots` 不需要为固定启动包再包装一层人工 key
+
+### 运行时动态层
+
+`MetaLib` 仍然有价值，但主要保留给运行时动态场景：
+
+- 临时小怪仓库
+- 动态派生 pack
+- 非 Inspector 直接装配的运行期内容
+
+在这些场景里：
+
+- `MetaLib` 的 `PackID`
+- 动态创建逻辑
+- 运行时按名字生成 / 查找 / 派生
+
+才真正发挥作用。
+
+### StartBoots 未来方向
+
+`StartBoots` 更适合作为 `SaveManager` 附属的 `MonoBehaviour` 启动装配器。
+
+理想中的启动槽位更像：
+
+- `FacadeType`
+- `TextAsset NekographAsset`
+- `Required`
+
+而不是：
+
+- `FacadeType`
+- `TextAsset NekographAsset`
+- 人工定义的运行时 key
+
+这里的关键判断是：
+
+- 固定启动包：由绑定资产自己的 `PackID` 决定身份
+- 动态运行包：由 `MetaLib` / 动态创建逻辑决定身份
+
 ## Non-Goals For Now
 
 当前阶段不追求：
@@ -363,3 +420,63 @@ Pack 这一层当前最大的结构问题，不是“多一个索引有点烦”
 - 明确协议边界
 - 先为 Query 开新能力口
 - 用 `.msg` 做第一个可运行样板
+
+## OutputConnections Unification Plan
+
+当前进一步确认：
+
+- `[OutPort]` / `[InPort]` 字段定义节点行为端口语义
+- `OutputConnections` 是对这些端口的统一连线抽象
+- `ConnectionData` 已经保留了：
+  - `FromPortIndex`
+  - `TargetNodeID`
+  - `ToPortIndex`
+
+这意味着运行层理论上可以统一基于 `OutputConnections` 做分发，而不必继续在通用层硬编码：
+
+- `RootNodeData._`
+- `VFSNodeData.ChildNodeIDs`
+- `ComparerNodeData.PassOutputs / FailOutputs`
+- 以及其他具体字段名
+
+### Refactor scope
+
+如果后续正式把运行层统一回 `OutputConnections`，需要覆盖的代码范围大致是：
+
+1. `GraphRunner`
+- 信号推进时统一通过 `OutputConnections` 获取下一跳
+- 恢复挂起 signal 时，也统一以 `targetNodeId` / `port index` 语义处理
+
+2. `NodeStrategy`
+- 提供统一的“按输出端口索引取目标节点”辅助方法
+- 比较器、分支、Root、VFS 等策略不再直接硬读具体 `[OutPort]` 字段
+
+3. `GraphAnalyser`
+- 通用查询尽量不再手认 `_`、`ChildNodeIDs`
+- BFS / 子节点列举 / 目录遍历等需要重新区分：
+  - 哪些是 VFS 专用父子语义
+  - 哪些是通用图连线语义
+
+4. `NodeData` / 编辑器同步层
+- 保证 `[OutPort]` 字段与 `OutputConnections` 始终同步
+- 明确谁是行为语义源，谁是统一连线视图
+
+5. CLI / 编辑器 / Bridge 工具
+- 统一使用 `FromPortIndex / ToPortIndex`
+- 避免一部分工具读字段名，一部分工具读 `OutputConnections`
+
+### Suggested execution order
+
+1. 先在 `NodeStrategy` 层补统一出口读取工具
+2. 再迁移 `Comparer / Flow / Root / VFS` 这批高频策略
+3. 然后清理 `GraphRunner` 和 `GraphAnalyser` 中手认字段名的逻辑
+4. 最后再处理编辑器与 CLI 的同步收口
+
+### Current judgement
+
+这次重构有价值，但不属于当前 `.msg` 双联落地的 blocker。
+
+更合适的时机是：
+
+- `.msg` 链条彻底跑通之后
+- 单独开一轮“运行层统一口径”重构

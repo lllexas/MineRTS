@@ -1,0 +1,442 @@
+{
+  "$type": "BasePackData, NekoGraph.Runtime",
+  "PackID": "MainStory",
+  "Version": "1.0.0",
+  "ReadableFrom": 100,
+  "WritableFrom": 1000,
+  "CreatedAt": 1775563233,
+  "ModifiedAt": 1776592907,
+  "Nodes": {
+    "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[BaseNodeData, NekoGraph.Runtime]], mscorlib",
+    "02f7bc27-31d3-49cf-a6cd-496668b14546": {
+      "$type": "RootNodeData, NekoGraph.Runtime",
+      "_": [
+        "e2cb0f6b893343c9a6c43f26fc9a21f8"
+      ],
+      "NodeID": "02f7bc27-31d3-49cf-a6cd-496668b14546",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 402.400024,
+        "y": 60.0
+      },
+      "OutputConnections": [
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "e2cb0f6b893343c9a6c43f26fc9a21f8",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsChecked": false
+    },
+    "e2cb0f6b893343c9a6c43f26fc9a21f8": {
+      "$type": "SpineNodeData, NekoGraph.Runtime",
+      "ProcessID": "intro",
+      "ParentSpineID": [
+        "02f7bc27-31d3-49cf-a6cd-496668b14546"
+      ],
+      "NextSpineNodeIDs": [
+        "c776ade1e8744e36b2e29f09e718d510"
+      ],
+      "NodeID": "e2cb0f6b893343c9a6c43f26fc9a21f8",
+      "Name": "Spine:intro",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 631.2,
+        "y": 261.6
+      },
+      "OutputConnections": [
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "c776ade1e8744e36b2e29f09e718d510",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsChecked": false
+    },
+    "f8e1f573ab5841dbb472c8a99c0c1d5e": {
+      "$type": "LeafNode_A_Data, NekoGraph.Runtime",
+      "ProcessID": "intro",
+      "OutputNodeIds": [
+        "2e53de02-e371-4920-87e5-9f30fca11b8d",
+        "f562eb7a-96df-4159-8c22-00c20db2656f"
+      ],
+      "NodeID": "f8e1f573ab5841dbb472c8a99c0c1d5e",
+      "Name": "LeafA:intro",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 972.8,
+        "y": 249.6
+      },
+      "OutputConnections": [
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "f562eb7a-96df-4159-8c22-00c20db2656f",
+          "ToPortIndex": 0
+        },
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "2e53de02-e371-4920-87e5-9f30fca11b8d",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsChecked": false
+    },
+    "065284dadc18404cbaa57c898078c46b": {
+      "$type": "LeafNode_B_Data, NekoGraph.Runtime",
+      "ProcessID": "intro",
+      "InputNodeIDs": [
+        "6b0262cb-17c2-4bbe-b3a6-79f6f454e382",
+        "0583351b-67fc-477e-b605-2a8bc6cbba6f",
+        "d164e8e4-774c-4513-8022-288d9b1daf91",
+        "c0a7cb5a-c9fd-4708-8836-bedb1424908d"
+      ],
+      "NodeID": "065284dadc18404cbaa57c898078c46b",
+      "Name": "LeafB:intro",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 3069.59985,
+        "y": -82.4
+      },
+      "OutputConnections": [],
+      "IsChecked": false
+    },
+    "c776ade1e8744e36b2e29f09e718d510": {
+      "$type": "SpineNodeData, NekoGraph.Runtime",
+      "ProcessID": "chapter1",
+      "ParentSpineID": [
+        "e2cb0f6b893343c9a6c43f26fc9a21f8"
+      ],
+      "NextSpineNodeIDs": [],
+      "NodeID": "c776ade1e8744e36b2e29f09e718d510",
+      "Name": "Spine:chapter1",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 907.2,
+        "y": 584.0
+      },
+      "OutputConnections": [],
+      "IsChecked": false
+    },
+    "ff9d6fcad89642c7b455f7390f0a7678": {
+      "$type": "LeafNode_A_Data, NekoGraph.Runtime",
+      "ProcessID": "chapter1",
+      "OutputNodeIds": [
+        "cbf9935b-edc3-4929-bc01-e659b81e87df"
+      ],
+      "NodeID": "ff9d6fcad89642c7b455f7390f0a7678",
+      "Name": "LeafA:chapter1",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 1217.6,
+        "y": 571.2
+      },
+      "OutputConnections": [
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "cbf9935b-edc3-4929-bc01-e659b81e87df",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsChecked": false
+    },
+    "06f8de6ba4d845338586f108ad1a1612": {
+      "$type": "LeafNode_B_Data, NekoGraph.Runtime",
+      "ProcessID": "chapter1",
+      "InputNodeIDs": [
+        "cbf9935b-edc3-4929-bc01-e659b81e87df",
+        "df765697-7f8e-4910-a3e8-425f91b56b58"
+      ],
+      "NodeID": "06f8de6ba4d845338586f108ad1a1612",
+      "Name": "LeafB:chapter1",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 2320.0,
+        "y": 569.6
+      },
+      "OutputConnections": [],
+      "IsChecked": false
+    },
+    "f562eb7a-96df-4159-8c22-00c20db2656f": {
+      "$type": "CommandNodeData, NekoGraph.Runtime",
+      "Command": {
+        "$type": "CommandData, NekoGraph.Runtime",
+        "CommandName": "node_log",
+        "Parameters": [
+          "准备发送事件-主线推进B"
+        ]
+      },
+      "InputNodeIDs": [
+        "f8e1f573ab5841dbb472c8a99c0c1d5e"
+      ],
+      "OutputNodeIDs": [
+        "610de62b-8cf9-4cba-bb86-d748dd60675b"
+      ],
+      "NodeID": "f562eb7a-96df-4159-8c22-00c20db2656f",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 1356.79993,
+        "y": 248.799988
+      },
+      "OutputConnections": [
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "610de62b-8cf9-4cba-bb86-d748dd60675b",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsChecked": false
+    },
+    "cbf9935b-edc3-4929-bc01-e659b81e87df": {
+      "$type": "CommandNodeData, NekoGraph.Runtime",
+      "Command": {
+        "$type": "CommandData, NekoGraph.Runtime",
+        "CommandName": "debug_log",
+        "Parameters": [
+          "准备dialog2"
+        ]
+      },
+      "InputNodeIDs": [
+        "ff9d6fcad89642c7b455f7390f0a7678"
+      ],
+      "OutputNodeIDs": [
+        "06f8de6ba4d845338586f108ad1a1612"
+      ],
+      "NodeID": "cbf9935b-edc3-4929-bc01-e659b81e87df",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 1564.0,
+        "y": 569.6
+      },
+      "OutputConnections": [
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "06f8de6ba4d845338586f108ad1a1612",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsChecked": false
+    },
+    "610de62b-8cf9-4cba-bb86-d748dd60675b": {
+      "$type": "PostEventNodeData, NekoGraph.Runtime",
+      "Event": 8,
+      "EventName": "MissionCompleted",
+      "PayloadValue": "字符串匹配好变态啊",
+      "InputNodeIDs": [
+        "f562eb7a-96df-4159-8c22-00c20db2656f"
+      ],
+      "OutputNodeIDs": [],
+      "NodeID": "610de62b-8cf9-4cba-bb86-d748dd60675b",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 1749.6,
+        "y": 245.6
+      },
+      "OutputConnections": [],
+      "IsChecked": false
+    },
+    "2e53de02-e371-4920-87e5-9f30fca11b8d": {
+      "$type": "TriggerNodeData, NekoGraph.Runtime",
+      "Event": 8,
+      "EventName": "MissionCompleted",
+      "InputNodeIDs": [
+        "f8e1f573ab5841dbb472c8a99c0c1d5e"
+      ],
+      "SignalOutputs": [
+        "cf21ab14-a8a0-4edc-b0c4-cc4b83a7fcbf"
+      ],
+      "NodeID": "2e53de02-e371-4920-87e5-9f30fca11b8d",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 1361.6,
+        "y": -5.59999847
+      },
+      "OutputConnections": [
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "cf21ab14-a8a0-4edc-b0c4-cc4b83a7fcbf",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsChecked": false
+    },
+    "6b0262cb-17c2-4bbe-b3a6-79f6f454e382": {
+      "$type": "CommandNodeData, NekoGraph.Runtime",
+      "Command": {
+        "$type": "CommandData, NekoGraph.Runtime",
+        "CommandName": "debug_log",
+        "Parameters": [
+          "选择了第二个选项企鹅"
+        ]
+      },
+      "InputNodeIDs": [
+        "2e53de02-e371-4920-87e5-9f30fca11b8d",
+        "ef1a4ba0-2c65-46c8-8afa-1a485b94fdc1",
+        "cf21ab14-a8a0-4edc-b0c4-cc4b83a7fcbf"
+      ],
+      "OutputNodeIDs": [
+        "065284dadc18404cbaa57c898078c46b"
+      ],
+      "NodeID": "6b0262cb-17c2-4bbe-b3a6-79f6f454e382",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 2225.59985,
+        "y": 13.5999985
+      },
+      "OutputConnections": [
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "065284dadc18404cbaa57c898078c46b",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsChecked": false
+    },
+    "d164e8e4-774c-4513-8022-288d9b1daf91": {
+      "$type": "CommandNodeData, NekoGraph.Runtime",
+      "Command": {
+        "$type": "CommandData, NekoGraph.Runtime",
+        "CommandName": "debug_log",
+        "Parameters": [
+          "选择了第一个选项1"
+        ]
+      },
+      "InputNodeIDs": [
+        "ef1a4ba0-2c65-46c8-8afa-1a485b94fdc1",
+        "9e2adacd-85fe-4d31-982e-756ac09f0b65"
+      ],
+      "OutputNodeIDs": [
+        "065284dadc18404cbaa57c898078c46b"
+      ],
+      "NodeID": "d164e8e4-774c-4513-8022-288d9b1daf91",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 2589.59985,
+        "y": -262.4
+      },
+      "OutputConnections": [
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "065284dadc18404cbaa57c898078c46b",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsChecked": false
+    },
+    "c0a7cb5a-c9fd-4708-8836-bedb1424908d": {
+      "$type": "CommandNodeData, NekoGraph.Runtime",
+      "Command": {
+        "$type": "CommandData, NekoGraph.Runtime",
+        "CommandName": "debug_log",
+        "Parameters": [
+          "选择了3q"
+        ]
+      },
+      "InputNodeIDs": [
+        "ef1a4ba0-2c65-46c8-8afa-1a485b94fdc1"
+      ],
+      "OutputNodeIDs": [
+        "065284dadc18404cbaa57c898078c46b"
+      ],
+      "NodeID": "c0a7cb5a-c9fd-4708-8836-bedb1424908d",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 2232.8,
+        "y": 248.799988
+      },
+      "OutputConnections": [
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "065284dadc18404cbaa57c898078c46b",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsChecked": false
+    },
+    "cf21ab14-a8a0-4edc-b0c4-cc4b83a7fcbf": {
+      "$type": "ComparerNodeData, NekoGraph.Runtime",
+      "ComparerName": "str_match",
+      "Parameters": [
+        "字符串匹配好变态啊"
+      ],
+      "InputNodeIDs": [
+        "2e53de02-e371-4920-87e5-9f30fca11b8d"
+      ],
+      "PassOutputs": [
+        "9e2adacd-85fe-4d31-982e-756ac09f0b65"
+      ],
+      "FailOutputs": [],
+      "NodeID": "cf21ab14-a8a0-4edc-b0c4-cc4b83a7fcbf",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 1772.0,
+        "y": -52.0
+      },
+      "OutputConnections": [
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "9e2adacd-85fe-4d31-982e-756ac09f0b65",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsChecked": false
+    },
+    "9e2adacd-85fe-4d31-982e-756ac09f0b65": {
+      "$type": "VFSNodeData, NekoGraph.Runtime",
+      "ParentNodeID": "cf21ab14-a8a0-4edc-b0c4-cc4b83a7fcbf",
+      "ChildNodeIDs": [
+        "d164e8e4-774c-4513-8022-288d9b1daf91"
+      ],
+      "ContentKind": 2,
+      "ContentSource": 1,
+      "ReferencePath": "Story/TestMsgSO",
+      "AssetGuid": "b900accb791fbbe428c21e252f3327f0",
+      "AssetPath": "Assets/Resources/Story/TestMsgSO.asset",
+      "UnityObjectTypeName": "VFSMsgSO, Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null",
+      "IsEnabled": true,
+      "NodeID": "9e2adacd-85fe-4d31-982e-756ac09f0b65",
+      "Name": "testmsg",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 2160.0,
+        "y": -364.8
+      },
+      "OutputConnections": [
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "d164e8e4-774c-4513-8022-288d9b1daf91",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsChecked": false,
+      "Extension": ".msg",
+      "IsDirectory": false,
+      "IsFile": true
+    }
+  },
+  "RootNodeId": "02f7bc27-31d3-49cf-a6cd-496668b14546",
+  "SidePara": {
+    "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[System.String, mscorlib]], mscorlib"
+  },
+  "System": 0,
+  "HasStarted": false,
+  "ActiveSignals": {
+    "$type": "System.Collections.Generic.Queue`1[[SignalContext, NekoGraph.Runtime]], mscorlib",
+    "$values": []
+  },
+  "SuspendedSignals": {
+    "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[SignalContext, NekoGraph.Runtime]], mscorlib"
+  }
+}
