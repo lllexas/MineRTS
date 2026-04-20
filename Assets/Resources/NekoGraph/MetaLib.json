@@ -39,15 +39,13 @@
     "Kind": 1,
     "Storage": 0,
     "ResourcePath": "Story/MainStory",
-    "ObjectType": "BasePackData",
+    "ObjectType": null,
     "GraphType": "Base",
     "DisplayName": "MainStory",
     "Author": "NekoTeam",
     "Version": "1.0.0",
     "Description": null,
-    "CustomFields": {
-      "AssetPath": "Assets/Resources/Story/MainStory.nekograph"
-    },
+    "CustomFields": {},
     "EffectiveID": "MainStory"
   },
   "DOTweenSettings": {
@@ -1613,5 +1611,311 @@
       "AssetPath": "Assets/TextMesh Pro/Resources/TMP Settings.asset"
     },
     "EffectiveID": "TMP Settings"
+  },
+  "lab.battery": {
+    "ID": "lab.battery",
+    "PackID": "lab.battery",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/battery",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "battery",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/battery.asset"
+    },
+    "EffectiveID": "lab.battery"
+  },
+  "lab.buffer": {
+    "ID": "lab.buffer",
+    "PackID": "lab.buffer",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/buffer",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "buffer",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/buffer.asset"
+    },
+    "EffectiveID": "lab.buffer"
+  },
+  "lab.conveyor": {
+    "ID": "lab.conveyor",
+    "PackID": "lab.conveyor",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/conveyor",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "conveyor",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/conveyor.asset"
+    },
+    "EffectiveID": "lab.conveyor"
+  },
+  "lab.c_believer": {
+    "ID": "lab.c_believer",
+    "PackID": "lab.c_believer",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/c_believer",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "c_believer",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/c_believer.asset"
+    },
+    "EffectiveID": "lab.c_believer"
+  },
+  "lab.c_purifier": {
+    "ID": "lab.c_purifier",
+    "PackID": "lab.c_purifier",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/c_purifier",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "c_purifier",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/c_purifier.asset"
+    },
+    "EffectiveID": "lab.c_purifier"
+  },
+  "lab.generator": {
+    "ID": "lab.generator",
+    "PackID": "lab.generator",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/generator",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "generator",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/generator.asset"
+    },
+    "EffectiveID": "lab.generator"
+  },
+  "lab.g_broodmother": {
+    "ID": "lab.g_broodmother",
+    "PackID": "lab.g_broodmother",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/g_broodmother",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "g_broodmother",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/g_broodmother.asset"
+    },
+    "EffectiveID": "lab.g_broodmother"
+  },
+  "lab.g_maggot": {
+    "ID": "lab.g_maggot",
+    "PackID": "lab.g_maggot",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/g_maggot",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "g_maggot",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/g_maggot.asset"
+    },
+    "EffectiveID": "lab.g_maggot"
+  },
+  "lab.hero_jin_keys": {
+    "ID": "lab.hero_jin_keys",
+    "PackID": "lab.hero_jin_keys",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/hero_jin_keys",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "hero_jin_keys",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/hero_jin_keys.asset"
+    },
+    "EffectiveID": "lab.hero_jin_keys"
+  },
+  "lab.hero_jin_proto": {
+    "ID": "lab.hero_jin_proto",
+    "PackID": "lab.hero_jin_proto",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/hero_jin_proto",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "hero_jin_proto",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/hero_jin_proto.asset"
+    },
+    "EffectiveID": "lab.hero_jin_proto"
+  },
+  "lab.miner": {
+    "ID": "lab.miner",
+    "PackID": "lab.miner",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/miner",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "miner",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/miner.asset"
+    },
+    "EffectiveID": "lab.miner"
+  },
+  "lab.ore_copper": {
+    "ID": "lab.ore_copper",
+    "PackID": "lab.ore_copper",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/ore_copper",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "ore_copper",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/ore_copper.asset"
+    },
+    "EffectiveID": "lab.ore_copper"
+  },
+  "lab.ore_iron": {
+    "ID": "lab.ore_iron",
+    "PackID": "lab.ore_iron",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/ore_iron",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "ore_iron",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/ore_iron.asset"
+    },
+    "EffectiveID": "lab.ore_iron"
+  },
+  "lab.power_pole": {
+    "ID": "lab.power_pole",
+    "PackID": "lab.power_pole",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/power_pole",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "power_pole",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/power_pole.asset"
+    },
+    "EffectiveID": "lab.power_pole"
+  },
+  "lab.seller": {
+    "ID": "lab.seller",
+    "PackID": "lab.seller",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/seller",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "seller",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/seller.asset"
+    },
+    "EffectiveID": "lab.seller"
+  },
+  "lab.x_dog": {
+    "ID": "lab.x_dog",
+    "PackID": "lab.x_dog",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/x_dog",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "x_dog",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/x_dog.asset"
+    },
+    "EffectiveID": "lab.x_dog"
+  },
+  "lab.x_drone": {
+    "ID": "lab.x_drone",
+    "PackID": "lab.x_drone",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/x_drone",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "x_drone",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/x_drone.asset"
+    },
+    "EffectiveID": "lab.x_drone"
+  },
+  "lab.x_warwolf": {
+    "ID": "lab.x_warwolf",
+    "PackID": "lab.x_warwolf",
+    "Kind": 2,
+    "Storage": 0,
+    "ResourcePath": "Labentries/x_warwolf",
+    "ObjectType": "LabEntrySO",
+    "GraphType": null,
+    "DisplayName": "x_warwolf",
+    "Author": "NekoTeam",
+    "Version": "1.0.0",
+    "Description": "",
+    "CustomFields": {
+      "AssetPath": "Assets/Resources/Labentries/x_warwolf.asset"
+    },
+    "EffectiveID": "lab.x_warwolf"
   }
 }

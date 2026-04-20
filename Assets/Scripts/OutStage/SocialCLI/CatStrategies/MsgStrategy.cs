@@ -78,7 +78,7 @@ namespace CatStrategies
             _vfsPath = vfsPath;
             _packID = packID;
 
-            var analyser = GraphAnalyser.Instance;
+            var analyser = GraphHub.Instance?.DefaultAnalyser;
             if (analyser == null)
             {
                 _cli.Log("错误：GraphAnalyser 实例为空", Color.red);
@@ -87,7 +87,7 @@ namespace CatStrategies
             }
 
             // 从 GraphRunner 获取当前执行主体的权限喵~
-            int subjectLevel = GraphRunner.Instance?.GetSubjectLevel() ?? PackAccessSubjects.Player;
+            int subjectLevel = GraphHub.Instance?.DefaultRunner?.GetSubjectLevel() ?? PackAccessSubjects.Player;
             var node = analyser.GetNode(SocialManager.SOCIAL_PACK_ID, vfsPath, subjectLevel);
             if (node is VFSNodeData vfs && !string.IsNullOrEmpty(vfs.DataJson))
             {
@@ -95,20 +95,20 @@ namespace CatStrategies
                 if (pack != null)
                 {
                     pack.System = NodeSystem.Social;
-                    if (GraphRunner.Instance == null)
+                    if (GraphHub.Instance?.DefaultRunner == null)
                     {
                         _cli.Log("错误：GraphRunner 未就绪", Color.red);
                         _cli.CloseActiveStrategy();
                         return;
                     }
 
-                    GraphRunner.Instance.SetPackTable(MainModel.Instance.CurrentUser.PackDataDict);
-                    _instanceID = GraphRunner.Instance.LoadPack(pack);
+                    GraphHub.Instance.DefaultRunner.SetPackTable(MainModel.Instance.CurrentUser.PackDataDict);
+                    _instanceID = GraphHub.Instance.DefaultRunner.LoadPack(pack);
 
                     if (_instanceID != null)
                     {
                         PostSystem.Instance.Register(this);
-                        GraphRunner.Instance.InjectSignalFromRoot(_instanceID);
+                        GraphHub.Instance.DefaultRunner.InjectSignalFromRoot(_instanceID);
                         _cli.Log($"[系统] 正在建立加密连接以读取：{VFSPathResolver.GetFileName(vfsPath)}...", Color.gray);
                         return;
                     }
@@ -141,9 +141,9 @@ namespace CatStrategies
                 SocialManager.Instance.MarkAsRead(_vfsPath);
             }
 
-            if (!string.IsNullOrEmpty(_instanceID) && GraphRunner.Instance != null)
+            if (!string.IsNullOrEmpty(_instanceID) && GraphHub.Instance?.DefaultRunner != null)
             {
-                GraphRunner.Instance.UnloadPack(_instanceID);
+                GraphHub.Instance.DefaultRunner.UnloadPack(_instanceID);
             }
 
             PostSystem.Instance.Unregister(this);
@@ -433,8 +433,6 @@ namespace CatStrategies
         }
     }
 }
-
-
 
 
 

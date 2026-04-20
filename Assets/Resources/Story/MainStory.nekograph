@@ -5,7 +5,7 @@
   "ReadableFrom": 100,
   "WritableFrom": 1000,
   "CreatedAt": 1775563233,
-  "ModifiedAt": 1776608513,
+  "ModifiedAt": 1776697732,
   "Nodes": {
     "$type": "System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[BaseNodeData, NekoGraph.Runtime]], mscorlib",
     "02f7bc27-31d3-49cf-a6cd-496668b14546": {
@@ -98,8 +98,8 @@
       "Name": "LeafB:intro",
       "EditorPosition": {
         "$type": "SerializableVector2, NekoGraph.Runtime",
-        "x": 3069.59985,
-        "y": -82.4
+        "x": 3562.4,
+        "y": -94.4
       },
       "OutputConnections": [],
       "IsChecked": false
@@ -279,22 +279,23 @@
       "InputNodeIDs": [
         "2e53de02-e371-4920-87e5-9f30fca11b8d",
         "ef1a4ba0-2c65-46c8-8afa-1a485b94fdc1",
-        "cf21ab14-a8a0-4edc-b0c4-cc4b83a7fcbf"
+        "cf21ab14-a8a0-4edc-b0c4-cc4b83a7fcbf",
+        "9e2adacd-85fe-4d31-982e-756ac09f0b65"
       ],
       "OutputNodeIDs": [
-        "065284dadc18404cbaa57c898078c46b"
+        "1633777e-9120-4362-81e8-f0b634d56e56"
       ],
       "NodeID": "6b0262cb-17c2-4bbe-b3a6-79f6f454e382",
       "EditorPosition": {
         "$type": "SerializableVector2, NekoGraph.Runtime",
-        "x": 2528.8,
-        "y": -71.2
+        "x": 2548.8,
+        "y": -160.8
       },
       "OutputConnections": [
         {
           "$type": "ConnectionData, NekoGraph.Runtime",
           "FromPortIndex": 0,
-          "TargetNodeID": "065284dadc18404cbaa57c898078c46b",
+          "TargetNodeID": "1633777e-9120-4362-81e8-f0b634d56e56",
           "ToPortIndex": 0
         }
       ],
@@ -314,19 +315,19 @@
         "9e2adacd-85fe-4d31-982e-756ac09f0b65"
       ],
       "OutputNodeIDs": [
-        "065284dadc18404cbaa57c898078c46b"
+        "fd63be63-5f49-400b-a087-5a2bdb2d7b0e"
       ],
       "NodeID": "d164e8e4-774c-4513-8022-288d9b1daf91",
       "EditorPosition": {
         "$type": "SerializableVector2, NekoGraph.Runtime",
-        "x": 2589.59985,
-        "y": -262.4
+        "x": 2546.4,
+        "y": -375.2
       },
       "OutputConnections": [
         {
           "$type": "ConnectionData, NekoGraph.Runtime",
           "FromPortIndex": 0,
-          "TargetNodeID": "065284dadc18404cbaa57c898078c46b",
+          "TargetNodeID": "fd63be63-5f49-400b-a087-5a2bdb2d7b0e",
           "ToPortIndex": 0
         }
       ],
@@ -429,6 +430,70 @@
       ],
       "IsChecked": false,
       "Extension": ".msg",
+      "IsDirectory": false,
+      "IsFile": true
+    },
+    "fd63be63-5f49-400b-a087-5a2bdb2d7b0e": {
+      "$type": "VFSNodeData, NekoGraph.Runtime",
+      "ChildNodeIDs": [
+        "065284dadc18404cbaa57c898078c46b"
+      ],
+      "ContentKind": 2,
+      "ContentSource": 1,
+      "ReferencePath": "Labentries/x_dog",
+      "AssetGuid": "eb88a076903d46d40bc96d79a877abea",
+      "AssetPath": "Assets/Resources/Labentries/x_dog.asset",
+      "UnityObjectTypeName": "LabEntrySO, Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null",
+      "IsEnabled": true,
+      "NodeID": "fd63be63-5f49-400b-a087-5a2bdb2d7b0e",
+      "Name": "xdogentry",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 3064.8,
+        "y": -520.8
+      },
+      "OutputConnections": [
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "065284dadc18404cbaa57c898078c46b",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsChecked": false,
+      "Extension": ".labentry",
+      "IsDirectory": false,
+      "IsFile": true
+    },
+    "1633777e-9120-4362-81e8-f0b634d56e56": {
+      "$type": "VFSNodeData, NekoGraph.Runtime",
+      "ChildNodeIDs": [
+        "065284dadc18404cbaa57c898078c46b"
+      ],
+      "ContentKind": 2,
+      "ContentSource": 1,
+      "ReferencePath": "Labentries/x_drone",
+      "AssetGuid": "f4761a80b002a2e4db0812de05d80b78",
+      "AssetPath": "Assets/Resources/Labentries/x_drone.asset",
+      "UnityObjectTypeName": "LabEntrySO, Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null",
+      "IsEnabled": true,
+      "NodeID": "1633777e-9120-4362-81e8-f0b634d56e56",
+      "Name": "",
+      "EditorPosition": {
+        "$type": "SerializableVector2, NekoGraph.Runtime",
+        "x": 3076.8,
+        "y": -195.2
+      },
+      "OutputConnections": [
+        {
+          "$type": "ConnectionData, NekoGraph.Runtime",
+          "FromPortIndex": 0,
+          "TargetNodeID": "065284dadc18404cbaa57c898078c46b",
+          "ToPortIndex": 0
+        }
+      ],
+      "IsChecked": false,
+      "Extension": ".labentry",
       "IsDirectory": false,
       "IsFile": true
     }

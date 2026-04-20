@@ -38,10 +38,11 @@ public static class VFSMsgResource
         }
         else
         {
+            var sourceNode = content?.Node;
             bool delivered = socialBox.TryDeliverMessageCopy(
                 analyser,
                 pack.PackID,
-                context.CurrentNodeId,
+                sourceNode,
                 context.SignalId,
                 out deliveredPath,
                 PackAccessSubjects.SystemMin);

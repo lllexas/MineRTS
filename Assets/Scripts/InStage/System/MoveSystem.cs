@@ -13,6 +13,7 @@ public class MoveSystem : SingletonMono<MoveSystem>
         // 阶段 0：批量执行同队交换 (Batch Swap Execution)
         // BoidsSystem 已识别出对向交换意图，此处原子执行
         // ==========================================================
+        int effectiveTicks = Mathf.Max(1, ticksToProcess);
         for (int i = 0; i < whole.entityCount; i++)
         {
             ref var core = ref whole.coreComponent[i];
@@ -31,9 +32,10 @@ public class MoveSystem : SingletonMono<MoveSystem>
             // 双向验证：对方也指向我
             if (!partnerMove.HasSwapIntent || partnerMove.SwapPartnerIdx != i) continue;
 
-            // 双方必须处于可移动状态（不在移动冷却/阻塞冷却中）
-            if (move.MoveTimerTicks > 0 || partnerMove.MoveTimerTicks > 0) continue;
-            if (move.BlockWaitTimerTicks > 0 || partnerMove.BlockWaitTimerTicks > 0) continue;
+            // 双方必须在本帧逻辑 Tick 消化后进入可移动状态。
+            // 否则双方先互相撞住并写入 BlockWait=2 时，会永远错过换位窗口。
+            if (move.MoveTimerTicks > effectiveTicks || partnerMove.MoveTimerTicks > effectiveTicks) continue;
+            if (move.BlockWaitTimerTicks > effectiveTicks || partnerMove.BlockWaitTimerTicks > effectiveTicks) continue;
 
             // 大小必须一致（不同大小单位不交换，防止占据区域不匹配）
             Vector2Int size = core.LogicSize;

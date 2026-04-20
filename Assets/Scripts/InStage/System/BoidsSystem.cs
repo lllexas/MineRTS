@@ -25,12 +25,12 @@ public class BoidsSystem : SingletonMono<BoidsSystem>
             ref var m = ref whole.moveComponent[i];
             ref var core = ref whole.coreComponent[i];
 
-            if (!core.Active || (core.Type & UnitType.Building) != 0) continue;
-            if (m.Waypoints == null || m.WaypointIndex >= m.Waypoints.Count) continue;
-
-            // 清理上帧遗留的交换标记
+            // 每帧先清掉上帧残留，避免路径状态变化后把旧换位意图带进 MoveSystem。
             m.HasSwapIntent = false;
             m.SwapPartnerIdx = -1;
+
+            if (!core.Active || (core.Type & UnitType.Building) != 0) continue;
+            if (m.Waypoints == null || m.WaypointIndex >= m.Waypoints.Count) continue;
 
             if (m.HasNextStep) continue;
 

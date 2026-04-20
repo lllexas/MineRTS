@@ -213,43 +213,16 @@ public sealed class SocialBoxFacade : PackFacadeBase
     public bool TryDeliverMessageCopy(
         GraphAnalyser analyser,
         string sourcePackID,
-        string sourceNodeID,
-        string deliveryKey,
-        out string deliveredPath,
-        int subjectLevel = PackAccessSubjects.SystemMin)
-    {
-        deliveredPath = null;
-        if (analyser == null || string.IsNullOrWhiteSpace(sourcePackID) || string.IsNullOrWhiteSpace(sourceNodeID))
-            return false;
-
-        var sourcePack = analyser.GetPack(sourcePackID, subjectLevel);
-        if (sourcePack == null || sourcePack.Nodes == null)
-            return false;
-
-        if (!sourcePack.Nodes.TryGetValue(sourceNodeID, out var sourceNodeData) || sourceNodeData is not VFSNodeData sourceNode)
-            return false;
-
-        return TryDeliverMessageCopy(
-            analyser,
-            sourcePackID,
-            sourceNodeID,
-            deliveryKey,
-            sourceNode,
-            out deliveredPath,
-            subjectLevel);
-    }
-
-    public bool TryDeliverMessageCopy(
-        GraphAnalyser analyser,
-        string sourcePackID,
-        string sourceNodeID,
-        string signalId,
         VFSNodeData sourceNode,
+        string signalId,
         out string deliveredPath,
         int subjectLevel = PackAccessSubjects.SystemMin)
     {
         deliveredPath = null;
-        if (analyser == null || sourceNode == null || sourceNode.IsDirectory)
+        if (string.IsNullOrWhiteSpace(sourcePackID) || sourceNode == null)
+            return false;
+
+        if (analyser == null || sourceNode.IsDirectory)
             return false;
 
         if (!string.Equals(sourceNode.Extension, ".msg", StringComparison.OrdinalIgnoreCase))
@@ -278,7 +251,7 @@ public sealed class SocialBoxFacade : PackFacadeBase
         deliveredNode.InlineText = VFSMsgReplicaMeta.Serialize(new VFSMsgReplicaMeta
         {
             BackendPackID = sourcePackID,
-            BackendNodeID = sourceNodeID,
+            BackendNodeID = sourceNode.NodeID,
             SignalId = signalId,
             IsResolved = false,
             ChoiceTargetNodeIDs = sourceNode.ChildNodeIDs != null
@@ -296,6 +269,34 @@ public sealed class SocialBoxFacade : PackFacadeBase
             ResolvedPackID,
             deliveredPath);
         return true;
+    }
+
+    public bool TryDeliverMessageCopy(
+        GraphAnalyser analyser,
+        string sourcePackID,
+        string sourceNodeID,
+        string deliveryKey,
+        out string deliveredPath,
+        int subjectLevel = PackAccessSubjects.SystemMin)
+    {
+        deliveredPath = null;
+        if (analyser == null || string.IsNullOrWhiteSpace(sourcePackID) || string.IsNullOrWhiteSpace(sourceNodeID))
+            return false;
+
+        var sourcePack = analyser.GetPack(sourcePackID, subjectLevel);
+        if (sourcePack == null || sourcePack.Nodes == null)
+            return false;
+
+        if (!sourcePack.Nodes.TryGetValue(sourceNodeID, out var sourceNodeData) || sourceNodeData is not VFSNodeData sourceNode)
+            return false;
+
+        return TryDeliverMessageCopy(
+            analyser,
+            sourcePackID,
+            sourceNode,
+            deliveryKey,
+            out deliveredPath,
+            subjectLevel);
     }
 
     public string BuildDeliveredMessageFilePath(VFSNodeData sourceNode)

@@ -161,6 +161,59 @@ public class WarehouseCLI : DeveloperConsole
             _slot.UpdateConfig(BuildConfig(), resetSelection: false);
         }
 
+        private void OnEntitySelected(int index, TUISelectionItem item)
+        {
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                "[warehouse_cli] entity-selected index={0} label={1}", index, item.label);
+
+            if (item.payload is not VFSNodeData node)
+            {
+                Debug.LogWarning("[warehouse_cli] selected item has no VFSNodeData payload");
+                return;
+            }
+
+            var facade = GraphHub.Instance?.GetFacade<EntityWarehouseFacade>();
+            if (facade == null)
+            {
+                Debug.LogError("[warehouse_cli] EntityWarehouseFacade not registered in GraphHub");
+                return;
+            }
+
+            var content = VFSContentResolver.Resolve(node);
+            if (content == null)
+            {
+                Debug.LogWarning("[warehouse_cli] VFSContentResolver.Resolve returned null");
+                return;
+            }
+
+            var queryContext = new VFSQueryContext
+            {
+                PackID = facade.ResolvedPackID,
+                VfsPath = node.Name + node.Extension,
+                RequestName = EntityClientViewKeys.Inspect,
+                Node = node,
+                SubjectLevel = PackAccessSubjects.Player,
+                FrontendContext = _console
+            };
+
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                "[warehouse_cli] triggering query pack={0} path={1}", queryContext.PackID, queryContext.VfsPath);
+
+            var result = VFSEntityResource.Query(content, queryContext);
+            if (result == null)
+            {
+                Debug.LogWarning("[warehouse_cli] VFSEntityResource.Query returned null");
+                return;
+            }
+
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                "[warehouse_cli] query result presentationType={0} title={1}", result.PresentationType, result.Title);
+
+            bool presented = _console.ClientRuntime?.TryPresent(result) ?? false;
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                "[warehouse_cli] TryPresent returned {0}", presented);
+        }
+
         private TUISelectionConfig BuildConfig()
         {
             var config = TUISelectionConfig.Default;
@@ -174,7 +227,7 @@ public class WarehouseCLI : DeveloperConsole
             interaction.wrapNavigation = true;
             interaction.enableDigitSelect = true;
             interaction.allowConfirmOnEmptySubmit = true;
-            interaction.onConfirmSelection = (_, __) => Refresh();
+            interaction.onConfirmSelection = OnEntitySelected;
             interaction.onCancel = () => _console.CloseActiveStrategy();
             config.interaction = interaction;
 
@@ -183,32 +236,68 @@ public class WarehouseCLI : DeveloperConsole
 
         private IReadOnlyList<TUISelectionItem> BuildItems()
         {
-            return new List<TUISelectionItem>
+            var facade = GraphHub.Instance?.GetFacade<EntityWarehouseFacade>();
+            var analyser = GraphHub.Instance?.DefaultAnalyser;
+            var nodes = facade?.ListEntityNodes(analyser, PackAccessSubjects.Player);
+
+            var items = new List<TUISelectionItem>();
+            if (nodes == null || nodes.Count == 0)
             {
-                new TUISelectionItem
+                items.Add(new TUISelectionItem
                 {
                     key = 1,
                     indexText = "1",
-                    label = "Overview",
-                    subtitle = "Warehouse Pack status, mount state, and root path.",
-                    payload = "overview"
-                },
-                new TUISelectionItem
+                    label = "(No entities)",
+                    subtitle = "Warehouse is empty. Unlock entities through Lab.",
+                    payload = null
+                });
+                return items;
+            }
+
+            int index = 1;
+            foreach (var node in nodes)
+            {
+                var blueprint = facade?.GetEntityBlueprint(node);
+                string label = blueprint?.DisplayName ?? blueprint?.BlueprintId ?? node.Name;
+                string subtitle = BuildEntitySubtitle(blueprint);
+
+                items.Add(new TUISelectionItem
                 {
-                    key = 2,
-                    indexText = "2",
-                    label = "Sample Items",
-                    subtitle = "Configured item counts fetched through PlayerWarehouseManager.",
-                    payload = "items"
-                },
-                new TUISelectionItem
-                {
-                    key = 3,
-                    indexText = "3",
-                    label = "Batch Guide",
-                    subtitle = "How this terminal should talk to the warehouse batch processor.",
-                    payload = "batch"
-                }
+                    key = index,
+                    indexText = index.ToString(),
+                    label = label,
+                    subtitle = subtitle,
+                    payload = node
+                });
+                index++;
+            }
+
+            return items;
+        }
+
+        private static string BuildEntitySubtitle(EntityBlueprintSO blueprint)
+        {
+            if (blueprint == null)
+                return "Unknown entity";
+
+            var parts = new List<string>();
+            if ((blueprint.UnitType & UnitType.Hero) != 0) parts.Add("Hero");
+            if ((blueprint.UnitType & UnitType.Minion) != 0) parts.Add("Minion");
+            if ((blueprint.UnitType & UnitType.Building) != 0) parts.Add("Building");
+            if ((blueprint.UnitType & UnitType.Flyer) != 0) parts.Add("Flyer");
+
+            string typeStr = parts.Count > 0 ? string.Join("|", parts) : "Unknown";
+            return $"[{FactionName(blueprint.Faction)}] {typeStr} HP:{blueprint.MaxHealth:0}";
+        }
+
+        private static string FactionName(int faction)
+        {
+            return faction switch
+            {
+                0 => "Protocol",
+                1 => "SunCity",
+                2 => "Gaia",
+                _ => $"F:{faction}"
             };
         }
 
@@ -291,7 +380,7 @@ public class WarehouseCLI : DeveloperConsole
         private string[] BuildOverviewLines()
         {
             string packID = ResolveWarehousePackID();
-            var analyser = GraphAnalyser.Instance;
+            var analyser = GraphHub.Instance?.DefaultAnalyser;
             var pack = !string.IsNullOrWhiteSpace(packID) ? analyser?.GetPack(packID, PackAccessSubjects.Player) : null;
             string access = pack != null
                 ? (GraphHub.Instance?.GetPackAccessLevel(GraphInstanceSlot.Player, pack)

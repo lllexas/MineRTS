@@ -456,6 +456,16 @@ MonoBehaviour:
     Source: 0
     PackAsset: {fileID: 9027929339269108002, guid: 71b4f022679706d45979a0d1f230bcc6, type: 3}
     EmptyPackID: 
+  - Facade:
+      rid: 8300286308177674240
+    Source: 1
+    PackAsset: {fileID: 0}
+    EmptyPackID: EntityWarehouse
+  - Facade:
+      rid: 8300286308177674241
+    Source: 1
+    PackAsset: {fileID: 0}
+    EmptyPackID: Lab
   references:
     version: 2
     RefIds:
@@ -465,6 +475,14 @@ MonoBehaviour:
         _boundPackID: 
     - rid: 8300286282346528773
       type: {class: MainStoryPackFacade, ns: , asm: Assembly-CSharp}
+      data:
+        _boundPackID: 
+    - rid: 8300286308177674240
+      type: {class: EntityWarehouseFacade, ns: , asm: Assembly-CSharp}
+      data:
+        _boundPackID: 
+    - rid: 8300286308177674241
+      type: {class: LabFacade, ns: , asm: Assembly-CSharp}
       data:
         _boundPackID: 
 --- !u!1 &84142775
@@ -210634,6 +210652,7 @@ MonoBehaviour:
   preferredVFSPackID: 
   windowPanelID: LabWindowPanel
   windowTitle: Lab
+  labEntriesRootPath: /
 --- !u!225 &508604036
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -220995,6 +221014,18 @@ PrefabInstance:
     - target: {fileID: 1299657915765302726, guid: 2923e08b5a58eb949b0195e6f358435c, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8972798540856768650, guid: 2923e08b5a58eb949b0195e6f358435c, type: 3}
+      propertyPath: m_Color.b
+      value: 0.70839155
+      objectReference: {fileID: 0}
+    - target: {fileID: 8972798540856768650, guid: 2923e08b5a58eb949b0195e6f358435c, type: 3}
+      propertyPath: m_Color.g
+      value: 0.7207546
+      objectReference: {fileID: 0}
+    - target: {fileID: 8972798540856768650, guid: 2923e08b5a58eb949b0195e6f358435c, type: 3}
+      propertyPath: m_Color.r
+      value: 0.602442
       objectReference: {fileID: 0}
     - target: {fileID: 9201931222908863402, guid: 2923e08b5a58eb949b0195e6f358435c, type: 3}
       propertyPath: m_Name

@@ -271,7 +271,7 @@ public class PlayerWarehouseManager : SingletonData<PlayerWarehouseManager>
 
     private static bool TryGetWarehousePack(string packID, bool requireWrite, out GraphAnalyser analyser, out BasePackData pack, out string error)
     {
-        analyser = GraphAnalyser.Instance;
+        analyser = GraphHub.Instance?.DefaultAnalyser;
         pack = null;
         error = null;
 

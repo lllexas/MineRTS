@@ -1,6 +1,5 @@
 using NekoGraph;
 using SpaceTUI;
-using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -42,13 +41,8 @@ public static class VFSEntityResource
 
         if (GridSystem.Instance != null && !GridSystem.Instance.IsAreaClear(spawnArgs.GridPosition, blueprint.LogicSize))
         {
-            Debug.LogWarningFormat(
-                LogType.Warning,
-                LogOption.NoStacktrace,
-                null,
-                "[VFSEntityResource] Execute 失败：目标格子被占用 blueprint={0} pos={1}",
-                blueprint.BlueprintId,
-                spawnArgs.GridPosition);
+            Debug.LogWarning(
+                $"[VFSEntityResource] Execute 失败：目标格子被占用 blueprint={blueprint.BlueprintId} pos={spawnArgs.GridPosition}");
             return HandleResult.Error;
         }
 
@@ -72,7 +66,7 @@ public static class VFSEntityResource
             blueprint.BlueprintId,
             spawnArgs.GridPosition,
             spawnArgs.Faction,
-            handle.Index);
+            handle.Id);
 
         return HandleResult.Push;
     }
@@ -85,6 +79,7 @@ public static class VFSEntityResource
         {
             return VFSQueryResult.Create(
                 presentationType: "error",
+                requestName: context?.RequestName,
                 title: "Broken .entity",
                 summary: "EntityBlueprintSO is null",
                 payload: null,
@@ -92,7 +87,8 @@ public static class VFSEntityResource
         }
 
         return VFSQueryResult.Create(
-            presentationType: "entity.inspect",
+            presentationType: "entity",
+            requestName: string.IsNullOrWhiteSpace(context?.RequestName) ? EntityClientViewKeys.Inspect : context.RequestName,
             title: string.IsNullOrWhiteSpace(blueprint.DisplayName) ? blueprint.BlueprintId : blueprint.DisplayName,
             summary: BuildSummary(blueprint),
             payload: new VFSEntityQueryPayload
@@ -106,109 +102,9 @@ public static class VFSEntityResource
             isInteractive: false);
     }
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-    private static void RegisterConsolePresentation()
-    {
-        ConsoleClientRuntime.RegisterPresenter("entity.inspect", (console, payload) =>
-        {
-            if (console == null || payload is not VFSEntityQueryPayload entityPayload || entityPayload.Blueprint == null)
-                return;
-
-            RenderInspect(console, entityPayload.Blueprint);
-        });
-    }
-
     private static string BuildSummary(EntityBlueprintSO blueprint)
     {
         return $"[{FormatFaction(blueprint.Faction)}] {FormatUnitType(blueprint.UnitType)}  HP:{blueprint.MaxHealth:0}  Size:{blueprint.LogicSize.x}x{blueprint.LogicSize.y}";
-    }
-
-    private static void RenderInspect(ConsoleManager console, EntityBlueprintSO blueprint)
-    {
-        int totalWidth = Mathf.Clamp(console.ConsoleWidth > 0 ? console.ConsoleWidth - 2 : 56, 36, 72);
-        TSSStyle style = new TSSStyle
-        {
-            bleedX = 0,
-            bleedY = 0,
-            paddingX = 1,
-            paddingY = 0,
-            spacingX = 1,
-            borderColor = new Color(0.32f, 0.62f, 0.72f),
-            contentColor = new Color(0.90f, 0.96f, 1f),
-            titleColor = new Color(0.22f, 0.86f, 1f),
-            backgroundColor = null,
-            alignment = TextAlignment.Left,
-            expandArtSpaces = false
-        };
-
-        string title = $"ENTITY / {(string.IsNullOrWhiteSpace(blueprint.DisplayName) ? blueprint.BlueprintId : blueprint.DisplayName)}";
-        string[] lines = TUITool.GenerateTextBoxWithTitle(BuildInspectLines(blueprint).ToArray(), title, totalWidth, style);
-        foreach (string line in lines)
-            console.Log(line, style.contentColor);
-    }
-
-    private static List<string> BuildInspectLines(EntityBlueprintSO blueprint)
-    {
-        var lines = new List<string>
-        {
-            $"ID        : {blueprint.BlueprintId}",
-            $"Faction   : {FormatFaction(blueprint.Faction)}",
-            $"UnitType  : {FormatUnitType(blueprint.UnitType)}",
-            $"HP        : {blueprint.MaxHealth:0}",
-            $"Size      : {blueprint.LogicSize.x} x {blueprint.LogicSize.y}",
-            $"MoveTick  : {blueprint.MoveInterval:0.##}s",
-            ""
-        };
-
-        if (blueprint.AttackRange > 0f || blueprint.AttackDamage > 0f)
-        {
-            lines.Add("Combat");
-            lines.Add($"  Range    : {blueprint.AttackRange:0.##}");
-            lines.Add($"  Damage   : {blueprint.AttackDamage:0.##}");
-            lines.Add($"  Cooldown : {blueprint.AttackCooldown:0.##}s");
-            if (blueprint.ProjectileSpriteId >= 0)
-                lines.Add($"  Projectile: sprite#{blueprint.ProjectileSpriteId}  speed {blueprint.ProjectileSpeed:0.##}");
-            lines.Add("");
-        }
-
-        if (blueprint.WorkType != WorkType.None || blueprint.RequiresPower)
-        {
-            lines.Add("Industry");
-            lines.Add($"  WorkType : {blueprint.WorkType}");
-            lines.Add($"  Speed    : {blueprint.WorkSpeed:0.##}");
-            if (blueprint.DrillRange > 0)
-                lines.Add($"  Drill    : {blueprint.DrillRange}");
-            lines.Add($"  NeedPower: {(blueprint.RequiresPower ? "Yes" : "No")}");
-            lines.Add("");
-        }
-
-        if (blueprint.IsPowerNode || blueprint.EnergyGeneration > 0f || blueprint.EnergyCapacity > 0f)
-        {
-            lines.Add("Power");
-            lines.Add($"  Node     : {(blueprint.IsPowerNode ? "Yes" : "No")}");
-            lines.Add($"  Supply   : {blueprint.SupplyRange:0.##}");
-            lines.Add($"  Connect  : {blueprint.ConnectionRange:0.##}");
-            lines.Add($"  Produce  : {blueprint.EnergyGeneration:0.##}");
-            lines.Add($"  Capacity : {blueprint.EnergyCapacity:0.##}");
-            lines.Add("");
-        }
-
-        if (blueprint.InputCount > 0 || blueprint.OutputCount > 0 || blueprint.DefaultCapacity > 0)
-        {
-            lines.Add("Inventory");
-            lines.Add($"  Input    : {blueprint.InputCount}");
-            lines.Add($"  Output   : {blueprint.OutputCount}");
-            lines.Add($"  Capacity : {blueprint.DefaultCapacity}");
-            lines.Add("");
-        }
-
-        lines.Add("Traits");
-        lines.Add($"  Flyer    : {(blueprint.IsFlyer ? "Yes" : "No")}");
-        lines.Add($"  Explode  : {(blueprint.ExplodeOnDeath ? "Yes" : "No")}");
-        if (blueprint.FleeHealthPercent > 0f)
-            lines.Add($"  FleeAt   : {blueprint.FleeHealthPercent:P0}");
-
-        return lines;
     }
 
     private static string FormatFaction(int faction)

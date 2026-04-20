@@ -33,7 +33,7 @@ public class CommandExecutor : SingletonMono<CommandExecutor>
         }
 
         // 从 GraphRunner 获取当前执行主体的权限喵~
-        int subjectLevel = GraphRunner.Instance?.GetSubjectLevel() ?? PackAccessSubjects.Player;
+        int subjectLevel = GraphHub.Instance?.DefaultRunner?.GetSubjectLevel() ?? PackAccessSubjects.Player;
 
         // 委托给 CommandRegistry 执行喵~
         var output = CommandRegistry.Execute(command.CommandName, subjectLevel, command.Parameters?.ToArray() ?? new string[0], null, null);

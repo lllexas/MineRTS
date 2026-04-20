@@ -88,12 +88,17 @@ public static class GameCommandBricks
             return CommandOutput.Fail("Usage: army <key> <x,y> <w,h> <team>");
         }
 
-        string key = args[0];
+        string key = args[0].ToLower();
         Vector2Int center = ParseGridPos(args[1]);
         Vector2Int groupSize = ParseGridPos(args[2]);
         int team = int.Parse(args[3]);
 
-        EntityBlueprint bp = BlueprintRegistry.Get(key);
+        EntityBlueprintSO blueprint = MetaLib.GetObject<EntityBlueprintSO>(key);
+        if (blueprint == null)
+        {
+            return CommandOutput.Fail($"Unknown entity blueprint: {key}");
+        }
+
         int startX = center.x - groupSize.x / 2;
         int startY = center.y - groupSize.y / 2;
         int count = 0;
@@ -104,16 +109,17 @@ public static class GameCommandBricks
             for (int y = 0; y < groupSize.y; y++)
             {
                 Vector2Int current = new Vector2Int(startX + x, startY + y);
-                if (GridSystem.Instance.IsAreaClear(current, bp.LogicSize))
+                if (GridSystem.Instance.IsAreaClear(current, blueprint.LogicSize))
                 {
-                    var handle = EntitySystem.Instance.CreateEntityFromBlueprint(key, current, team);
+                    var handle = EntitySystem.Instance.CreateEntityFromSO(blueprint, current, team);
                     handles.Add(handle);
                     count++;
                 }
             }
         }
 
-        return CommandOutput.Success($"Army: {count} {bp.Name}s deployed for Team {team}", handles);
+        string displayName = string.IsNullOrWhiteSpace(blueprint.DisplayName) ? blueprint.BlueprintId : blueprint.DisplayName;
+        return CommandOutput.Success($"Army: {count} {displayName}s deployed for Team {team}", handles);
     }
 
     [CommandInfo("ai_wave", "🏗️ AI 波次绑定", "Entity", new[] { "Team", "BrainID", "TargetPos (x,y)" },
@@ -427,7 +433,7 @@ public static class GameCommandBricks
             return CommandOutput.Fail("权限不足：此命令需要 System 级别权限喵~");
         if (args.Length < 1) return CommandOutput.Fail("Usage: vfs_mount <PackID>");
 
-        var analyser = GraphAnalyser.Instance;
+        var analyser = GraphHub.Instance?.DefaultAnalyser;
         if (analyser == null) return CommandOutput.Fail("GraphAnalyser 未初始化喵~");
 
         var template = MetaLib.GetPack<BasePackData>(args[0]);
@@ -449,7 +455,7 @@ public static class GameCommandBricks
             return CommandOutput.Fail("权限不足：此命令需要 System 级别权限喵~");
         if (args.Length < 1) return CommandOutput.Fail("Usage: vfs_unmount <PackID>");
 
-        var analyser = GraphAnalyser.Instance;
+        var analyser = GraphHub.Instance?.DefaultAnalyser;
         if (analyser == null) return CommandOutput.Fail("GraphAnalyser 未初始化喵~");
 
         analyser.UnregisterPack(args[0]);
@@ -463,7 +469,7 @@ public static class GameCommandBricks
     {
         if (subjectLevel < PackAccessSubjects.SystemMin)
             return CommandOutput.Fail("权限不足：此命令需要 System 级别权限喵~");
-        var analyser = GraphAnalyser.Instance;
+        var analyser = GraphHub.Instance?.DefaultAnalyser;
         if (analyser == null) return CommandOutput.Fail("GraphAnalyser 未初始化喵~");
 
         foreach (var id in analyser.GetAllPackIds(subjectLevel))
@@ -480,7 +486,7 @@ public static class GameCommandBricks
             return CommandOutput.Fail("权限不足：此命令需要 System 级别权限喵~");
         if (args.Length < 1) return CommandOutput.Fail("Usage: vfs_save <PackID>");
 
-        var analyser = GraphAnalyser.Instance;
+        var analyser = GraphHub.Instance?.DefaultAnalyser;
         if (analyser == null) return CommandOutput.Fail("GraphAnalyser 未初始化喵~");
 
         var pack = analyser.GetPack(args[0], subjectLevel);
@@ -512,7 +518,7 @@ public static class GameCommandBricks
     {
         if (subjectLevel < PackAccessSubjects.SystemMin)
             return CommandOutput.Fail("权限不足：此命令需要 System 级别权限喵~");
-        var analyser = GraphAnalyser.Instance;
+        var analyser = GraphHub.Instance?.DefaultAnalyser;
         if (analyser == null)
         {
             return CommandOutput.Fail("GraphAnalyser 未初始化喵~\n请使用 vfs_mount 命令加载 VFS 数据包");
@@ -597,11 +603,11 @@ public static class GameCommandBricks
         var pack = MetaLib.GetPack<BasePackData>(packID);
         if (pack != null)
         {
-            if (GraphRunner.Instance != null)
+            if (GraphHub.Instance?.DefaultRunner != null)
             {
-                GraphRunner.Instance.SetPackTable(MainModel.Instance.CurrentUser.PackDataDict);
-                var loadedPackID = GraphRunner.Instance.LoadPack(pack);
-                GraphRunner.Instance.InjectSignalFromRoot(loadedPackID);
+                GraphHub.Instance.DefaultRunner.SetPackTable(MainModel.Instance.CurrentUser.PackDataDict);
+                var loadedPackID = GraphHub.Instance.DefaultRunner.LoadPack(pack);
+                GraphHub.Instance.DefaultRunner.InjectSignalFromRoot(loadedPackID);
                 return CommandOutput.Success($"Pack 已加载并运行：{packID} → PackID: {loadedPackID}");
             }
         }
@@ -845,6 +851,50 @@ public static class GameCommandBricks
 
         string stageId = args[0];
         return CommandOutput.Success($"[CommandExecutor] 解锁章节：{stageId}");
+    }
+
+    // =========================================================
+    // 🔬 Lab 科技树相关命令
+    // =========================================================
+
+    [CommandInfo("unlock", "🔬 解锁条目", "Lab", new[] { "EntryID" },
+        Tooltip = "解锁 Lab 条目并将实体投递到仓库\n示例：unlock x_warwolf",
+        Color = "0.4,0.6,0.8")]
+    public static CommandOutput UnlockLabEntry(IConsoleController console, int subjectLevel, string[] args, object payload)
+    {
+        if (subjectLevel < PackAccessSubjects.SystemMin)
+            return CommandOutput.Fail("权限不足：此命令需要 System 级别权限喵~");
+        if (args.Length < 1)
+            return CommandOutput.Fail("Usage: unlock <entryKey>");
+
+        string entryKey = args[0];
+        var facade = GraphHub.Instance?.GetFacade<LabFacade>();
+        var analyser = GraphHub.Instance?.DefaultAnalyser;
+
+        if (facade == null || analyser == null)
+            return CommandOutput.Fail("LabFacade 或 GraphAnalyser 不可用");
+
+        var nodes = facade.ListEntryNodes(analyser, subjectLevel);
+        VFSNodeData targetNode = null;
+        foreach (var node in nodes)
+        {
+            if (string.Equals(node.Name, entryKey, StringComparison.OrdinalIgnoreCase))
+            {
+                targetNode = node;
+                break;
+            }
+        }
+
+        if (targetNode == null)
+            return CommandOutput.Fail($"未找到 Lab 条目: {entryKey}");
+
+        if (facade.IsUnlocked(targetNode))
+            return CommandOutput.Success($"条目 {entryKey} 已经解锁");
+
+        if (facade.TryUnlockEntry(analyser, targetNode, out string warehousePath, subjectLevel))
+            return CommandOutput.Success($"已解锁 {entryKey} -> 仓库: {warehousePath}");
+
+        return CommandOutput.Fail($"解锁 {entryKey} 失败");
     }
 
     // =========================================================

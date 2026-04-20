@@ -99,7 +99,7 @@ public static class SocialCommandBricks
         if (packID == null)
             return CommandOutput.Fail($"未知盘符：{rawPath}");
 
-        var analyser = GraphAnalyser.Instance;
+        var analyser = GraphHub.Instance?.DefaultAnalyser;
         if (analyser == null)
         {
             return CommandOutput.Fail("GraphAnalyser 未初始化喵~");
@@ -243,7 +243,7 @@ public static class SocialCommandBricks
         if (packID == null)
             return CommandOutput.Fail($"未知盘符：{args[0]}");
 
-        var analyser = GraphAnalyser.Instance;
+        var analyser = GraphHub.Instance?.DefaultAnalyser;
         var node = analyser.GetNode(packID, targetPath, PackAccessSubjects.Player);
 
         if (node == null) return CommandOutput.Fail($"文件不存在：{targetPath}");
@@ -259,6 +259,7 @@ public static class SocialCommandBricks
                     Analyser = analyser,
                     PackID = packID,
                     VfsPath = targetPath,
+                    RequestName = "inspect",
                     SubjectLevel = PackAccessSubjects.Player,
                     Node = vfs,
                     FrontendContext = dc
@@ -312,7 +313,7 @@ public static class SocialCommandBricks
         if (driveMap.Count == 0)
             return CommandOutput.Fail("当前无可见盘符喵~");
 
-        var analyser = GraphAnalyser.Instance;
+        var analyser = GraphHub.Instance?.DefaultAnalyser;
         var items = new List<TUISelectionItem>();
         for (int i = 0; i < driveMap.Count; i++)
         {

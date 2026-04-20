@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using CatStrategies;
+using NekoGraph;
 using UnityEngine;
 using SpaceTUI;
 
@@ -14,12 +15,17 @@ public class LabCLI : DeveloperConsole
     [SerializeField] private string preferredVFSPackID = string.Empty;
     [SerializeField] private string windowPanelID = "LabWindowPanel";
     [SerializeField] private string windowTitle = "Lab";
+    [SerializeField] private string labEntriesRootPath = "/";
 
     private bool _defaultCommandBooted;
+    private LabTerminalStrategy _activeLabStrategy;
 
     protected override string GetPreferredPackID()
     {
-        return string.IsNullOrWhiteSpace(preferredVFSPackID) ? null : preferredVFSPackID;
+        if (!string.IsNullOrWhiteSpace(preferredVFSPackID))
+            return preferredVFSPackID;
+
+        return GraphHub.Instance?.GetFacade<LabFacade>()?.ResolvedPackID;
     }
 
     protected override void Awake()
@@ -69,9 +75,25 @@ public class LabCLI : DeveloperConsole
         PostSystem.Instance.Send("LabCLI.ScrollToTop", null);
     }
 
+    [Subscribe(LabFacade.LabChangedEvent)]
+    private void OnLabChanged(object data)
+    {
+        _activeLabStrategy?.Refresh();
+    }
+
     private void HandleOpenLabCommand(string[] args)
     {
-        SetActiveStrategy(new LabTerminalStrategy(this, windowPanelID, windowTitle), CurrentPath);
+        var strategy = new LabTerminalStrategy(this, windowPanelID, windowTitle, labEntriesRootPath);
+        _activeLabStrategy = strategy;
+        SetActiveStrategy(strategy, CurrentPath);
+    }
+
+    private void OnLabStrategyClosed(LabTerminalStrategy strategy)
+    {
+        if (ReferenceEquals(_activeLabStrategy, strategy))
+        {
+            _activeLabStrategy = null;
+        }
     }
 
     private sealed class LabTerminalStrategy : CatStrategyBase
@@ -79,35 +101,30 @@ public class LabCLI : DeveloperConsole
         private readonly LabCLI _console;
         private readonly string _windowPanelID;
         private readonly string _windowTitle;
+        private readonly string _labEntriesRootPath;
         private LabSelectionSlot _slot;
 
-        public LabTerminalStrategy(LabCLI console, string windowPanelID, string windowTitle)
+        public LabTerminalStrategy(LabCLI console, string windowPanelID, string windowTitle, string labEntriesRootPath)
         {
             _console = console;
             _windowPanelID = windowPanelID;
             _windowTitle = windowTitle;
+            _labEntriesRootPath = labEntriesRootPath;
         }
 
         public override void Execute(string vfsPath, string graphPath = null)
         {
             _console.ClearConsole();
 
-            var items = BuildItems();
-            var config = TUISelectionConfig.Default;
-            config.console = _console;
-            config.title = "LAB TERMINAL";
-            config.helpText = "Up/Down to navigate, Enter to pin, Esc to close the window panel.";
-            config.items = items;
-            config.viewStyle = BuildViewStyle();
-            config.interaction = BuildInteractionConfig();
+            var config = BuildConfig();
 
             _slot = new LabSelectionSlot(config);
             _console.BeginSession(_slot);
             _console.ScrollConsoleToTop();
 
-            if (items.Count > 0)
+            if (config.items.Count > 0)
             {
-                PublishWindow(items[0]);
+                PublishWindow(config.items[0]);
             }
         }
 
@@ -125,6 +142,7 @@ public class LabCLI : DeveloperConsole
             }
 
             PostSystem.Instance.Send("期望隐藏面板", _windowPanelID);
+            _console.OnLabStrategyClosed(this);
         }
 
         public override void OnArrowKey(bool isUp)
@@ -137,35 +155,88 @@ public class LabCLI : DeveloperConsole
             _slot?.HandleConfirm();
         }
 
+        public void Refresh()
+        {
+            if (_slot == null)
+            {
+                return;
+            }
+
+            var config = BuildConfig();
+            _slot.UpdateConfig(config, resetSelection: false);
+
+            if (config.items.Count > 0)
+            {
+                int selectedIndex = Mathf.Clamp(_slot.SelectedIndex, 0, config.items.Count - 1);
+                PublishWindow(config.items[selectedIndex]);
+            }
+        }
+
+        private TUISelectionConfig BuildConfig()
+        {
+            var config = TUISelectionConfig.Default;
+            config.console = _console;
+            config.title = "LAB TERMINAL";
+            config.helpText = "Up/Down to navigate, Enter to pin, Esc to close the window panel.";
+            config.items = BuildItems();
+            config.viewStyle = BuildViewStyle();
+            config.interaction = BuildInteractionConfig();
+            return config;
+        }
+
         private IReadOnlyList<TUISelectionItem> BuildItems()
         {
-            return new List<TUISelectionItem>
+            var facade = GraphHub.Instance?.GetFacade<LabFacade>();
+            var analyser = GraphHub.Instance?.DefaultAnalyser;
+            var nodes = facade != null ? facade.ListEntryNodes(analyser, PackAccessSubjects.Player) : null;
+
+            var items = new List<TUISelectionItem>();
+            if (nodes == null || nodes.Count == 0)
             {
-                new TUISelectionItem
+                items.Add(new TUISelectionItem
                 {
                     key = 1,
                     indexText = "1",
-                    label = "Overview",
-                    subtitle = "Session summary and current terminal state.",
-                    payload = "overview"
-                },
-                new TUISelectionItem
+                    label = "(No lab entries)",
+                    subtitle = "Lab is empty. Add .labentry files to the lab pack.",
+                    payload = null
+                });
+                return items;
+            }
+
+            int index = 1;
+            foreach (var node in nodes)
+            {
+                var entry = facade?.GetLabEntry(node);
+                string label = entry?.EntryId ?? node.Name;
+                string subtitle = string.IsNullOrWhiteSpace(entry?.Description)
+                    ? BuildDefaultSubtitle(entry?.EntityBlueprint)
+                    : entry.Description;
+
+                if (facade?.IsUnlocked(node) ?? false)
                 {
-                    key = 2,
-                    indexText = "2",
-                    label = "Workspace",
-                    subtitle = "Current drive and working path snapshot.",
-                    payload = "workspace"
-                },
-                new TUISelectionItem
-                {
-                    key = 3,
-                    indexText = "3",
-                    label = "Drives",
-                    subtitle = "Mounted packs exposed as terminal drives.",
-                    payload = "drives"
+                    label = $"[已解锁] {label}";
                 }
-            };
+
+                items.Add(new TUISelectionItem
+                {
+                    key = index,
+                    indexText = index.ToString(),
+                    label = label,
+                    subtitle = subtitle,
+                    payload = node
+                });
+                index++;
+            }
+
+            return items;
+        }
+
+        private static string BuildDefaultSubtitle(EntityBlueprintSO blueprint)
+        {
+            if (blueprint == null)
+                return "No entity blueprint.";
+            return $"Unlocks: {blueprint.DisplayName ?? blueprint.BlueprintId}";
         }
 
         private TUISelectionViewStyle BuildViewStyle()
@@ -240,28 +311,143 @@ public class LabCLI : DeveloperConsole
             interaction.enableDigitSelect = true;
             interaction.allowConfirmOnEmptySubmit = true;
             interaction.onSelectionChanged = (_, item) => PublishWindow(item);
-            interaction.onConfirmSelection = (_, item) => PublishWindow(item);
+            interaction.onConfirmSelection = OnLabEntrySelected;
             interaction.onCancel = () => PostSystem.Instance.Send("期望隐藏面板", _windowPanelID);
             return interaction;
         }
 
+        private void OnLabEntrySelected(int index, TUISelectionItem item)
+        {
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                "[lab_cli] entry-selected index={0} label={1}", index, item.label);
+
+            if (item.payload is not VFSNodeData node)
+            {
+                Debug.LogWarning("[lab_cli] selected item has no VFSNodeData payload");
+                return;
+            }
+
+            var content = VFSContentResolver.Resolve(node);
+            if (content == null)
+            {
+                Debug.LogWarning("[lab_cli] VFSContentResolver.Resolve returned null");
+                return;
+            }
+
+            var labFacade = GraphHub.Instance?.GetFacade<LabFacade>();
+            var queryContext = new VFSQueryContext
+            {
+                PackID = labFacade?.ResolvedPackID,
+                VfsPath = node.Name + node.Extension,
+                RequestName = "inspect",
+                Node = node,
+                SubjectLevel = PackAccessSubjects.Player,
+                FrontendContext = _console
+            };
+
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                "[lab_cli] triggering query pack={0} path={1}", queryContext.PackID, queryContext.VfsPath);
+
+            var result = VFSLabEntryResource.Query(content, queryContext);
+            if (result == null)
+            {
+                Debug.LogWarning("[lab_cli] VFSLabEntryResource.Query returned null");
+                return;
+            }
+
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                "[lab_cli] query result presentationType={0} title={1}", result.PresentationType, result.Title);
+
+            bool presented = _console.ClientRuntime?.TryPresent(result) ?? false;
+            Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, null,
+                "[lab_cli] TryPresent returned {0}", presented);
+        }
+
         private void PublishWindow(TUISelectionItem item)
         {
-            var payload = item.payload as string ?? string.Empty;
-            var lines = payload switch
+            string[] lines;
+            string footer = item.subtitle;
+
+            if (item.payload is VFSNodeData node)
             {
-                "workspace" => BuildWorkspaceLines(),
-                "drives" => BuildDriveLines(),
-                _ => BuildOverviewLines()
-            };
+                lines = BuildEntryLines(node, out footer);
+            }
+            else
+            {
+                var payload = item.payload as string ?? string.Empty;
+                lines = payload switch
+                {
+                    "workspace" => BuildWorkspaceLines(),
+                    "drives" => BuildDriveLines(),
+                    _ => BuildOverviewLines()
+                };
+            }
 
             PostSystem.Instance.Send("LabWindow.Refresh", new LabGUI.DisplayData
             {
                 Title = $"{_windowTitle} / {item.label}",
                 Lines = lines,
-                Footer = item.subtitle
+                Footer = footer
             });
             PostSystem.Instance.Send("期望显示面板", _windowPanelID);
+        }
+
+        private string[] BuildEntryLines(VFSNodeData node, out string footer)
+        {
+            footer = "无法读取条目";
+
+            var facade = GraphHub.Instance?.GetFacade<LabFacade>();
+            if (facade == null || node == null)
+                return new[] { "LabFacade 不可用，无法读取条目详情。" };
+
+            var entry = facade.GetLabEntry(node);
+            if (entry == null)
+                return new[] { "该 .labentry 节点无法解析为 LabEntrySO。" };
+
+            var blueprint = entry.EntityBlueprint;
+            var lines = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(entry.Description))
+            {
+                lines.Add(entry.Description);
+                lines.Add(string.Empty);
+            }
+
+            lines.Add($"Entry ID : {entry.EntryId}");
+            lines.Add($"Node     : {node.NodeID}");
+            lines.Add(string.Empty);
+
+            if (blueprint != null)
+            {
+                lines.Add($"Entity   : {blueprint.DisplayName ?? blueprint.BlueprintId}");
+                lines.Add($"Faction  : {FormatFaction(blueprint.Faction)}");
+                lines.Add($"Type     : {BuildUnitTypeLine(blueprint.UnitType)}");
+                lines.Add($"HP       : {blueprint.MaxHealth:0}");
+                lines.Add($"Size     : {blueprint.LogicSize.x}x{blueprint.LogicSize.y}");
+                lines.Add(string.Empty);
+            }
+            else
+            {
+                lines.Add("Entity   : (none)");
+                lines.Add(string.Empty);
+            }
+
+            if (entry.UnlockCosts != null && entry.UnlockCosts.Length > 0)
+            {
+                lines.Add("Unlock Costs:");
+                foreach (var cost in entry.UnlockCosts)
+                    lines.Add($"  - Resource {cost.ResourceType}: {cost.Amount}");
+            }
+            else
+            {
+                lines.Add("Unlock Costs: Free");
+            }
+
+            footer = facade.IsUnlocked(node)
+                ? "[已解锁] 该实体已加入仓库"
+                : "Enter 查看详情，输入 unlock 解锁该条目";
+
+            return lines.ToArray();
         }
 
         private string[] BuildOverviewLines()
@@ -312,6 +498,32 @@ public class LabCLI : DeveloperConsole
         private static string SafeValue(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? "(none)" : value;
+        }
+
+        private static string FormatFaction(int faction)
+        {
+            return faction switch
+            {
+                0 => "Protocol",
+                1 => "SunCity",
+                2 => "Gaia",
+                _ => $"F:{faction}"
+            };
+        }
+
+        private static string BuildUnitTypeLine(int unitTypeMask)
+        {
+            if (unitTypeMask == UnitType.None)
+                return "None";
+
+            var parts = new List<string>();
+            if ((unitTypeMask & UnitType.Hero) != 0) parts.Add("Hero");
+            if ((unitTypeMask & UnitType.Minion) != 0) parts.Add("Minion");
+            if ((unitTypeMask & UnitType.Building) != 0) parts.Add("Building");
+            if ((unitTypeMask & UnitType.ResourceItem) != 0) parts.Add("Resource");
+            if ((unitTypeMask & UnitType.Projectile) != 0) parts.Add("Projectile");
+            if ((unitTypeMask & UnitType.Flyer) != 0) parts.Add("Flyer");
+            return string.Join("|", parts);
         }
     }
 

@@ -76,6 +76,8 @@ public struct MoveComponent
     public int CurrentReservedLane;
     public ulong CurrentReservedMask;
     public List<ReservationRecord> ActiveReservations;
+    public bool HasSwapIntent;      // 本帧是否有交换意图（由 BoidsSystem 标记，MoveSystem 执行后清除）
+    public int SwapPartnerIdx;      // 交换伙伴的实体索引（仅在 HasSwapIntent=true 时有效）
 
     // --- 蓝图配置字段 ---
     [BlueprintField(DisplayName = "移动间隔", Tooltip = "移动一格所需的时间（秒）", Min = 0.1f, Max = 10f)]

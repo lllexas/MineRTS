@@ -24,7 +24,7 @@ public class SocialManager : SingletonData<SocialManager>
     /// <param name="vfsPath">可选的 VFS 路径，如果为空则使用默认路径喵~</param>
     public void SendMessage(string packID, string sender = "系统", string vfsPath = null)
     {
-        var analyser = GraphAnalyser.Instance;
+        var analyser = GraphHub.Instance?.DefaultAnalyser;
         if (analyser == null) return;
         var facade = GetSocialBoxFacade();
         if (facade == null) return;
@@ -77,7 +77,7 @@ public class SocialManager : SingletonData<SocialManager>
     /// </summary>
     public void MarkAsRead(string vfsPath)
     {
-        var analyser = GraphAnalyser.Instance;
+        var analyser = GraphHub.Instance?.DefaultAnalyser;
         if (analyser == null) return;
         var facade = GetSocialBoxFacade();
         if (facade == null) return;
