@@ -27,6 +27,11 @@ public class BoidsSystem : SingletonMono<BoidsSystem>
 
             if (!core.Active || (core.Type & UnitType.Building) != 0) continue;
             if (m.Waypoints == null || m.WaypointIndex >= m.Waypoints.Count) continue;
+
+            // 清理上帧遗留的交换标记
+            m.HasSwapIntent = false;
+            m.SwapPartnerIdx = -1;
+
             if (m.HasNextStep) continue;
 
             // 获取当前战略目标点
@@ -106,7 +111,14 @@ public class BoidsSystem : SingletonMono<BoidsSystem>
                 {
                     // 检查是否是同队易位 (Swap)
                     if (otherMove.NextStepTile == m.LogicalPosition && core.Team == whole.coreComponent[occupantIdx].Team)
+                    {
+                        // 同队对向交换：标记双方，等待 MoveSystem 原子执行
+                        m.HasSwapIntent = true;
+                        m.SwapPartnerIdx = occupantIdx;
+                        otherMove.HasSwapIntent = true;
+                        otherMove.SwapPartnerIdx = i;
                         continue; // 允许交换位置
+                    }
 
                     // 链式依赖：如果对方被堵了，我也得停
                     // 这会在 resolution 循环的后续步骤中传导过来

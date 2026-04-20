@@ -9,6 +9,80 @@ public class MoveSystem : SingletonMono<MoveSystem>
         // 1. 从TimeSystem获取本帧需要处理的tick数量
         int ticksToProcess = TimeSystem.Instance.TicksProcessedThisFrame;
 
+        // ==========================================================
+        // 阶段 0：批量执行同队交换 (Batch Swap Execution)
+        // BoidsSystem 已识别出对向交换意图，此处原子执行
+        // ==========================================================
+        for (int i = 0; i < whole.entityCount; i++)
+        {
+            ref var core = ref whole.coreComponent[i];
+            ref var move = ref whole.moveComponent[i];
+
+            if (!core.Active || (core.Type & (UnitType.Building | UnitType.Projectile)) != 0) continue;
+            if (!move.HasSwapIntent) continue;
+
+            int partnerIdx = move.SwapPartnerIdx;
+            // 防重复处理：只由索引较小的一方驱动
+            if (i >= partnerIdx) continue;
+
+            ref var partnerCore = ref whole.coreComponent[partnerIdx];
+            ref var partnerMove = ref whole.moveComponent[partnerIdx];
+
+            // 双向验证：对方也指向我
+            if (!partnerMove.HasSwapIntent || partnerMove.SwapPartnerIdx != i) continue;
+
+            // 双方必须处于可移动状态（不在移动冷却/阻塞冷却中）
+            if (move.MoveTimerTicks > 0 || partnerMove.MoveTimerTicks > 0) continue;
+            if (move.BlockWaitTimerTicks > 0 || partnerMove.BlockWaitTimerTicks > 0) continue;
+
+            // 大小必须一致（不同大小单位不交换，防止占据区域不匹配）
+            Vector2Int size = core.LogicSize;
+            if (size != (Vector2Int)partnerCore.LogicSize) continue;
+
+            Vector2Int selfOldPos = move.LogicalPosition;
+            Vector2Int partnerOldPos = partnerMove.LogicalPosition;
+
+            // 1. 清除旧格子占据
+            gridSystem.ClearOccupantRect(selfOldPos, size);
+            gridSystem.ClearOccupantRect(partnerOldPos, size);
+
+            // 2. 更新逻辑位置
+            move.PreviousLogicalPosition = selfOldPos;
+            move.LogicalPosition = partnerOldPos;
+            partnerMove.PreviousLogicalPosition = partnerOldPos;
+            partnerMove.LogicalPosition = selfOldPos;
+
+            // 3. 占据新格子
+            gridSystem.SetOccupantRect(partnerOldPos, size, core.SelfHandle.Id);
+            gridSystem.SetOccupantRect(selfOldPos, size, partnerCore.SelfHandle.Id);
+
+            // 4. 设置视觉插值起点（让交换也有平滑动画）
+            move.LastVisualPosition = gridSystem.GridToWorld(selfOldPos, size);
+            partnerMove.LastVisualPosition = gridSystem.GridToWorld(partnerOldPos, size);
+
+            // 5. 重置计时器和状态
+            move.MoveTimerTicks = move.MoveIntervalTicks;
+            partnerMove.MoveTimerTicks = partnerMove.MoveIntervalTicks;
+            move.IsBlocked = false;
+            partnerMove.IsBlocked = false;
+            move.HasNextStep = false;
+            partnerMove.HasNextStep = false;
+            move.StuckTimerTicks = 0;
+            partnerMove.StuckTimerTicks = 0;
+
+            // 6. 更新朝向
+            Vector2Int selfDir = partnerOldPos - selfOldPos;
+            if (selfDir != Vector2Int.zero) core.Rotation = selfDir;
+            Vector2Int partnerDir = selfOldPos - partnerOldPos;
+            if (partnerDir != Vector2Int.zero) partnerCore.Rotation = partnerDir;
+
+            // 7. 清除交换标记
+            move.HasSwapIntent = false;
+            move.SwapPartnerIdx = -1;
+            partnerMove.HasSwapIntent = false;
+            partnerMove.SwapPartnerIdx = -1;
+        }
+
         // 2. 遍历实体
         for (int i = 0; i < whole.entityCount; i++)
         {
@@ -87,11 +161,6 @@ public class MoveSystem : SingletonMono<MoveSystem>
                             if (gridSystem.IsAreaClear(nextStep, size, core.SelfHandle.Id))
                             {
                                 PerformMove(i, nextStep, whole, ref move, ref core, size);
-                            }
-                            // 尝试易位
-                            else if (TrySwapMove(i, nextStep, whole, ref move, ref core, size))
-                            {
-                                // 易位成功，移动已执行
                             }
                             else
                             {
@@ -321,28 +390,6 @@ public class MoveSystem : SingletonMono<MoveSystem>
         }
 
         return true; // 通路无阻
-    }
-
-    /// <summary>
-    /// 尝试与目标格子上的单位交换位置（易位）。
-    /// </summary>
-    private bool TrySwapMove(int selfIdx, Vector2Int nextStep, WholeComponent whole, ref MoveComponent move, ref CoreComponent core, Vector2Int size)
-    {
-        int occupantId = GridSystem.Instance.GetOccupantId(nextStep);
-        if (occupantId == -1 || occupantId == core.SelfHandle.Id) return false;
-
-        EntityHandle occHandle = EntitySystem.Instance.GetHandleFromId(occupantId);
-        if (!EntitySystem.Instance.IsValid(occHandle)) return false;
-
-        int occIdx = EntitySystem.Instance.GetIndex(occHandle);
-        ref var occMove = ref whole.moveComponent[occIdx];
-        // 对方的目标格子正好是当前单位的位置
-        if (occMove.NextStepTile == move.LogicalPosition)
-        {
-            PerformMove(selfIdx, nextStep, whole, ref move, ref core, size);
-            return true;
-        }
-        return false;
     }
 
     /// <summary>
