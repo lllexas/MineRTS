@@ -48,25 +48,25 @@ public sealed class VFSMsgSession : TUISelectSlot
 
     public override bool HandleConfirm()
     {
-        Debug.Log("[VFSMsgSession] HandleConfirm called");
         if (!HasItems)
             return HandleCancel();
 
         bool resumed = ResumeSelectedChoice();
-        Debug.Log($"[VFSMsgSession] ResumeSelectedChoice returned {resumed}");
-        return resumed || HandleCancel();
+        if (!resumed)
+            return false;
+
+        HandleCancel();
+        return true;
     }
 
     public override bool HandleCancel()
     {
-        Debug.Log("[VFSMsgSession] HandleCancel called");
         Console?.EndSession(this);
         return true;
     }
 
     protected override List<string> BuildLines()
     {
-        Debug.Log($"[VFSMsgSession.BuildLines] SelectedIndex={SelectedIndex}, ItemCount={ItemCount}, HasItems={HasItems}");
         var lines = new List<string>();
         var style = Config.viewStyle;
         var message = _payload?.Message;
@@ -98,6 +98,18 @@ public sealed class VFSMsgSession : TUISelectSlot
             lines.Add(RenderStyledLine(Config.helpText, style.helpStyle, false));
 
         return lines;
+    }
+
+    protected override bool TryRenderSelectionChange(int previousIndex, int currentIndex)
+    {
+        if (Console == null || !HasItems)
+            return false;
+
+        var optionLines = BuildOptionSectionLines();
+        int optionStart = StartLine + GetOptionSectionStartOffset();
+        int previousHeight = GetOptionSectionRenderedHeight();
+        Console.WriteInputHandleRange(optionStart, previousHeight, optionLines);
+        return true;
     }
 
     private bool ResumeSelectedChoice()
@@ -244,6 +256,68 @@ public sealed class VFSMsgSession : TUISelectSlot
         return choiceCount > 0
             ? "Up/Down or 1-9 to choose, Enter confirm, Esc close."
             : "Enter / Esc close.";
+    }
+
+    private List<string> BuildOptionSectionLines()
+    {
+        var lines = new List<string>();
+        var style = Config.viewStyle;
+
+        if (HasItems)
+        {
+            lines.Add(string.Empty);
+
+            for (int i = 0; i < ItemCount; i++)
+            {
+                var item = Config.items[i];
+                bool selected = i == SelectedIndex;
+                lines.Add(BuildItemLine(item, selected));
+            }
+        }
+
+        AddBlankLines(lines, style.bottomSpacing);
+
+        if (!string.IsNullOrWhiteSpace(Config.helpText))
+            lines.Add(RenderStyledLine(Config.helpText, style.helpStyle, false));
+
+        return lines;
+    }
+
+    private int GetOptionSectionStartOffset()
+    {
+        int offset = 0;
+        if (!string.IsNullOrWhiteSpace(Config.title))
+            offset += 1;
+
+        offset += Config.viewStyle.topSpacing;
+        offset += CountMessageBoxLines(_payload?.Message);
+        return offset;
+    }
+
+    private int GetOptionSectionRenderedHeight()
+    {
+        int height = 0;
+        if (HasItems)
+            height += 1 + ItemCount;
+
+        height += Config.viewStyle.bottomSpacing;
+        if (!string.IsNullOrWhiteSpace(Config.helpText))
+            height += 1;
+
+        return height;
+    }
+
+    private int CountMessageBoxLines(VFSMsgSO message)
+    {
+        int boxWidth = GetBoxWidth();
+        int contentWidth = Math.Max(1, TUITool.CalcContentWidth(boxWidth, MsgBoxStyle) - 2);
+        int bodyLineCount = string.IsNullOrWhiteSpace(message?.Body)
+            ? 1
+            : WrapText(message.Body, contentWidth).Count;
+
+        int contentLineCount = 2 + bodyLineCount;
+        int borderAndPaddingLines = 2 + (MsgBoxStyle.paddingY * 2);
+        return BoxBleedY + borderAndPaddingLines + contentLineCount + BoxBleedY;
     }
 
     private static TSSStyle MsgBoxStyle => new TSSStyle

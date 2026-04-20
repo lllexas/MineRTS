@@ -53,26 +53,27 @@ public static class GameCommandBricks
         Vector2Int pos = ParseGridPos(args[1]);
         int team = int.Parse(args[2]);
 
-        EntityBlueprint bp = BlueprintRegistry.Get(key);
-        if (string.IsNullOrEmpty(bp.Name))
+        EntityBlueprintSO blueprint = MetaLib.GetObject<EntityBlueprintSO>(key);
+        if (blueprint == null)
         {
-            return CommandOutput.Fail($"Unknown blueprint: {key}");
+            return CommandOutput.Fail($"Unknown entity blueprint: {key}");
         }
 
-        if (!GridSystem.Instance.IsAreaClear(pos, bp.LogicSize))
+        if (!GridSystem.Instance.IsAreaClear(pos, blueprint.LogicSize))
         {
             return CommandOutput.Fail($"Area {pos} is blocked!");
         }
 
-        EntityHandle handle = EntitySystem.Instance.CreateEntityFromBlueprint(key, pos, team);
+        EntityHandle handle = EntitySystem.Instance.CreateEntityFromSO(blueprint, pos, team);
         int idx = EntitySystem.Instance.GetIndex(handle);
 
-        if (idx != -1 && args.Length >= 4)
+        if (idx != -1 && args.Length >= 5)
         {
             EntitySystem.Instance.wholeComponent.coreComponent[idx].Rotation = ParseGridPos(args[4]);
         }
 
-        return CommandOutput.Success($"Successfully spawned {bp.Name} (Team {team})", handle);
+        string displayName = string.IsNullOrWhiteSpace(blueprint.DisplayName) ? blueprint.BlueprintId : blueprint.DisplayName;
+        return CommandOutput.Success($"Successfully spawned {displayName} (Team {team})", handle);
     }
 
     [CommandInfo("army", "🏗️ 方阵召唤", "Entity", new[] { "BlueprintID", "Center (x,y)", "Width", "Height", "Team" },

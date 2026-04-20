@@ -1,6 +1,9 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 using SpaceTUI;
+using TMPro;
+using MineRTS.BigMap;
 
 namespace MineRTS.BigMap.UI
 {
@@ -18,6 +21,16 @@ namespace MineRTS.BigMap.UI
     /// </summary>
     public class NodeInfoPanelAnimator : SpaceUIAnimator
     {
+        [Header("Node Info")]
+        [SerializeField] private float _animationDuration = 0.3f;
+        [SerializeField] private RectTransform _panelRoot;
+        [SerializeField] private TMP_Text _nodeNameText;
+        [SerializeField] private TMP_Text _nodeDescText;
+        [SerializeField] private TMP_Text _nodeStatusText;
+        [SerializeField] private Button _enterStageButton;
+
+        private BigMapNodeData _currentNodeData;
+
         /// <summary>
         /// UI ID - 由代码硬编码，Inspector 显示但不可改
         /// </summary>
@@ -26,6 +39,11 @@ namespace MineRTS.BigMap.UI
         protected override void Awake()
         {
             base.Awake();
+
+            if (_enterStageButton != null)
+            {
+                _enterStageButton.onClick.AddListener(OnEnterStageClicked);
+            }
         }
 
         protected override void CloseAction()
@@ -41,6 +59,33 @@ namespace MineRTS.BigMap.UI
             鼠标滑入 += OnMouseEnter_;
             鼠标滑出 += OnMouseExit_;
             鼠标点击 += OnMouseClick;
+        }
+
+        private void OnDestroy()
+        {
+            if (_enterStageButton != null)
+            {
+                _enterStageButton.onClick.RemoveListener(OnEnterStageClicked);
+            }
+        }
+
+        [Subscribe(BigMapEvents.NodeClicked)]
+        private void OnNodeClicked(object data)
+        {
+            if (data is not NodeClickEvent e || string.IsNullOrEmpty(e.StageId))
+            {
+                return;
+            }
+
+            var node = BigMapRuntimeRenderer.Instance?.GetNode(e.StageId);
+            if (node?.NodeData == null)
+            {
+                Debug.LogWarning($"<color=orange>[NodeInfoPanelAnimator]</color> 找不到节点数据：{e.StageId}");
+                return;
+            }
+
+            Setup(node.NodeData);
+            PostSystem.Instance.Send("期望显示面板", UIID);
         }
 
         /// <summary>
@@ -102,6 +147,53 @@ namespace MineRTS.BigMap.UI
             // 行为组合：快速缩放反馈
             SetTargetScale(new Vector3(0.95f, 0.95f, 0.95f));
             PlayScaleAnimation();
+        }
+
+        private void Setup(BigMapNodeData nodeData)
+        {
+            _currentNodeData = nodeData;
+
+            if (_nodeNameText != null)
+                _nodeNameText.text = nodeData.DisplayName;
+
+            if (_nodeDescText != null)
+            {
+                _nodeDescText.text = string.IsNullOrWhiteSpace(nodeData.ExtraData)
+                    ? "点击按钮进入关卡"
+                    : nodeData.ExtraData;
+            }
+
+            if (_nodeStatusText != null)
+            {
+                _nodeStatusText.text = GetNodeStatus(nodeData.StageID);
+            }
+        }
+
+        private string GetNodeStatus(string stageID)
+        {
+            if (MainModel.Instance?.CurrentUser != null)
+            {
+                var stageData = MainModel.Instance.CurrentUser.GetStage(stageID);
+                if (stageData != null && stageData.IsCleared)
+                {
+                    return "✓ 已通关";
+                }
+            }
+
+            return "● 未挑战";
+        }
+
+        private void OnEnterStageClicked()
+        {
+            if (_currentNodeData == null)
+            {
+                Debug.LogWarning("<color=orange>[NodeInfoPanelAnimator]</color> 当前没有节点数据");
+                return;
+            }
+
+            Debug.Log($"<color=cyan>[NodeInfoPanelAnimator]</color> 进入关卡：{_currentNodeData.StageID}");
+            FadeOut();
+            GameFlowController.Instance?.EnterStage(_currentNodeData.StageID);
         }
     }
 }

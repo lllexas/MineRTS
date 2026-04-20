@@ -68,7 +68,7 @@ public static class VFSMsgResource
             VfsPath = deliveredPath
         });
 
-        return HandleResult.Push;
+        return HandleResult.Wait;
     }
 
     [VFSQuery]

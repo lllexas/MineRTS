@@ -119,10 +119,10 @@ public class DeveloperConsolePanel : ConsolePanelBase<DeveloperConsole>
     //  PostSystem 标签订阅方法
     // =========================================================
 
-    [Subscribe("DeveloperConsole.Output")]
+    [Subscribe("ConsoleManager.Output")]
     private void HandleOutput(object data)
     {
-        if (data is DeveloperConsole.ConsoleOutputEvent evt)
+        if (data is ConsoleManager.ConsoleOutputEvent evt)
         {
             Output(evt.message, evt.color);
         }

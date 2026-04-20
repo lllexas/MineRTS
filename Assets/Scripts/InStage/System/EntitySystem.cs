@@ -459,6 +459,95 @@ public class EntitySystem : SingletonMono<EntitySystem>
         return handle;
     }
 
+    public EntityHandle CreateEntityFromSO(EntityBlueprintSO blueprint, Vector2Int gridPos, int faction)
+    {
+        if (blueprint == null) return EntityHandle.None;
+
+        EntityHandle handle = CreateEntity(gridPos, faction, blueprint.UnitType, blueprint.LogicSize);
+        int index = GetIndex(handle);
+        if (index == -1) return EntityHandle.None;
+
+        ApplyBlueprintSOToEntity(blueprint, index, faction, handle);
+        return handle;
+    }
+
+    public void ApplyBlueprintSOToEntity(EntityBlueprintSO blueprint, int index, int faction, EntityHandle handle)
+    {
+        if (blueprint == null || index < 0 || index >= wholeComponent.entityCount) return;
+
+        var whole = wholeComponent;
+
+        ref var core = ref whole.coreComponent[index];
+        core.LogicSize = blueprint.LogicSize;
+        core.VisualScale = blueprint.VisualScale;
+        core.BlueprintName = !string.IsNullOrWhiteSpace(blueprint.BlueprintId)
+            ? blueprint.BlueprintId
+            : blueprint.name;
+
+        ref var move = ref whole.moveComponent[index];
+        float intervalSec = blueprint.MoveInterval > 0 ? blueprint.MoveInterval : 0.5f;
+        move.MoveIntervalTicks = TimeTicker.ToTicks(intervalSec);
+        move.MoveTimerTicks = 0;
+        move.BlockWaitTimerTicks = 0;
+        move.IsFlyer = blueprint.IsFlyer || (blueprint.UnitType & UnitType.Flyer) != 0;
+
+        ref var attack = ref whole.attackComponent[index];
+        attack.AttackRange = blueprint.AttackRange;
+        attack.AttackDamage = blueprint.AttackDamage;
+        attack.AttackCooldownTicks = TimeTicker.ToTicks(blueprint.AttackCooldown);
+        attack.LastAttackTick = 0;
+        attack.ProjectileSpriteId = blueprint.ProjectileSpriteId;
+        attack.ProjectileSpeed = blueprint.ProjectileSpeed;
+        attack.TargetEntityId = -1;
+
+        ref var draw = ref whole.drawComponent[index];
+        draw.SpriteId = blueprint.SpriteId;
+        draw.TeamColor = (faction == 1) ? Color.white : Color.red;
+
+        ref var work = ref whole.workComponent[index];
+        work.WorkType = blueprint.WorkType;
+        work.WorkSpeed = blueprint.WorkSpeed;
+        work.DrillRange = blueprint.DrillRange;
+        work.RequiresPower = blueprint.RequiresPower;
+
+        ref var health = ref whole.healthComponent[index];
+        health.MaxHealth = blueprint.MaxHealth;
+        health.Health = blueprint.MaxHealth;
+        health.ExplodeOnDeath = blueprint.ExplodeOnDeath;
+
+        ref var go = ref whole.goComponent[index];
+        bool isHeroOrMinion = (blueprint.UnitType & (UnitType.Hero | UnitType.Minion)) != 0;
+        bool isBuilding = (blueprint.UnitType & UnitType.Building) != 0;
+        go.IsGoPiece = isHeroOrMinion && !isBuilding;
+        go.CurrentLiberties = 0;
+
+        ref var inv = ref whole.inventoryComponent[index];
+        inv = default;
+        inv.InputSlotCount = blueprint.InputCount;
+        inv.OutputSlotCount = blueprint.OutputCount;
+        if (blueprint.InputCount >= 1) inv.Input0.MaxCapacity = blueprint.DefaultCapacity;
+        if (blueprint.InputCount >= 2) inv.Input1.MaxCapacity = blueprint.DefaultCapacity;
+        if (blueprint.InputCount >= 3) inv.Input2.MaxCapacity = blueprint.DefaultCapacity;
+        if (blueprint.InputCount >= 4) inv.Input3.MaxCapacity = blueprint.DefaultCapacity;
+        if (blueprint.OutputCount >= 1) inv.Output0.MaxCapacity = blueprint.DefaultCapacity;
+        if (blueprint.OutputCount >= 2) inv.Output1.MaxCapacity = blueprint.DefaultCapacity;
+        if (blueprint.OutputCount >= 3) inv.Output2.MaxCapacity = blueprint.DefaultCapacity;
+        if (blueprint.OutputCount >= 4) inv.Output3.MaxCapacity = blueprint.DefaultCapacity;
+
+        ref var power = ref whole.powerComponent[index];
+        power.NetID = -1;
+        power.IsNode = blueprint.IsPowerNode;
+        power.SupplyRange = blueprint.SupplyRange;
+        power.ConnRange = blueprint.ConnectionRange;
+        power.Production = blueprint.EnergyGeneration;
+        power.Capacity = blueprint.EnergyCapacity;
+        power.StoredEnergy = 0f;
+        if (power.IsNode)
+        {
+            PowerSystem.Instance.OnPowerEntityBuilt(handle, whole);
+        }
+    }
+
 
     // =========================================================
     // 工具方法
