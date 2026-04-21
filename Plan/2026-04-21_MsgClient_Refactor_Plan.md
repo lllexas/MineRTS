@@ -236,3 +236,99 @@
 - 多种显示器
 
 才不会继续在 `.msg` 资源本体上堆职责。
+
+
+## 已追加经验：二次 `cat` 黑屏的真正根因
+
+在本轮抢修中，已经确认一个非常关键的经验：
+
+### 表象
+
+- 第一次 `cat .msg` 正常
+- 选择后退出
+- 第二次 `cat` 同一条 `.msg`
+  - `Query` 正常
+  - `VFSMsgSession.BuildLines()` 也正常
+  - 但屏幕全黑
+
+
+### 误判方向
+
+一开始容易怀疑：
+
+- `ReplicaMeta` 没写好
+- `SelectedChoiceIndex` 没带回来
+- `resolved` 模式没有正确构建正文
+
+但日志已经证明这些都不是根因。
+
+
+### 真正根因
+
+真正问题在于：
+
+- `ConsolePanelBase` 才是 `InputHandleHost` 的拥有者
+- 但旧实现里 `ConsoleManager.EndSession()` 会顺手调用 `UnbindInputHandleHost()`
+
+这样会导致：
+
+1. 第一次 `.msg` session 退出
+2. `InputHandleHost` 被一并解绑
+3. 紧接着第二次 `cat`
+4. `VFSMsgSession` 虽然构建出了 lines
+5. 但 `WriteInputHandleRange(...)` 实际写入的是一个尚未重新绑定的宿主
+6. 表现为“数据正常，但屏幕全黑”
+
+
+### 正确修法
+
+把 host 生命周期和 session 生命周期分开：
+
+- `InputHandleHost`
+  - 属于 `ConsolePanelBase`
+  - 由 panel 自己绑定 / 解绑
+
+- `Session`
+  - 属于 `ConsoleManager`
+  - 只负责 begin / end
+
+因此已修正为：
+
+- `ConsoleManager.EndSession()` 不再主动 `UnbindInputHandleHost()`
+
+
+### 这条经验的意义
+
+以后所有基于：
+
+- `TUISelectSlot`
+- `ConsoleSession`
+- `Client -> Session`
+
+的前端链路，都必须记住：
+
+**不要让 session 退出顺手拆掉 panel 的渲染宿主。**
+
+否则就会出现：
+
+- 第一次打开正常
+- 第二次打开黑屏
+- 日志里一切正常
+- 但实际写到了空气里
+
+
+### 结论
+
+这不是 `.msg` 特有 bug，而是：
+
+**SpaceTUI 的 session 生命周期和 input-handle host 生命周期必须严格解耦。**
+
+这是之后继续做：
+
+- `.msg`
+- `.entity`
+- `.labentry`
+- `Warehouse`
+- 任何复合 session viewer
+
+时都要遵守的基础规则。

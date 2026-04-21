@@ -99,7 +99,8 @@ public static class VFSMsgResource
         }
 
         return VFSQueryResult.Create(
-            presentationType: "social.msg",
+            presentationType: "msg",
+            requestName: context?.RequestName ?? MsgClientViewKeys.Inspect,
             title: string.IsNullOrWhiteSpace(msg.Title) ? msg.Sender : msg.Title,
             summary: msg.Body,
             payload: new VFSMsgQueryPayload
@@ -164,15 +165,3 @@ public sealed class VFSMsgReplicaMeta
     }
 }
 
-public static class VFSMsgPresentationBootstrap
-{
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-    public static void RegisterConsolePresentation()
-    {
-        ConsoleClientRuntime.RegisterSessionFactory(
-            "social.msg",
-            payload => payload is VFSMsgQueryPayload msgPayload && msgPayload.Message != null
-                ? new VFSMsgSession(msgPayload)
-                : null);
-    }
-}
