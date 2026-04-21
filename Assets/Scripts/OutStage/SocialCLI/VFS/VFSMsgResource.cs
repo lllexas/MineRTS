@@ -76,6 +76,18 @@ public static class VFSMsgResource
     public static VFSQueryResult Query(VFSResolvedContent content, VFSQueryContext context)
     {
         var msg = content.GetUnityObject<VFSMsgSO>();
+        var replicaMeta = VFSMsgReplicaMeta.FromNode(context?.Node);
+        Debug.LogFormat(
+            LogType.Log,
+            LogOption.NoStacktrace,
+            null,
+            "[vfs_msg] query node={0} msg={1} resolved={2} selectedIndex={3} choices={4}",
+            context?.Node?.NodeID ?? "(null)",
+            msg != null ? "ok" : "null",
+            replicaMeta?.IsResolved.ToString() ?? "(null)",
+            replicaMeta?.SelectedChoiceIndex.ToString() ?? "(null)",
+            replicaMeta?.ChoiceTargetNodeIDs?.Count.ToString() ?? "(null)");
+
         if (msg == null)
         {
             return VFSQueryResult.Create(
@@ -97,7 +109,7 @@ public static class VFSMsgResource
                 VfsPath = context?.VfsPath,
                 SourceNodeId = context?.Node?.NodeID,
                 FrontendContext = context?.FrontendContext,
-                ReplicaMeta = VFSMsgReplicaMeta.FromNode(context?.Node)
+                ReplicaMeta = replicaMeta
             },
             isInteractive: true);
     }
@@ -125,6 +137,7 @@ public sealed class VFSMsgReplicaMeta
     public string BackendNodeID;
     public string SignalId;
     public bool IsResolved;
+    public int SelectedChoiceIndex = -1;
     public List<string> ChoiceTargetNodeIDs = new();
 
     public static VFSMsgReplicaMeta FromNode(VFSNodeData node)

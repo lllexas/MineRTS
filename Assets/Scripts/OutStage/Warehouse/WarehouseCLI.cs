@@ -26,6 +26,12 @@ public class WarehouseCLI : DeveloperConsole
             return preferredWarehousePackID;
         }
 
+        var facadePackID = GraphHub.Instance?.GetFacade<EntityWarehouseFacade>()?.ResolvedPackID;
+        if (!string.IsNullOrWhiteSpace(facadePackID))
+        {
+            return facadePackID;
+        }
+
         return PlayerWarehouseManager.Instance?.CurrentWarehousePackID;
     }
 
@@ -451,6 +457,12 @@ public class WarehouseCLI : DeveloperConsole
 
         private string ResolveWarehousePackID()
         {
+            var facadePackID = GraphHub.Instance?.GetFacade<EntityWarehouseFacade>()?.ResolvedPackID;
+            if (!string.IsNullOrWhiteSpace(facadePackID))
+            {
+                return facadePackID;
+            }
+
             if (PlayerWarehouseManager.Instance != null &&
                 !string.IsNullOrWhiteSpace(PlayerWarehouseManager.Instance.CurrentWarehousePackID))
             {

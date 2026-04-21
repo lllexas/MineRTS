@@ -339,7 +339,7 @@ public class LabCLI : DeveloperConsole
             {
                 PackID = labFacade?.ResolvedPackID,
                 VfsPath = node.Name + node.Extension,
-                RequestName = "inspect",
+                RequestName = LabClientViewKeys.Inspect,
                 Node = node,
                 SubjectLevel = PackAccessSubjects.Player,
                 FrontendContext = _console

@@ -30,6 +30,8 @@ public sealed class EntityClient : SingletonMono<EntityClient>
 
     private static void PresentRequest(ConsoleManager console, VFSQueryResult result)
     {
+        _ = EntityClient.Instance;
+
         if (result?.Payload is not VFSEntityQueryPayload entityPayload || entityPayload.Blueprint == null)
             return;
 
@@ -54,6 +56,16 @@ public sealed class EntityClient : SingletonMono<EntityClient>
 
         PostSystem.Instance.Send(EntityClientEvents.GetViewRequestedEvent(viewKey), request);
     }
+
+    [Subscribe(EntityClientEvents.ViewRequestedInspect)]
+    private void OnInspectRequested(object data)
+    {
+        if (data is not EntityClientPresentRequest request || request.Source?.Blueprint == null)
+            return;
+
+        PostSystem.Instance.Send(EntityViewerEvents.Refresh, request.Source);
+        PostSystem.Instance.Send("期望显示面板", EntityViewerEvents.PanelID);
+    }
 }
 
 public static class EntityClientViewKeys
@@ -66,6 +78,7 @@ public static class EntityClientEvents
 {
     public const string PresentRequested = "EntityClient.PresentRequested";
     public const string ViewRequestedPrefix = "EntityClient.ViewRequested.";
+    public const string ViewRequestedInspect = ViewRequestedPrefix + EntityClientViewKeys.Inspect;
 
     public static string GetViewRequestedEvent(string viewKey)
     {

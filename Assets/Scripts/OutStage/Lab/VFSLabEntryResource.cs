@@ -87,7 +87,8 @@ public static class VFSLabEntryResource
             : entry.Description;
 
         return VFSQueryResult.Create(
-            presentationType: "lab.inspect",
+            presentationType: "lab",
+            requestName: string.IsNullOrWhiteSpace(context?.RequestName) ? LabClientViewKeys.Inspect : context.RequestName,
             title: title,
             summary: summary,
             payload: new VFSLabEntryQueryPayload
@@ -97,9 +98,29 @@ public static class VFSLabEntryResource
                 VfsPath = context?.VfsPath,
                 Node = context?.Node as VFSNodeData,
                 SourceNodeId = context?.Node?.NodeID,
-                FrontendContext = context?.FrontendContext
+                FrontendContext = context?.FrontendContext,
+                UnlockAction = BuildUnlockAction(context?.Node as VFSNodeData)
             },
             isInteractive: false);
+    }
+
+    private static Func<bool> BuildUnlockAction(VFSNodeData entryNode)
+    {
+        if (entryNode == null)
+            return null;
+
+        return () =>
+        {
+            var facade = GraphHub.Instance?.GetFacade<LabFacade>();
+            var analyser = GraphHub.Instance?.DefaultAnalyser;
+            if (facade == null || analyser == null)
+                return false;
+
+            if (facade.IsUnlocked(entryNode))
+                return true;
+
+            return facade.TryUnlockEntry(analyser, entryNode, out _, PackAccessSubjects.SystemMin);
+        };
     }
 
     private static string BuildDefaultSummary(EntityBlueprintSO blueprint)
@@ -130,6 +151,7 @@ public sealed class VFSLabEntryQueryPayload
     public VFSNodeData Node;
     public string SourceNodeId;
     public object FrontendContext;
+    public Func<bool> UnlockAction;
 }
 
 /// <summary>

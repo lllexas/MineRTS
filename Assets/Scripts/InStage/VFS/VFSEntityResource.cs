@@ -96,6 +96,7 @@ public static class VFSEntityResource
                 Blueprint = blueprint,
                 PackID = context?.PackID,
                 VfsPath = context?.VfsPath,
+                Node = context?.Node as VFSNodeData,
                 SourceNodeId = context?.Node?.NodeID,
                 FrontendContext = context?.FrontendContext
             },
@@ -139,6 +140,7 @@ public sealed class VFSEntityQueryPayload
     public EntityBlueprintSO Blueprint;
     public string PackID;
     public string VfsPath;
+    public VFSNodeData Node;
     public string SourceNodeId;
     public object FrontendContext;
 }

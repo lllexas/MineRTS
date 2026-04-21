@@ -48,6 +48,9 @@ public sealed class VFSMsgSession : TUISelectSlot
 
     public override bool HandleConfirm()
     {
+        if (IsResolved)
+            return HandleCancel();
+
         if (!HasItems)
             return HandleCancel();
 
@@ -70,6 +73,15 @@ public sealed class VFSMsgSession : TUISelectSlot
         var lines = new List<string>();
         var style = Config.viewStyle;
         var message = _payload?.Message;
+        Debug.LogFormat(
+            LogType.Log,
+            LogOption.NoStacktrace,
+            null,
+            "[vfs_msg_session] build-lines msg={0} resolved={1} selectedIndex={2} itemCount={3}",
+            message != null ? "ok" : "null",
+            IsResolved,
+            _payload?.ReplicaMeta?.SelectedChoiceIndex ?? -1,
+            ItemCount);
         if (message == null)
             return lines;
 
@@ -88,7 +100,7 @@ public sealed class VFSMsgSession : TUISelectSlot
             {
                 var item = Config.items[i];
                 bool selected = i == SelectedIndex;
-                lines.Add(BuildItemLine(item, selected));
+                lines.Add(BuildItemLine(item, i, selected));
             }
         }
 
@@ -138,6 +150,7 @@ public sealed class VFSMsgSession : TUISelectSlot
             return false;
 
         replicaMeta.IsResolved = true;
+        replicaMeta.SelectedChoiceIndex = SelectedIndex;
         PersistReplicaMeta(replicaMeta);
         return true;
     }
@@ -167,6 +180,7 @@ public sealed class VFSMsgSession : TUISelectSlot
         interaction.allowConfirmOnEmptySubmit = true;
         interaction.onCancel = () => config.console?.EndSession();
         config.interaction = interaction;
+        ApplyResolvedSelection(config, payload);
         return config;
     }
 
@@ -191,11 +205,17 @@ public sealed class VFSMsgSession : TUISelectSlot
         for (int i = 0; i < count; i++)
         {
             var choice = choices[i];
+            bool isResolvedChoice = payload?.ReplicaMeta?.IsResolved == true &&
+                                    payload.ReplicaMeta.SelectedChoiceIndex == i;
+            string label = string.IsNullOrWhiteSpace(choice?.Text) ? "(empty)" : choice.Text;
+            if (isResolvedChoice)
+                label = $"[已选择] {label}";
+
             items.Add(new TUISelectionItem
             {
                 key = i + 1,
                 indexText = (i + 1).ToString(),
-                label = string.IsNullOrWhiteSpace(choice?.Text) ? "(empty)" : choice.Text,
+                label = label,
                 subtitle = string.IsNullOrWhiteSpace(choice?.ChoiceTag) ? null : choice.ChoiceTag,
                 payload = targets[i]
             });
@@ -253,9 +273,30 @@ public sealed class VFSMsgSession : TUISelectSlot
     private static string BuildHelpText(VFSMsgQueryPayload payload)
     {
         int choiceCount = payload?.Message?.Choices?.Count ?? 0;
+        if (payload?.ReplicaMeta?.IsResolved == true)
+            return choiceCount > 0
+                ? "This message has been resolved. Press Enter / Esc to close."
+                : "Press Enter / Esc to close.";
+
         return choiceCount > 0
             ? "Up/Down or 1-9 to choose, Enter confirm, Esc close."
             : "Enter / Esc close.";
+    }
+
+    private static void ApplyResolvedSelection(TUISelectionConfig config, VFSMsgQueryPayload payload)
+    {
+        if (config.items == null || config.items.Count == 0)
+            return;
+
+        var meta = payload?.ReplicaMeta;
+        if (meta == null || !meta.IsResolved)
+            return;
+
+        int selectedIndex = meta.SelectedChoiceIndex;
+        if (selectedIndex < 0 || selectedIndex >= config.items.Count)
+            selectedIndex = 0;
+
+        config.initialSelectedKey = config.items[selectedIndex].key;
     }
 
     private List<string> BuildOptionSectionLines()
@@ -271,7 +312,7 @@ public sealed class VFSMsgSession : TUISelectSlot
             {
                 var item = Config.items[i];
                 bool selected = i == SelectedIndex;
-                lines.Add(BuildItemLine(item, selected));
+                lines.Add(BuildItemLine(item, i, selected));
             }
         }
 
@@ -399,8 +440,16 @@ public sealed class VFSMsgSession : TUISelectSlot
         return viewStyle;
     }
 
-    private string BuildItemLine(TUISelectionItem item, bool selected)
+    private string BuildItemLine(TUISelectionItem item, int itemIndex, bool selected)
     {
+        if (IsResolved && TryGetResolvedChoiceIndex(out int resolvedIndex))
+        {
+            if (itemIndex == resolvedIndex)
+                selected = true;
+            else
+                selected = false;
+        }
+
         var state = selected ? Config.viewStyle.selectedState : Config.viewStyle.normalState;
         string prefix = state.prefixText ?? string.Empty;
         string indexText = string.IsNullOrWhiteSpace(item.indexText) ? item.key.ToString() : item.indexText;
@@ -415,6 +464,14 @@ public sealed class VFSMsgSession : TUISelectSlot
             $"{padding}<color=#{prefixHex}>{prefix}</color>" +
             $"<color=#{indexHex}>[{indexText}]</color>" +
             $"<color=#{contentHex}> {item.label}</color>";
+    }
+
+    private bool IsResolved => _payload?.ReplicaMeta?.IsResolved == true;
+
+    private bool TryGetResolvedChoiceIndex(out int resolvedIndex)
+    {
+        resolvedIndex = _payload?.ReplicaMeta?.SelectedChoiceIndex ?? -1;
+        return resolvedIndex >= 0 && resolvedIndex < ItemCount;
     }
 
     private static string BuildSubtitleLine(string subtitle, bool selected)

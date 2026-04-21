@@ -13,6 +13,7 @@ public sealed class EntityWarehouseFacade : PackFacadeBase
 {
     public const string DefaultWarehousePackID = "player_warehouse";
     public const string EntitiesFolder = "/entities/";
+    public const string WarehouseChangedEvent = "Warehouse.Changed";
 
     protected override string GetDefaultPackID() => DefaultWarehousePackID;
 
@@ -172,6 +173,7 @@ public sealed class EntityWarehouseFacade : PackFacadeBase
         node.AssetGuid = assetGuid;
         node.UnityObjectTypeName = unityObjectTypeName;
         node.MimeType = "application/vnd.miner.entity";
+        PostSystem.Instance?.Send(WarehouseChangedEvent, path);
 
         return true;
     }
@@ -235,6 +237,8 @@ public sealed class EntityWarehouseFacade : PackFacadeBase
             sourceNode.NodeID,
             ResolvedPackID,
             deliveredPath);
+
+        PostSystem.Instance?.Send(WarehouseChangedEvent, deliveredPath);
 
         return true;
     }

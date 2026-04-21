@@ -1,19 +1,17 @@
-using System.Collections.Generic;
-using System.Text;
 using NekoGraph;
 using SpaceTUI;
 using UnityEngine;
 
 /// <summary>
 /// Lab 前端客户端仲裁器。
-/// 注册 lab.inspect Presenter，把 Query 结果转化为 LabWindow 详情展示。
+/// 后端 Query 只提供原始数据包；真正如何展示，由 LabClient 按 ViewKey 再分发给前端。
 /// </summary>
 public sealed class LabClient : SingletonMono<LabClient>
 {
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void RegisterConsolePresenters()
     {
-        ConsoleClientRuntime.RegisterPresenter("lab.inspect", PresentInspectRequest);
+        ConsoleClientRuntime.RegisterPresenter("lab", PresentRequest);
     }
 
     protected override void Awake()
@@ -28,83 +26,67 @@ public sealed class LabClient : SingletonMono<LabClient>
             PostSystem.Instance?.Unregister(this);
     }
 
-    private static void PresentInspectRequest(ConsoleManager console, VFSQueryResult result)
+    private static void PresentRequest(ConsoleManager console, VFSQueryResult result)
     {
+        _ = LabClient.Instance;
+
         if (result?.Payload is not VFSLabEntryQueryPayload labPayload || labPayload.Entry == null)
             return;
 
-        var entry = labPayload.Entry;
-        var blueprint = entry.EntityBlueprint;
-        var lines = new List<string>();
-
-        // 描述
-        if (!string.IsNullOrWhiteSpace(entry.Description))
+        PostSystem.Instance.Send(LabClientEvents.PresentRequested, new LabClientPresentRequest
         {
-            lines.Add(entry.Description);
-            lines.Add(string.Empty);
-        }
-
-        // 引用实体信息
-        if (blueprint != null)
-        {
-            lines.Add($"> 解锁实体: {blueprint.DisplayName ?? blueprint.BlueprintId}");
-            lines.Add($"> 派系: {FormatFaction(blueprint.Faction)}");
-            lines.Add(string.Empty);
-        }
-        else
-        {
-            lines.Add("> 无关联实体");
-            lines.Add(string.Empty);
-        }
-
-        // 解锁代价
-        if (entry.UnlockCosts != null && entry.UnlockCosts.Length > 0)
-        {
-            lines.Add("解锁代价:");
-            foreach (var cost in entry.UnlockCosts)
-            {
-                lines.Add($"  - 资源 {cost.ResourceType}: {cost.Amount}");
-            }
-        }
-        else
-        {
-            lines.Add("解锁代价: 免费");
-        }
-
-        // Footer: 解锁状态 + 操作提示
-        string footer = BuildFooter(labPayload);
-
-        PostSystem.Instance.Send("LabWindow.Refresh", new LabGUI.DisplayData
-        {
-            Title = $"LAB / {entry.EntryId}",
-            Lines = lines.ToArray(),
-            Footer = footer
+            ViewKey = string.IsNullOrWhiteSpace(result.RequestName) ? LabClientViewKeys.Inspect : result.RequestName,
+            Source = labPayload,
+            FrontendContext = console ?? labPayload.FrontendContext,
+            Actions = null
         });
-
-        // 确保面板处于显示状态
-        PostSystem.Instance.Send("期望显示面板", "LabWindowPanel");
     }
 
-    private static string BuildFooter(VFSLabEntryQueryPayload payload)
+    [Subscribe(LabClientEvents.PresentRequested)]
+    private void OnPresentRequested(object data)
     {
-        var facade = GraphHub.Instance?.GetFacade<LabFacade>();
-        if (facade == null || payload.Node == null)
-            return "无法读取解锁状态";
+        if (data is not LabClientPresentRequest request || request.Source?.Entry == null)
+            return;
 
-        if (facade.IsUnlocked(payload.Node))
-            return "[已解锁] 该实体已加入仓库";
+        string viewKey = string.IsNullOrWhiteSpace(request.ViewKey)
+            ? LabClientViewKeys.Inspect
+            : request.ViewKey;
 
-        return "输入 unlock 解锁该条目";
+        PostSystem.Instance.Send(LabClientEvents.GetViewRequestedEvent(viewKey), request);
     }
 
-    private static string FormatFaction(int faction)
+    [Subscribe(LabClientEvents.ViewRequestedInspect)]
+    private void OnInspectRequested(object data)
     {
-        return faction switch
-        {
-            0 => "Protocol",
-            1 => "SunCity",
-            2 => "Gaia",
-            _ => $"F:{faction}"
-        };
+        if (data is not LabClientPresentRequest request || request.Source?.Entry == null)
+            return;
+
+        PostSystem.Instance.Send(LabEntryViewerEvents.Refresh, request.Source);
+        PostSystem.Instance.Send("期望显示面板", LabEntryViewerEvents.PanelID);
     }
+}
+
+public static class LabClientViewKeys
+{
+    public const string Inspect = "inspect";
+}
+
+public static class LabClientEvents
+{
+    public const string PresentRequested = "LabClient.PresentRequested";
+    public const string ViewRequestedPrefix = "LabClient.ViewRequested.";
+    public const string ViewRequestedInspect = ViewRequestedPrefix + LabClientViewKeys.Inspect;
+
+    public static string GetViewRequestedEvent(string viewKey)
+    {
+        return ViewRequestedPrefix + (string.IsNullOrWhiteSpace(viewKey) ? LabClientViewKeys.Inspect : viewKey);
+    }
+}
+
+public sealed class LabClientPresentRequest
+{
+    public string ViewKey;
+    public VFSLabEntryQueryPayload Source;
+    public object FrontendContext;
+    public object Actions;
 }
