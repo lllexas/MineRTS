@@ -15,8 +15,7 @@ public class LevelBakerWindow : EditorWindow
     public Tilemap gridTilemap;
     public Tilemap effectTilemap;
 
-    // 引用之前的同步管理器来获取 ID 映射
-    public TilemapSyncManager syncManager;
+    public TileMappingConfig tileMappingConfig;
 
     [MenuItem("Tools/猫娘助手/关卡烘焙机 (Level Baker)")]
     public static void ShowWindow()
@@ -34,7 +33,7 @@ public class LevelBakerWindow : EditorWindow
 
         GUILayout.Space(10);
         GUILayout.Label("拖入场景中的对象：", EditorStyles.label);
-        syncManager = (TilemapSyncManager)EditorGUILayout.ObjectField("Sync Manager", syncManager, typeof(TilemapSyncManager), true);
+        tileMappingConfig = (TileMappingConfig)EditorGUILayout.ObjectField("Tile Mapping Config", tileMappingConfig, typeof(TileMappingConfig), false);
         groundTilemap = (Tilemap)EditorGUILayout.ObjectField("Ground Tilemap", groundTilemap, typeof(Tilemap), true);
         gridTilemap = (Tilemap)EditorGUILayout.ObjectField("Grid Tilemap", gridTilemap, typeof(Tilemap), true);
         effectTilemap = (Tilemap)EditorGUILayout.ObjectField("Effect Tilemap", effectTilemap, typeof(Tilemap), true);
@@ -49,16 +48,11 @@ public class LevelBakerWindow : EditorWindow
 
     private void BakeLevel()
     {
-        if (syncManager == null)
+        if (tileMappingConfig == null)
         {
-            Debug.LogError("喵！找不到 TilemapSyncManager，无法解析 Tile ID！");
+            Debug.LogError("喵！找不到 TileMappingConfig，无法解析 Tile ID！");
             return;
         }
-
-        // 1. 强制初始化映射表（因为编辑器模式下 Start 可能没跑）
-        // 这里利用反射或者简单地把 InitializeMapping 改为 public
-        // 假设您已经把 TilemapSyncManager.InitializeMapping 改为 public 了
-        syncManager.InitializeMapping();
 
         // 2. 计算边界 (Bounds)
         // 我们需要找到包含所有三个图层的最大矩形
@@ -133,7 +127,7 @@ public class LevelBakerWindow : EditorWindow
 
                 if (tile != null)
                 {
-                    id = syncManager.GetTileID(tile);
+                    id = tileMappingConfig.GetTileID(tile);
 
                     // 🔥【核心修改】Tile 丢失报警器
                     // 如果地图上有 Tile，但 ID 却是 0，说明忘记在 SyncManager 里注册了！

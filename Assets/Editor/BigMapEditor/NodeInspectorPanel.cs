@@ -1,8 +1,7 @@
-using System;
+using System.IO;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
-using UnityEditor;              // 修复 EditorWindow 和 EditorUtility 报错
-using UnityEditor.UIElements;   // 修复 ToolbarSeparator 报错 (如果在其他文件里也有)
 using MineRTS.BigMap;
 
 /// <summary>
@@ -11,44 +10,45 @@ using MineRTS.BigMap;
 /// </summary>
 public class NodeInspectorPanel : VisualElement
 {
-    // 当前绑定的节点数据
     private BigMapNodeData _currentNodeData;
 
-    // UI 控件
     private TextField _idField;
     private TextField _nameField;
     private Vector2Field _positionField;
     private TextField _typeField;
     private TextField _extraDataField;
+    private Label _levelStatusLabel;
     private Button _deleteButton;
+    private Button _editLevelButton;
     private VisualElement _edgeSection;
     private VisualElement _connectedEdgesContainer;
 
-    private Label _emptyStateLabel;
+    private readonly Label _emptyStateLabel;
 
-    /// <summary>
-    /// 构造函数
-    /// </summary>
     public NodeInspectorPanel()
     {
-        style.flexGrow = 1; style.paddingTop = 10;
-        style.paddingLeft = 10; style.paddingRight = 10; style.paddingBottom = 10;
+        style.flexGrow = 1;
+        style.paddingTop = 10;
+        style.paddingLeft = 10;
+        style.paddingRight = 10;
+        style.paddingBottom = 10;
 
         _emptyStateLabel = new Label("未选中任何节点")
         {
-            style = {
-            fontSize = 14, unityTextAlign = TextAnchor.MiddleCenter,
-            color = new Color(0.6f, 0.6f, 0.6f, 1.0f),
-            flexGrow = 1, unityFontStyleAndWeight = FontStyle.Italic,
-            paddingTop = 50
-        }
+            style =
+            {
+                fontSize = 14,
+                unityTextAlign = TextAnchor.MiddleCenter,
+                color = new Color(0.6f, 0.6f, 0.6f, 1.0f),
+                flexGrow = 1,
+                unityFontStyleAndWeight = FontStyle.Italic,
+                paddingTop = 50
+            }
         };
+
         Add(_emptyStateLabel);
     }
 
-    /// <summary>
-    /// 绑定节点数据
-    /// </summary>
     public void BindNode(BigMapNodeData nodeData)
     {
         if (nodeData == null)
@@ -58,11 +58,8 @@ public class NodeInspectorPanel : VisualElement
         }
 
         _currentNodeData = nodeData;
+        Clear();
 
-        // 清空当前内容
-        this.Clear();
-
-        // 创建标题
         var titleLabel = new Label("节点属性")
         {
             style =
@@ -75,60 +72,18 @@ public class NodeInspectorPanel : VisualElement
         };
         Add(titleLabel);
 
-        // 创建属性编辑区域
         var scrollView = new ScrollView();
         scrollView.style.flexGrow = 1;
 
-        // 节点ID（可编辑，但必须唯一）
         var idContainer = CreatePropertyContainer("节点ID (必须唯一)");
         _idField = new TextField { value = nodeData.StageID };
-        _idField.RegisterCallback<FocusOutEvent>(evt =>
-        {
-            if (_currentNodeData != null && _currentNodeData.StageID != _idField.value)
-            {
-                string oldID = _currentNodeData.StageID;
-                string newID = _idField.value.Trim();
-
-                // 验证新ID
-                if (string.IsNullOrEmpty(newID))
-                {
-                    EditorUtility.DisplayDialog("错误", "节点ID不能为空", "确定");
-                    _idField.value = oldID;
-                    return;
-                }
-
-                // 检查是否重复（排除自身）
-                var window = EditorWindow.GetWindow<BigMapEditorWindow>();
-                var saveData = window?.GetSaveData();
-                if (saveData != null)
-                {
-                    bool isDuplicate = saveData.Nodes.Exists(n => n.StageID == newID && n.StageID != oldID);
-                    if (isDuplicate)
-                    {
-                        EditorUtility.DisplayDialog("错误", $"节点ID '{newID}' 已存在，请使用其他ID", "确定");
-                        _idField.value = oldID;
-                        return;
-                    }
-                }
-
-                // 更新节点ID
-                if (window != null)
-                {
-                    window.UpdateNodeID(oldID, newID);
-                    // 更新当前节点数据引用（因为节点数据已被更新）
-                    _currentNodeData = saveData?.Nodes.Find(n => n.StageID == newID);
-                }
-
-                MarkDataChanged();
-            }
-        });
+        _idField.RegisterCallback<FocusOutEvent>(_ => HandleStageIdChanged());
         idContainer.Add(_idField);
         scrollView.Add(idContainer);
 
-        // 节点名称
         var nameContainer = CreatePropertyContainer("显示名称");
         _nameField = new TextField { value = nodeData.DisplayName };
-        _nameField.RegisterCallback<FocusOutEvent>(evt =>
+        _nameField.RegisterCallback<FocusOutEvent>(_ =>
         {
             if (_currentNodeData != null && _currentNodeData.DisplayName != _nameField.value)
             {
@@ -139,10 +94,9 @@ public class NodeInspectorPanel : VisualElement
         nameContainer.Add(_nameField);
         scrollView.Add(nameContainer);
 
-        // 节点位置
         var positionContainer = CreatePropertyContainer("位置");
         _positionField = new Vector2Field { value = (Vector2)nodeData.Position };
-        _positionField.RegisterCallback<FocusOutEvent>(evt =>
+        _positionField.RegisterCallback<FocusOutEvent>(_ =>
         {
             if (_currentNodeData != null && (Vector2)_currentNodeData.Position != _positionField.value)
             {
@@ -153,10 +107,9 @@ public class NodeInspectorPanel : VisualElement
         positionContainer.Add(_positionField);
         scrollView.Add(positionContainer);
 
-        // 节点类型
         var typeContainer = CreatePropertyContainer("节点类型");
         _typeField = new TextField { value = nodeData.NodeType ?? "Default" };
-        _typeField.RegisterCallback<FocusOutEvent>(evt =>
+        _typeField.RegisterCallback<FocusOutEvent>(_ =>
         {
             if (_currentNodeData != null && _currentNodeData.NodeType != _typeField.value)
             {
@@ -167,19 +120,15 @@ public class NodeInspectorPanel : VisualElement
         typeContainer.Add(_typeField);
         scrollView.Add(typeContainer);
 
-        // 附加数据
         var extraDataContainer = CreatePropertyContainer("附加数据");
         _extraDataField = new TextField
         {
-            value = nodeData.ExtraData ?? "",
-            multiline = true,
-            style =
-            {
-                height = 60,
-                unityTextAlign = TextAnchor.UpperLeft
-            }
+            value = nodeData.ExtraData ?? string.Empty,
+            multiline = true
         };
-        _extraDataField.RegisterCallback<FocusOutEvent>(evt =>
+        _extraDataField.style.height = 60;
+        _extraDataField.style.unityTextAlign = TextAnchor.UpperLeft;
+        _extraDataField.RegisterCallback<FocusOutEvent>(_ =>
         {
             if (_currentNodeData != null && _currentNodeData.ExtraData != _extraDataField.value)
             {
@@ -190,32 +139,47 @@ public class NodeInspectorPanel : VisualElement
         extraDataContainer.Add(_extraDataField);
         scrollView.Add(extraDataContainer);
 
-        // 分隔线
-        var separator = new VisualElement();
-        separator.style.height = 1;
-        separator.style.backgroundColor = new Color(0.3f, 0.3f, 0.3f, 1.0f);
-        separator.style.marginTop = 15;
-        separator.style.marginBottom = 15;
-        scrollView.Add(separator);
+        scrollView.Add(CreateSeparator());
 
-        // 连线信息部分
+        var templateContainer = CreatePropertyContainer("关卡关卡文件");
+
+        var templateHint = new Label("当前节点固定对应 Resources/Levels/{StageID}.json")
+        {
+            style =
+            {
+                fontSize = 10,
+                color = new Color(0.6f, 0.6f, 0.6f, 1.0f),
+                marginBottom = 4
+            }
+        };
+        templateContainer.Add(templateHint);
+
+        _levelStatusLabel = new Label();
+        _levelStatusLabel.style.fontSize = 11;
+        _levelStatusLabel.style.marginTop = 4;
+        templateContainer.Add(_levelStatusLabel);
+
+        _editLevelButton = new Button(OpenLevelEditor)
+        {
+            text = "编辑关卡"
+        };
+        _editLevelButton.style.marginTop = 8;
+        _editLevelButton.style.height = 28;
+        templateContainer.Add(_editLevelButton);
+
+        scrollView.Add(templateContainer);
+        RefreshTemplateStatus();
+
+        scrollView.Add(CreateSeparator());
+
         _edgeSection = CreatePropertyContainer("连线信息");
         _connectedEdgesContainer = new VisualElement();
         _edgeSection.Add(_connectedEdgesContainer);
         scrollView.Add(_edgeSection);
-
-        // 更新连线信息
         UpdateConnectedEdges();
 
-        // 分隔线
-        var separator2 = new VisualElement();
-        separator2.style.height = 1;
-        separator2.style.backgroundColor = new Color(0.3f, 0.3f, 0.3f, 1.0f);
-        separator2.style.marginTop = 15;
-        separator2.style.marginBottom = 15;
-        scrollView.Add(separator2);
+        scrollView.Add(CreateSeparator());
 
-        // 删除按钮
         var buttonContainer = new VisualElement();
         buttonContainer.style.flexDirection = FlexDirection.Row;
         buttonContainer.style.justifyContent = Justify.FlexEnd;
@@ -223,80 +187,62 @@ public class NodeInspectorPanel : VisualElement
 
         _deleteButton = new Button(DeleteNode)
         {
-            text = "删除节点",
-            style =
-            {
-                backgroundColor = new Color(0.8f, 0.2f, 0.2f, 1.0f),
-                color = Color.white,
-                paddingTop = 5,
-                paddingBottom = 5,
-                paddingLeft = 15,
-                paddingRight = 15
-            }
+            text = "删除节点"
         };
+        _deleteButton.style.backgroundColor = new Color(0.8f, 0.2f, 0.2f, 1.0f);
+        _deleteButton.style.color = Color.white;
+        _deleteButton.style.paddingTop = 5;
+        _deleteButton.style.paddingBottom = 5;
+        _deleteButton.style.paddingLeft = 15;
+        _deleteButton.style.paddingRight = 15;
         buttonContainer.Add(_deleteButton);
 
         scrollView.Add(buttonContainer);
-
-        // 添加到面板
         Add(scrollView);
     }
 
-    /// <summary>
-    /// 仅刷新数据变动（不重建 UI，性能高）
-    /// </summary>
     public void Refresh()
     {
-        if (_currentNodeData == null) return;
+        if (_currentNodeData == null)
+        {
+            return;
+        }
 
-        // 仅在值不同时使用 SetValueWithoutNotify，防止光标丢失或死循环
         if (_positionField != null && _positionField.value != (Vector2)_currentNodeData.Position)
         {
             _positionField.SetValueWithoutNotify(_currentNodeData.Position);
         }
-        // 更新连线信息
+
+        RefreshTemplateStatus();
         UpdateConnectedEdges();
     }
 
-    /// <summary>
-    /// 清空面板
-    /// </summary>
     public void ClearPanel()
     {
-        // 彻底清空
-        this.Clear();
+        Clear();
         _currentNodeData = null;
-
-        // 只在真正没有选中东西时，才添加这个提示标签
-        if (_emptyStateLabel != null)
-        {
-            Add(_emptyStateLabel);
-        }
+        Add(_emptyStateLabel);
     }
 
-    /// <summary>
-    /// 显示空状态
-    /// </summary>
-    private void ShowEmptyState()
+    public void RefreshTemplateStatus()
     {
-        var emptyLabel = new Label("未选中任何节点")
+        if (_currentNodeData == null || _levelStatusLabel == null)
         {
-            style =
-            {
-                fontSize = 14,
-                unityTextAlign = TextAnchor.MiddleCenter,
-                color = new Color(0.6f, 0.6f, 0.6f, 1.0f),
-                flexGrow = 1,
-                unityFontStyleAndWeight = FontStyle.Italic,
-                paddingTop = 50
-            }
-        };
-        Add(emptyLabel);
+            return;
+        }
+
+        string stageId = _currentNodeData.StageID ?? string.Empty;
+        string absolutePath = GetLevelAbsolutePath(stageId);
+        bool exists = !string.IsNullOrEmpty(absolutePath) && File.Exists(absolutePath);
+        _levelStatusLabel.text = exists
+            ? $"关卡状态: 已存在\nAssets/Resources/Levels/{stageId}.json"
+            : $"关卡状态: 尚未创建\nAssets/Resources/Levels/{stageId}.json";
+
+        _levelStatusLabel.style.color = exists
+            ? new Color(0.4f, 0.85f, 0.5f, 1.0f)
+            : new Color(0.95f, 0.8f, 0.35f, 1.0f);
     }
 
-    /// <summary>
-    /// 创建属性容器
-    /// </summary>
     private VisualElement CreatePropertyContainer(string labelText)
     {
         var container = new VisualElement();
@@ -316,71 +262,106 @@ public class NodeInspectorPanel : VisualElement
         return container;
     }
 
-    /// <summary>
-    /// 更新连线信息
-    /// </summary>
+    private VisualElement CreateSeparator()
+    {
+        var separator = new VisualElement();
+        separator.style.height = 1;
+        separator.style.backgroundColor = new Color(0.3f, 0.3f, 0.3f, 1.0f);
+        separator.style.marginTop = 15;
+        separator.style.marginBottom = 15;
+        return separator;
+    }
+
+    private void HandleStageIdChanged()
+    {
+        if (_currentNodeData == null || _currentNodeData.StageID == _idField.value)
+        {
+            return;
+        }
+
+        string oldId = _currentNodeData.StageID;
+        string newId = (_idField.value ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(newId))
+        {
+            EditorUtility.DisplayDialog("错误", "节点ID不能为空", "确定");
+            _idField.value = oldId;
+            return;
+        }
+
+        var window = EditorWindow.GetWindow<BigMapEditorWindow>();
+        var saveData = window?.GetSaveData();
+        if (saveData != null)
+        {
+            bool isDuplicate = saveData.Nodes.Exists(n => n.StageID == newId && n.StageID != oldId);
+            if (isDuplicate)
+            {
+                EditorUtility.DisplayDialog("错误", $"节点ID '{newId}' 已存在，请使用其他ID", "确定");
+                _idField.value = oldId;
+                return;
+            }
+        }
+
+        if (window != null)
+        {
+            window.UpdateNodeID(oldId, newId);
+            _currentNodeData = saveData?.Nodes.Find(n => n.StageID == newId);
+        }
+
+        MarkDataChanged();
+        RefreshTemplateStatus();
+    }
+
     private void UpdateConnectedEdges()
     {
         if (_currentNodeData == null || _connectedEdgesContainer == null)
+        {
             return;
+        }
 
-        // 清空现有内容
         _connectedEdgesContainer.Clear();
 
-        // 获取当前编辑器窗口
         var window = EditorWindow.GetWindow<BigMapEditorWindow>();
         if (window == null)
+        {
             return;
+        }
 
         var saveData = window.GetSaveData();
         if (saveData == null || saveData.Edges.Count == 0)
         {
-            var noEdgesLabel = new Label("该节点没有连线")
-            {
-                style =
-                {
-                    fontSize = 12,
-                    color = new Color(0.6f, 0.6f, 0.6f, 1.0f),
-                    unityFontStyleAndWeight = FontStyle.Italic
-                }
-            };
-            _connectedEdgesContainer.Add(noEdgesLabel);
+            _connectedEdgesContainer.Add(CreateMutedLabel("该节点没有连线"));
             return;
         }
 
-        // 查找与该节点相关的连线
         int edgeCount = 0;
         foreach (var edge in saveData.Edges)
         {
             if (edge.FromNodeID == _currentNodeData.StageID || edge.ToNodeID == _currentNodeData.StageID)
             {
                 edgeCount++;
-
-                // 创建连线项
-                var edgeItem = CreateEdgeItem(edge);
-                _connectedEdgesContainer.Add(edgeItem);
+                _connectedEdgesContainer.Add(CreateEdgeItem(edge));
             }
         }
 
-        // 如果没有找到连线
         if (edgeCount == 0)
         {
-            var noEdgesLabel = new Label("该节点没有连线")
-            {
-                style =
-                {
-                    fontSize = 12,
-                    color = new Color(0.6f, 0.6f, 0.6f, 1.0f),
-                    unityFontStyleAndWeight = FontStyle.Italic
-                }
-            };
-            _connectedEdgesContainer.Add(noEdgesLabel);
+            _connectedEdgesContainer.Add(CreateMutedLabel("该节点没有连线"));
         }
     }
 
-    /// <summary>
-    /// 创建连线项
-    /// </summary>
+    private Label CreateMutedLabel(string text)
+    {
+        return new Label(text)
+        {
+            style =
+            {
+                fontSize = 12,
+                color = new Color(0.6f, 0.6f, 0.6f, 1.0f),
+                unityFontStyleAndWeight = FontStyle.Italic
+            }
+        };
+    }
+
     private VisualElement CreateEdgeItem(BigMapEdgeData edge)
     {
         var container = new VisualElement();
@@ -393,13 +374,11 @@ public class NodeInspectorPanel : VisualElement
         container.style.paddingBottom = 5;
         container.style.paddingLeft = 5;
         container.style.paddingRight = 5;
-
         container.style.borderTopLeftRadius = 3;
         container.style.borderTopRightRadius = 3;
         container.style.borderBottomLeftRadius = 3;
         container.style.borderBottomRightRadius = 3;
 
-        // 获取另一个节点的名称
         var window = EditorWindow.GetWindow<BigMapEditorWindow>();
         var saveData = window?.GetSaveData();
         string otherNodeId = edge.FromNodeID == _currentNodeData.StageID ? edge.ToNodeID : edge.FromNodeID;
@@ -415,7 +394,6 @@ public class NodeInspectorPanel : VisualElement
             }
         }
 
-        // 连线信息
         var infoLabel = new Label($"{(isOutgoing ? "→" : "←")} {otherNodeName}")
         {
             style =
@@ -426,7 +404,6 @@ public class NodeInspectorPanel : VisualElement
             }
         };
 
-        // 方向标签
         string directionText = edge.Direction == EdgeDirection.Bidirectional ? "双向" : "单向";
         var directionLabel = new Label(directionText)
         {
@@ -440,21 +417,17 @@ public class NodeInspectorPanel : VisualElement
             }
         };
 
-        // 删除按钮
         var deleteButton = new Button(() => DeleteEdge(edge))
         {
-            text = "×",
-            style =
-            {
-                fontSize = 12,
-                width = 20,
-                height = 20,
-                paddingLeft = 0,
-                paddingRight = 0,
-                backgroundColor = new Color(0.4f, 0.2f, 0.2f, 1.0f),
-                color = Color.white
-            }
+            text = "×"
         };
+        deleteButton.style.fontSize = 12;
+        deleteButton.style.width = 20;
+        deleteButton.style.height = 20;
+        deleteButton.style.paddingLeft = 0;
+        deleteButton.style.paddingRight = 0;
+        deleteButton.style.backgroundColor = new Color(0.4f, 0.2f, 0.2f, 1.0f);
+        deleteButton.style.color = Color.white;
 
         container.Add(infoLabel);
         container.Add(directionLabel);
@@ -463,20 +436,22 @@ public class NodeInspectorPanel : VisualElement
         return container;
     }
 
-    /// <summary>
-    /// 删除节点
-    /// </summary>
     private void DeleteNode()
     {
         if (_currentNodeData == null)
+        {
             return;
+        }
 
-        if (!EditorUtility.DisplayDialog("删除节点",
-            $"确定要删除节点 '{_currentNodeData.DisplayName}' 吗？\n此操作也会删除与该节点相关的所有连线。",
-            "删除", "取消"))
+        if (!EditorUtility.DisplayDialog(
+                "删除节点",
+                $"确定要删除节点 '{_currentNodeData.DisplayName}' 吗？\n此操作也会删除与该节点相关的所有连线。",
+                "删除",
+                "取消"))
+        {
             return;
+        }
 
-        // 获取编辑器窗口并删除节点
         var window = EditorWindow.GetWindow<BigMapEditorWindow>();
         if (window != null)
         {
@@ -488,15 +463,13 @@ public class NodeInspectorPanel : VisualElement
         }
     }
 
-    /// <summary>
-    /// 删除连线
-    /// </summary>
     private void DeleteEdge(BigMapEdgeData edge)
     {
         if (edge == null)
+        {
             return;
+        }
 
-        // 获取另一个节点的名称
         var window = EditorWindow.GetWindow<BigMapEditorWindow>();
         var saveData = window?.GetSaveData();
         string otherNodeId = edge.FromNodeID == _currentNodeData.StageID ? edge.ToNodeID : edge.FromNodeID;
@@ -511,38 +484,49 @@ public class NodeInspectorPanel : VisualElement
             }
         }
 
-        if (!EditorUtility.DisplayDialog("删除连线",
-            $"确定要删除与节点 '{otherNodeName}' 的连线吗？",
-            "删除", "取消"))
-            return;
-
-        // 从数据中移除连线
-        if (saveData != null)
+        if (!EditorUtility.DisplayDialog("删除连线", $"确定要删除与节点 '{otherNodeName}' 的连线吗？", "删除", "取消"))
         {
-            saveData.Edges.Remove(edge);
+            return;
         }
 
-        // 更新显示
+        saveData?.Edges.Remove(edge);
         UpdateConnectedEdges();
-
-        // 标记数据已更改
         MarkDataChanged();
     }
 
-    /// <summary>
-    /// 标记数据已更改（需要重绘画布）
-    /// </summary>
     private void MarkDataChanged()
     {
-        // 1. 打印日志（主人可以留着调试，或者删掉）
-        // Debug.Log("节点数据已更新，触发重绘");
-
-        // 2. 获取当前的窗口实例
         var window = EditorWindow.GetWindow<BigMapEditorWindow>();
         if (window != null)
         {
-            // 我们在 Window 里加一个公共方法来强制重绘画布
             window.RequestRepaint();
         }
+    }
+
+    private string GetLevelAbsolutePath(string stageId)
+    {
+        if (string.IsNullOrEmpty(stageId))
+        {
+            return string.Empty;
+        }
+
+        return Path.Combine(Application.dataPath, "Resources", "Levels", $"{stageId}.json");
+    }
+
+    private void OpenLevelEditor()
+    {
+        if (_currentNodeData == null)
+        {
+            return;
+        }
+
+        var window = EditorWindow.GetWindow<BigMapEditorWindow>();
+        if (window == null)
+        {
+            Debug.LogError("无法获取 BigMapEditorWindow 实例");
+            return;
+        }
+
+        window.OpenTilemapEditor(_currentNodeData);
     }
 }

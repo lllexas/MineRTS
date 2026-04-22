@@ -6,16 +6,7 @@ public class TilemapSyncManager : SingletonMono<TilemapSyncManager>
 {
     [Header("配置引用")]
     public Tilemap targetTilemap;
-
-    [System.Serializable]
-    public struct TileIDMapping
-    {
-        public TileBase tileAsset;
-        public int tileID;
-    }
-
-    [Header("ID 映射表")]
-    public List<TileIDMapping> tileMappings = new List<TileIDMapping>();
+    public TileMappingConfig tileMappingConfig;
 
     // 为了快速查找，内部转成字典
     private Dictionary<TileBase, int> _assetToID = new Dictionary<TileBase, int>();
@@ -65,16 +56,14 @@ public class TilemapSyncManager : SingletonMono<TilemapSyncManager>
 
     public void InitializeMapping()
     {
+        if (tileMappingConfig != null)
+        {
+            tileMappingConfig.PopulateDictionaries(_assetToID, _idToAsset);
+            return;
+        }
+
         _assetToID.Clear();
         _idToAsset.Clear();
-        foreach (var mapping in tileMappings)
-        {
-            if (mapping.tileAsset != null)
-            {
-                _assetToID[mapping.tileAsset] = mapping.tileID;
-                _idToAsset[mapping.tileID] = mapping.tileAsset;
-            }
-        }
     }
 
     /// <summary>

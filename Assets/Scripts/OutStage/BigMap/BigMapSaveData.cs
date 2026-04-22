@@ -210,4 +210,5 @@ namespace MineRTS.BigMap
             return new List<BigMapEconomyData>(bigMapData.CreateEconomyDictFromNodes().Values);
         }
     }
+
 }

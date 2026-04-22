@@ -1,9 +1,12 @@
-using System;
+using System.IO;
+using System.Collections.Generic;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.Tilemaps;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
-using System.Collections.Generic;
 using MineRTS.BigMap;
 
 /// <summary>
@@ -12,20 +15,20 @@ using MineRTS.BigMap;
 /// </summary>
 public class BigMapEditorWindow : EditorWindow
 {
-    // 数据模型
+    private const string DefaultBigMapDirectory = "Assets/Resources";
+    private const string DefaultBigMapFileName = "BigMapData.json";
+    private const string TilemapEditorScenePath = "Assets/Scenes/TilemapLevelEditor.unity";
+
     private BigMapSaveData _saveData = new BigMapSaveData();
 
-    // UI 元素引用
     private MapCanvasElement _mapCanvas;
     private NodeInspectorPanel _inspectorPanel;
     private ToolbarButton _saveButton;
     private ToolbarButton _loadButton;
 
-    // 当前选中的节点
     private BigMapNodeData _selectedNode;
     private NodeVisualElement _selectedNodeVisual;
 
-    // 文件路径
     private string _currentFilePath;
 
     [MenuItem("Tools/猫娘助手/BigMapNet拓扑编辑器")]
@@ -39,25 +42,23 @@ public class BigMapEditorWindow : EditorWindow
 
     private void OnEnable()
     {
-        // 初始化数据
         _saveData = new BigMapSaveData();
 
-        // 构建UI
         ConstructRootLayout();
         GenerateToolbar();
 
-        // 初始化画布
         if (_mapCanvas != null)
         {
             _mapCanvas.Initialize(_saveData);
             _mapCanvas.OnNodeSelected += OnNodeSelected;
             _mapCanvas.OnNodeDeselected += OnNodeDeselected;
         }
+
+        TryHandleReturnFromTilemapEditor();
     }
 
     private void OnDisable()
     {
-        // 清理事件
         if (_mapCanvas != null)
         {
             _mapCanvas.OnNodeSelected -= OnNodeSelected;
@@ -65,25 +66,23 @@ public class BigMapEditorWindow : EditorWindow
         }
     }
 
-    /// <summary>
-    /// 构建根布局
-    /// </summary>
+    private void OnFocus()
+    {
+        TryHandleReturnFromTilemapEditor();
+    }
+
     private void ConstructRootLayout()
     {
-        // 清空根元素
         rootVisualElement.Clear();
 
-        // 创建主容器，使用 Flexbox 布局
         var mainContainer = new VisualElement();
         mainContainer.style.flexDirection = FlexDirection.Column;
         mainContainer.style.flexGrow = 1;
 
-        // 主体内容区域（画布 + 属性面板）
         var contentContainer = new VisualElement();
         contentContainer.style.flexDirection = FlexDirection.Row;
         contentContainer.style.flexGrow = 1;
 
-        // 左侧画布区域 (70%)
         var canvasContainer = new VisualElement();
         canvasContainer.name = "canvas-container";
         canvasContainer.style.flexGrow = 0.7f;
@@ -91,13 +90,11 @@ public class BigMapEditorWindow : EditorWindow
         canvasContainer.style.flexBasis = new StyleLength(new Length(70, LengthUnit.Percent));
         canvasContainer.style.backgroundColor = new Color(0.1f, 0.1f, 0.1f, 1.0f);
 
-        // 创建画布元素
         _mapCanvas = new MapCanvasElement();
         _mapCanvas.name = "map-canvas";
         _mapCanvas.style.flexGrow = 1;
         canvasContainer.Add(_mapCanvas);
 
-        // 右侧属性面板区域 (30%)
         var inspectorContainer = new VisualElement();
         inspectorContainer.name = "inspector-container";
         inspectorContainer.style.flexGrow = 0.3f;
@@ -107,39 +104,29 @@ public class BigMapEditorWindow : EditorWindow
         inspectorContainer.style.borderLeftWidth = 1;
         inspectorContainer.style.borderLeftColor = new Color(0.3f, 0.3f, 0.3f, 1.0f);
 
-        // 创建属性面板
         _inspectorPanel = new NodeInspectorPanel();
         _inspectorPanel.name = "node-inspector";
         _inspectorPanel.style.flexGrow = 1;
         inspectorContainer.Add(_inspectorPanel);
 
-        // 添加到内容容器
         contentContainer.Add(canvasContainer);
         contentContainer.Add(inspectorContainer);
 
-        // 添加到主容器
         mainContainer.Add(contentContainer);
-
-        // 添加到根元素
         rootVisualElement.Add(mainContainer);
     }
 
-    /// <summary>
-    /// 生成工具栏
-    /// </summary>
     private void GenerateToolbar()
     {
-        var toolbar = new UnityEditor.UIElements.Toolbar();
+        var toolbar = new Toolbar();
 
-        // 保存按钮
         _saveButton = new ToolbarButton(SaveData)
         {
             text = "保存 (JSON)",
-            tooltip = "将当前地图拓扑保存为 JSON 文件"
+            tooltip = "保存当前地图拓扑"
         };
         toolbar.Add(_saveButton);
 
-        // 读取按钮
         _loadButton = new ToolbarButton(LoadData)
         {
             text = "读取 (JSON)",
@@ -147,7 +134,6 @@ public class BigMapEditorWindow : EditorWindow
         };
         toolbar.Add(_loadButton);
 
-        // 添加分隔符
         var separator = new VisualElement();
         separator.style.width = 1;
         separator.style.marginTop = 2;
@@ -157,17 +143,18 @@ public class BigMapEditorWindow : EditorWindow
         separator.style.backgroundColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
         toolbar.Add(separator);
 
-        // 清空画布按钮
         var clearButton = new ToolbarButton(() =>
         {
-            if (EditorUtility.DisplayDialog("清空画布", "确定要清空所有节点和连线吗？此操作不可撤销。", "确定", "取消"))
+            if (!EditorUtility.DisplayDialog("清空画布", "确定要清空所有节点和连线吗？此操作不可撤销。", "确定", "取消"))
             {
-                _saveData = new BigMapSaveData();
-                _mapCanvas?.Initialize(_saveData);
-                _inspectorPanel?.ClearPanel();
-                _selectedNode = null;
-                _selectedNodeVisual = null;
+                return;
             }
+
+            _saveData = new BigMapSaveData();
+            _mapCanvas?.Initialize(_saveData);
+            _inspectorPanel?.ClearPanel();
+            _selectedNode = null;
+            _selectedNodeVisual = null;
         })
         {
             text = "清空画布",
@@ -175,99 +162,266 @@ public class BigMapEditorWindow : EditorWindow
         };
         toolbar.Add(clearButton);
 
-        // 将工具栏添加到根元素（放在最前面）
         rootVisualElement.Insert(0, toolbar);
     }
 
-    /// <summary>
-    /// 保存数据到 JSON 文件
-    /// </summary>
     private void SaveData()
     {
-        // 先更新画布偏移量和缩放比例
+        SaveDataInternal(promptForPath: string.IsNullOrEmpty(_currentFilePath));
+    }
+
+    private void LoadData()
+    {
+        string absolutePath = EditorUtility.OpenFilePanel("加载大地图数据", DefaultBigMapDirectory, "json");
+        if (string.IsNullOrEmpty(absolutePath))
+        {
+            return;
+        }
+
+        if (!absolutePath.StartsWith(Application.dataPath))
+        {
+            EditorUtility.DisplayDialog("错误", "请从 Assets 目录下选择文件。", "确定");
+            return;
+        }
+
+        string assetPath = "Assets" + absolutePath.Substring(Application.dataPath.Length);
+        if (!LoadDataFromAssetPath(assetPath))
+        {
+            EditorUtility.DisplayDialog("加载失败", "无法解析 JSON 文件。", "确定");
+        }
+    }
+
+    public void OpenTilemapEditor(BigMapNodeData node)
+    {
+        if (node == null)
+        {
+            return;
+        }
+
+        if (!TrySaveCurrentFile())
+        {
+            return;
+        }
+
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+        {
+            return;
+        }
+
+        var sceneSetup = EditorSceneManager.GetSceneManagerSetup();
+        var originScene = EditorSceneManager.GetActiveScene();
+        if (!originScene.IsValid() || string.IsNullOrEmpty(originScene.path))
+        {
+            EditorUtility.DisplayDialog("错误", "当前活动场景无效，无法进入关卡编辑器。", "确定");
+            return;
+        }
+
+        EditorSessionBridge.SetSession(node.StageID, originScene.path, _currentFilePath, sceneSetup);
+
+        string scenePath = TilemapLevelEditorSceneUtility.EnsureSceneExists(TilemapEditorScenePath);
+        var editorScene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+        if (!editorScene.IsValid())
+        {
+            EditorUtility.DisplayDialog("错误", "无法加载 Tilemap 编辑场景。", "确定");
+            return;
+        }
+
+        EditorSceneManager.SetActiveScene(editorScene);
+        InitializeTilemapEditorScene(editorScene, node.StageID);
+        EditorSceneManager.CloseScene(originScene, false);
+    }
+
+    private static void InitializeTilemapEditorScene(Scene scene, string stageId)
+    {
+        if (!scene.IsValid())
+        {
+            return;
+        }
+
+        foreach (var root in scene.GetRootGameObjects())
+        {
+            var editor = root.GetComponentInChildren<TilemapLevelEditor>(true);
+            if (editor == null)
+            {
+                continue;
+            }
+
+            editor.LoadSessionIfNeeded();
+            if (editor.StageID != stageId)
+            {
+                editor.OverrideStage(stageId);
+            }
+
+            EditorUtility.SetDirty(editor);
+            return;
+        }
+
+        Debug.LogWarning($"<color=orange>[BigMapEditor]</color> 在场景 {scene.path} 中未找到 TilemapLevelEditor。");
+    }
+
+    public void RequestRepaint()
+    {
+        _mapCanvas?.MarkDirtyRepaint();
+    }
+
+    public BigMapSaveData GetSaveData()
+    {
+        return _saveData;
+    }
+
+    public void SetSaveData(BigMapSaveData data)
+    {
+        _saveData = data;
+        _mapCanvas?.Initialize(_saveData);
+    }
+
+    public void DeleteNode(string nodeId)
+    {
+        if (string.IsNullOrEmpty(nodeId))
+        {
+            return;
+        }
+
+        _mapCanvas?.DeleteNode(nodeId);
+        _inspectorPanel?.ClearPanel();
+        _selectedNode = null;
+        _selectedNodeVisual = null;
+    }
+
+    private void OnGUI()
+    {
+        HandleKeyboardShortcuts();
+    }
+
+    private void HandleKeyboardShortcuts()
+    {
+        var currentEvent = Event.current;
+        if (currentEvent.type == EventType.KeyDown && currentEvent.keyCode == KeyCode.Delete && _selectedNode != null)
+        {
+            DeleteNode(_selectedNode.StageID);
+            currentEvent.Use();
+        }
+    }
+
+    public void UpdateNodeID(string oldID, string newID)
+    {
+        _mapCanvas?.UpdateNodeID(oldID, newID);
+    }
+
+    private void OnNodeSelected(BigMapNodeData nodeData, NodeVisualElement nodeVisual)
+    {
+        if (_selectedNode != nodeData)
+        {
+            _selectedNode = nodeData;
+            _selectedNodeVisual = nodeVisual;
+            _inspectorPanel?.BindNode(nodeData);
+        }
+        else
+        {
+            _inspectorPanel?.Refresh();
+        }
+    }
+
+    private void OnNodeDeselected()
+    {
+        _selectedNode = null;
+        _selectedNodeVisual = null;
+        _inspectorPanel?.ClearPanel();
+    }
+
+    private bool TrySaveCurrentFile()
+    {
+        return SaveDataInternal(promptForPath: true);
+    }
+
+    private bool SaveDataInternal(bool promptForPath)
+    {
         if (_mapCanvas != null)
         {
             _saveData.CanvasOffset = _mapCanvas.CanvasOffset;
             _saveData.CanvasZoom = _mapCanvas.CanvasZoom;
         }
 
-        // 弹出保存文件对话框
-        string path = EditorUtility.SaveFilePanel("保存大地图数据", "Assets/Resources", "BigMapData.json", "json");
-
-        if (string.IsNullOrEmpty(path))
-            return;
-
-        // 确保路径在 Assets 目录下
-        if (!path.StartsWith(Application.dataPath))
+        string assetPath = _currentFilePath;
+        if (string.IsNullOrEmpty(assetPath))
         {
-            EditorUtility.DisplayDialog("错误", "请将文件保存在 Assets 目录下。", "确定");
-            return;
+            if (!promptForPath)
+            {
+                return false;
+            }
+
+            string absolutePath = EditorUtility.SaveFilePanel("保存大地图数据", DefaultBigMapDirectory, DefaultBigMapFileName, "json");
+            if (string.IsNullOrEmpty(absolutePath))
+            {
+                return false;
+            }
+
+            if (!absolutePath.StartsWith(Application.dataPath))
+            {
+                EditorUtility.DisplayDialog("错误", "请将文件保存在 Assets 目录下。", "确定");
+                return false;
+            }
+
+            assetPath = "Assets" + absolutePath.Substring(Application.dataPath.Length);
         }
 
-        // 转换为相对路径
-        _currentFilePath = "Assets" + path.Substring(Application.dataPath.Length);
+        return SaveDataToAssetPath(assetPath);
+    }
+
+    private bool SaveDataToAssetPath(string assetPath)
+    {
+        string absolutePath = ToAbsolutePath(assetPath);
+        if (string.IsNullOrEmpty(absolutePath))
+        {
+            return false;
+        }
 
         try
         {
-            // 序列化为 JSON
+            string directory = Path.GetDirectoryName(absolutePath);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
             string json = JsonUtility.ToJson(_saveData, true);
+            File.WriteAllText(absolutePath, json);
 
-            // 写入文件
-            System.IO.File.WriteAllText(path, json);
-
-            // 刷新资源数据库
+            _currentFilePath = assetPath;
             AssetDatabase.Refresh();
 
             Debug.Log($"大地图数据已保存到: {_currentFilePath}");
             ShowNotification(new GUIContent("保存成功！"));
+            return true;
         }
         catch (System.Exception ex)
         {
             Debug.LogError($"保存失败: {ex.Message}");
             EditorUtility.DisplayDialog("保存失败", $"保存过程中发生错误:\n{ex.Message}", "确定");
+            return false;
         }
     }
 
-    /// <summary>
-    /// 从 JSON 文件加载数据
-    /// </summary>
-    private void LoadData()
+    private bool LoadDataFromAssetPath(string assetPath)
     {
-        // 弹出打开文件对话框
-        string defaultPath = "Assets/Resources";
-        string path = EditorUtility.OpenFilePanel("加载大地图数据", defaultPath, "json");
-
-        if (string.IsNullOrEmpty(path))
-            return;
-
-        // 确保路径在 Assets 目录下
-        if (!path.StartsWith(Application.dataPath))
+        string absolutePath = ToAbsolutePath(assetPath);
+        if (string.IsNullOrEmpty(absolutePath) || !File.Exists(absolutePath))
         {
-            EditorUtility.DisplayDialog("错误", "请从 Assets 目录下选择文件。", "确定");
-            return;
+            return false;
         }
-
-        // 转换为相对路径
-        _currentFilePath = "Assets" + path.Substring(Application.dataPath.Length);
 
         try
         {
-            // 读取文件
-            string json = System.IO.File.ReadAllText(path);
-
-            // 反序列化
+            string json = File.ReadAllText(absolutePath);
             var loadedData = JsonUtility.FromJson<BigMapSaveData>(json);
-
             if (loadedData == null)
             {
-                EditorUtility.DisplayDialog("加载失败", "无法解析 JSON 文件。", "确定");
-                return;
+                return false;
             }
 
-            // 更新数据
             _saveData = loadedData;
+            _currentFilePath = assetPath;
 
-            // 重新初始化画布
             if (_mapCanvas != null)
             {
                 _mapCanvas.Initialize(_saveData);
@@ -275,127 +429,591 @@ public class BigMapEditorWindow : EditorWindow
                 _mapCanvas.CanvasZoom = _saveData.CanvasZoom;
             }
 
-            // 清空属性面板
-            _inspectorPanel?.Clear();
+            _inspectorPanel?.ClearPanel();
             _selectedNode = null;
             _selectedNodeVisual = null;
 
             Debug.Log($"大地图数据已从 {_currentFilePath} 加载");
             ShowNotification(new GUIContent("加载成功！"));
+            return true;
         }
         catch (System.Exception ex)
         {
             Debug.LogError($"加载失败: {ex.Message}");
-            EditorUtility.DisplayDialog("加载失败", $"加载过程中发生错误:\n{ex.Message}", "确定");
+            return false;
         }
     }
 
-    /// <summary>
-    /// 节点被选中时的回调
-    /// </summary>
-    private void OnNodeSelected(BigMapNodeData nodeData, NodeVisualElement nodeVisual)
+    private void TryHandleReturnFromTilemapEditor()
     {
-        // 如果点的是一个新节点
-        if (_selectedNode != nodeData)
+        if (!EditorSessionBridge.IsReturning)
         {
-            _selectedNode = nodeData;
-            _selectedNodeVisual = nodeVisual;
-
-            // 彻底重建属性面板
-            _inspectorPanel?.BindNode(nodeData);
-        }
-        else
-        {
-            // 如果选中的还是这个节点（说明是拖拽导致的坐标更新事件）
-            // 不要重建 UI，只刷新数字！
-            _inspectorPanel?.Refresh();
-        }
-    }
-
-    /// <summary>
-    /// 节点取消选中时的回调
-    /// </summary>
-    private void OnNodeDeselected()
-    {
-        _selectedNode = null;
-        _selectedNodeVisual = null;
-
-        // 清空属性面板
-        _inspectorPanel?.Clear();
-    }
-    public void RequestRepaint()
-    {
-        _mapCanvas?.MarkDirtyRepaint(); // 强制画布重新调用 OnGenerateVisualContent
-    }
-
-    /// <summary>
-    /// 获取当前保存的数据（供外部访问）
-    /// </summary>
-    public BigMapSaveData GetSaveData()
-    {
-        return _saveData;
-    }
-
-    /// <summary>
-    /// 设置保存的数据（供外部访问）
-    /// </summary>
-    public void SetSaveData(BigMapSaveData data)
-    {
-        _saveData = data;
-        _mapCanvas?.Initialize(_saveData);
-    }
-
-    /// <summary>
-    /// 删除节点（供属性面板调用）
-    /// </summary>
-    public void DeleteNode(string nodeId)
-    {
-        if (string.IsNullOrEmpty(nodeId))
             return;
+        }
 
-        // 调用画布的删除节点方法
-        _mapCanvas?.DeleteNode(nodeId);
-
-        // 清空属性面板
-        _inspectorPanel?.ClearPanel();
-        _selectedNode = null;
-        _selectedNodeVisual = null;
-    }
-
-    /// <summary>
-    /// 处理键盘事件
-    /// </summary>
-    private void OnGUI()
-    {
-        // 处理全局键盘快捷键
-        HandleKeyboardShortcuts();
-    }
-
-    /// <summary>
-    /// 处理键盘快捷键
-    /// </summary>
-    private void HandleKeyboardShortcuts()
-    {
-        var currentEvent = Event.current;
-        if (currentEvent.type == EventType.KeyDown)
+        if (!EditorSessionBridge.TryGetSession(out var session))
         {
-            // Delete 键：删除选中节点
-            if (currentEvent.keyCode == KeyCode.Delete && _selectedNode != null)
+            EditorSessionBridge.ClearSession();
+            return;
+        }
+
+        EditorSessionBridge.ClearReturning();
+
+        if (!string.IsNullOrEmpty(session.BigMapPath))
+        {
+            LoadDataFromAssetPath(session.BigMapPath);
+        }
+
+        if (_saveData?.Nodes != null)
+        {
+            _selectedNode = _saveData.Nodes.Find(n => n.StageID == session.StageID);
+            if (_selectedNode != null)
             {
-                DeleteNode(_selectedNode.StageID);
-                currentEvent.Use();
+                _inspectorPanel?.BindNode(_selectedNode);
+                _inspectorPanel?.RefreshTemplateStatus();
+            }
+            else
+            {
+                _inspectorPanel?.ClearPanel();
+            }
+        }
+
+        ShowNotification(new GUIContent("已从关卡编辑器返回"));
+        EditorSessionBridge.ClearSession();
+        FocusExistingWindow();
+    }
+
+    private string ToAbsolutePath(string assetPath)
+    {
+        if (string.IsNullOrEmpty(assetPath) || !assetPath.StartsWith("Assets"))
+        {
+            return null;
+        }
+
+        return Path.Combine(Application.dataPath, assetPath.Substring("Assets".Length).TrimStart('/', '\\'));
+    }
+
+    public static void FocusExistingWindow()
+    {
+        var windows = Resources.FindObjectsOfTypeAll<BigMapEditorWindow>();
+        if (windows == null || windows.Length == 0)
+        {
+            return;
+        }
+
+        windows[0].Focus();
+        windows[0].Repaint();
+    }
+}
+
+public static class EditorSessionBridge
+{
+    private const string Prefix = "MineRTS_TilemapEditor_";
+
+    public static bool IsReturning => EditorPrefs.GetBool(Prefix + "IsReturning", false);
+
+    public static void SetSession(string stageId, string returnScenePath, string bigMapPath, SceneSetup[] sceneSetup)
+    {
+        EditorPrefs.SetString(Prefix + "StageID", stageId ?? string.Empty);
+        EditorPrefs.SetString(Prefix + "ReturnScenePath", returnScenePath ?? string.Empty);
+        EditorPrefs.SetString(Prefix + "BigMapPath", bigMapPath ?? string.Empty);
+        EditorPrefs.SetString(Prefix + "SceneSetupJson", SceneSetupStateCollection.Serialize(sceneSetup));
+        EditorPrefs.SetBool(Prefix + "IsReturning", false);
+    }
+
+    public static void MarkReturning()
+    {
+        EditorPrefs.SetBool(Prefix + "IsReturning", true);
+    }
+
+    public static void ClearReturning()
+    {
+        EditorPrefs.SetBool(Prefix + "IsReturning", false);
+    }
+
+    public static bool TryGetSession(out EditorTilemapSession session)
+    {
+        session = new EditorTilemapSession
+        {
+            StageID = EditorPrefs.GetString(Prefix + "StageID", string.Empty),
+            ReturnScenePath = EditorPrefs.GetString(Prefix + "ReturnScenePath", string.Empty),
+            BigMapPath = EditorPrefs.GetString(Prefix + "BigMapPath", string.Empty),
+            SceneSetup = SceneSetupStateCollection.Deserialize(EditorPrefs.GetString(Prefix + "SceneSetupJson", string.Empty))
+        };
+
+        return !string.IsNullOrEmpty(session.StageID);
+    }
+
+    public static void ClearSession()
+    {
+        EditorPrefs.DeleteKey(Prefix + "StageID");
+        EditorPrefs.DeleteKey(Prefix + "ReturnScenePath");
+        EditorPrefs.DeleteKey(Prefix + "BigMapPath");
+        EditorPrefs.DeleteKey(Prefix + "SceneSetupJson");
+        EditorPrefs.DeleteKey(Prefix + "IsReturning");
+    }
+}
+
+public struct EditorTilemapSession
+{
+    public string StageID;
+    public string ReturnScenePath;
+    public string BigMapPath;
+    public SceneSetup[] SceneSetup;
+}
+
+[System.Serializable]
+public struct SceneSetupState
+{
+    public string path;
+    public bool isLoaded;
+    public bool isActive;
+}
+
+[System.Serializable]
+public class SceneSetupStateCollection
+{
+    public List<SceneSetupState> scenes = new List<SceneSetupState>();
+
+    public static string Serialize(SceneSetup[] setup)
+    {
+        var collection = new SceneSetupStateCollection();
+        if (setup != null)
+        {
+            foreach (var scene in setup)
+            {
+                collection.scenes.Add(new SceneSetupState
+                {
+                    path = scene.path,
+                    isLoaded = scene.isLoaded,
+                    isActive = scene.isActive
+                });
+            }
+        }
+
+        return JsonUtility.ToJson(collection);
+    }
+
+    public static SceneSetup[] Deserialize(string json)
+    {
+        if (string.IsNullOrEmpty(json))
+        {
+            return null;
+        }
+
+        var collection = JsonUtility.FromJson<SceneSetupStateCollection>(json);
+        if (collection?.scenes == null || collection.scenes.Count == 0)
+        {
+            return null;
+        }
+
+        var setup = new SceneSetup[collection.scenes.Count];
+        for (int i = 0; i < collection.scenes.Count; i++)
+        {
+            var state = collection.scenes[i];
+            setup[i] = new SceneSetup
+            {
+                path = state.path,
+                isLoaded = state.isLoaded,
+                isActive = state.isActive
+            };
+        }
+
+        return setup;
+    }
+}
+
+[ExecuteAlways]
+public class TilemapLevelEditor : MonoBehaviour
+{
+    private const string DefaultScenePath = "Assets/Scenes/TilemapLevelEditor.unity";
+    private const string LevelDirectory = "Assets/Resources/Levels";
+
+    [SerializeField] private Grid _grid;
+    [SerializeField] private Tilemap _groundTilemap;
+    [SerializeField] private TileMappingConfig _tileMappingConfig;
+
+    [SerializeField] private string _stageId;
+    [SerializeField] private bool _loadedExistingTemplate;
+
+    [SerializeField] private int _width = 64;
+    [SerializeField] private int _height = 64;
+    [SerializeField] private int _originX = -32;
+    [SerializeField] private int _originY = -32;
+
+    private bool _sessionLoaded;
+
+    public string StageID => _stageId;
+    public bool LoadedExistingTemplate => _loadedExistingTemplate;
+    public bool HasTileMappingConfig => _tileMappingConfig != null;
+
+    [MenuItem("Tools/猫娘助手/Tilemap关卡编辑器")]
+    public static void OpenEditorScene()
+    {
+        string scenePath = TilemapLevelEditorSceneUtility.EnsureSceneExists(DefaultScenePath);
+        EditorSceneManager.OpenScene(scenePath);
+    }
+
+    private void OnEnable()
+    {
+        EnsureReferences();
+        LoadSessionIfNeeded();
+    }
+
+    public bool SaveLevel()
+    {
+        EnsureReferences();
+
+        if (_groundTilemap == null)
+        {
+            Debug.LogError("<color=red>[TilemapLevelEditor]</color> GroundTilemap 未配置。");
+            return false;
+        }
+
+        string stageId = _stageId;
+        if (string.IsNullOrEmpty(stageId))
+        {
+            Debug.LogError("<color=red>[TilemapLevelEditor]</color> StageID 为空，无法保存。");
+            return false;
+        }
+
+        int safeWidth = Mathf.Max(1, _width);
+        int safeHeight = Mathf.Max(1, _height);
+
+        var data = new LevelMapData
+        {
+            levelId = stageId,
+            width = safeWidth,
+            height = safeHeight,
+            originX = _originX,
+            originY = _originY,
+            groundMap = BakeGroundLayer(safeWidth, safeHeight),
+            gridMap = new int[safeWidth * safeHeight],
+            effectMap = new int[safeWidth * safeHeight]
+        };
+
+        Directory.CreateDirectory(LevelDirectory);
+        string assetPath = GetLevelAssetPath(stageId);
+        File.WriteAllText(assetPath, JsonUtility.ToJson(data, true));
+
+        _loadedExistingTemplate = true;
+        EditorUtility.SetDirty(this);
+        if (gameObject.scene.IsValid())
+        {
+            EditorSceneManager.SaveScene(gameObject.scene);
+        }
+
+        AssetDatabase.Refresh();
+        Debug.Log($"<color=green>[TilemapLevelEditor]</color> 已保存关卡模板: {assetPath}");
+        return true;
+    }
+
+    public void SaveAndReturnToBigMap()
+    {
+        if (!SaveLevel())
+        {
+            return;
+        }
+
+        if (!EditorSessionBridge.TryGetSession(out var session))
+        {
+            Debug.LogWarning("<color=orange>[TilemapLevelEditor]</color> 未找到返回会话，仅执行保存。");
+            return;
+        }
+
+        EditorSessionBridge.MarkReturning();
+        if (session.SceneSetup != null && session.SceneSetup.Length > 0)
+        {
+            EditorSceneManager.RestoreSceneManagerSetup(session.SceneSetup);
+            EditorApplication.delayCall += BigMapEditorWindow.FocusExistingWindow;
+            return;
+        }
+
+        if (string.IsNullOrEmpty(session.ReturnScenePath))
+        {
+            Debug.LogWarning("<color=orange>[TilemapLevelEditor]</color> ReturnScenePath 为空，无法自动返回 BigMap。");
+            return;
+        }
+
+        var returnScene = EditorSceneManager.OpenScene(session.ReturnScenePath, OpenSceneMode.Additive);
+        if (returnScene.IsValid())
+        {
+            EditorSceneManager.SetActiveScene(returnScene);
+        }
+
+        var currentScene = gameObject.scene;
+        if (currentScene.IsValid())
+        {
+            EditorSceneManager.CloseScene(currentScene, true);
+        }
+
+        EditorApplication.delayCall += BigMapEditorWindow.FocusExistingWindow;
+    }
+
+    public void LoadSessionIfNeeded()
+    {
+        if (!EditorSessionBridge.TryGetSession(out var session))
+        {
+            return;
+        }
+
+        bool shouldReload = !_sessionLoaded || _stageId != session.StageID;
+        if (!shouldReload)
+        {
+            return;
+        }
+
+        _sessionLoaded = true;
+        _stageId = session.StageID;
+
+        LoadLevelTemplate();
+        EditorUtility.SetDirty(this);
+    }
+
+    public void OverrideStage(string stageId)
+    {
+        if (string.IsNullOrEmpty(stageId))
+        {
+            return;
+        }
+
+        _sessionLoaded = true;
+        _stageId = stageId;
+        LoadLevelTemplate();
+        EditorUtility.SetDirty(this);
+    }
+
+    public void LoadLevelTemplate()
+    {
+        EnsureReferences();
+
+        string assetPath = GetLevelAssetPath(_stageId);
+        if (!File.Exists(assetPath))
+        {
+            _loadedExistingTemplate = false;
+            ResetToBlankTemplate();
+            Debug.Log($"<color=yellow>[TilemapLevelEditor]</color> 未找到模板，初始化为空白地图: {assetPath}");
+            return;
+        }
+
+        string json = File.ReadAllText(assetPath);
+        var levelData = JsonUtility.FromJson<LevelMapData>(json);
+        if (levelData == null)
+        {
+            Debug.LogError($"<color=red>[TilemapLevelEditor]</color> 关卡 JSON 解析失败: {assetPath}");
+            return;
+        }
+
+        _width = Mathf.Max(1, levelData.width);
+        _height = Mathf.Max(1, levelData.height);
+        _originX = levelData.originX;
+        _originY = levelData.originY;
+        _loadedExistingTemplate = true;
+
+        ApplyLevelDataToTilemap(levelData);
+        Debug.Log($"<color=cyan>[TilemapLevelEditor]</color> 已加载模板: {assetPath}");
+    }
+
+    private void ResetToBlankTemplate()
+    {
+        _width = Mathf.Max(1, _width);
+        _height = Mathf.Max(1, _height);
+        _groundTilemap?.ClearAllTiles();
+    }
+
+    private void EnsureReferences()
+    {
+        if (_grid == null)
+        {
+            _grid = GetComponent<Grid>();
+        }
+
+        if (_groundTilemap == null)
+        {
+            _groundTilemap = GetComponentInChildren<Tilemap>();
+        }
+    }
+
+    private string GetLevelAssetPath(string stageId)
+    {
+        return Path.Combine(LevelDirectory, $"{stageId}.json");
+    }
+
+    private int[] BakeGroundLayer(int safeWidth, int safeHeight)
+    {
+        int[] result = new int[safeWidth * safeHeight];
+
+        for (int y = 0; y < safeHeight; y++)
+        {
+            for (int x = 0; x < safeWidth; x++)
+            {
+                Vector3Int cell = new Vector3Int(_originX + x, _originY + y, 0);
+                TileBase tile = _groundTilemap.GetTile(cell);
+                int id = ResolveTileId(tile, cell);
+                result[y * safeWidth + x] = id;
+            }
+        }
+
+        return result;
+    }
+
+    private int ResolveTileId(TileBase tile, Vector3Int cell)
+    {
+        if (tile == null)
+        {
+            return 0;
+        }
+
+        if (_tileMappingConfig == null)
+        {
+            Debug.LogError("<color=red>[TilemapLevelEditor]</color> TileMappingConfig 未配置。");
+            return 0;
+        }
+
+        int id = _tileMappingConfig.GetTileID(tile);
+        if (id != 0)
+        {
+            return id;
+        }
+
+        Debug.LogError($"<color=red>[TilemapLevelEditor]</color> Tile 未注册 ID: {tile.name} @ {cell}");
+        return 0;
+    }
+
+    private void ApplyLevelDataToTilemap(LevelMapData levelData)
+    {
+        if (_groundTilemap == null)
+        {
+            return;
+        }
+
+        _groundTilemap.ClearAllTiles();
+        if (levelData.groundMap == null)
+        {
+            return;
+        }
+
+        for (int y = 0; y < levelData.height; y++)
+        {
+            for (int x = 0; x < levelData.width; x++)
+            {
+                int tileId = levelData.groundMap[y * levelData.width + x];
+                if (tileId == 0)
+                {
+                    continue;
+                }
+
+                TileBase tileAsset = ResolveTileAsset(tileId);
+                if (tileAsset == null)
+                {
+                    continue;
+                }
+
+                Vector3Int cell = new Vector3Int(levelData.originX + x, levelData.originY + y, 0);
+                _groundTilemap.SetTile(cell, tileAsset);
             }
         }
     }
 
-    /// <summary>
-    /// 更新节点ID（当用户在属性面板中修改节点ID时调用）
-    /// </summary>
-    public void UpdateNodeID(string oldID, string newID)
+    private TileBase ResolveTileAsset(int tileId)
     {
-        if (_mapCanvas != null)
+        if (_tileMappingConfig == null)
         {
-            _mapCanvas.UpdateNodeID(oldID, newID);
+            Debug.LogWarning("<color=orange>[TilemapLevelEditor]</color> TileMappingConfig 未配置，无法回填 Tilemap。");
+            return null;
         }
+
+        TileBase tileAsset = _tileMappingConfig.GetTileAsset(tileId);
+        if (tileAsset == null)
+        {
+            Debug.LogWarning($"<color=orange>[TilemapLevelEditor]</color> 未找到 TileID={tileId} 对应的 TileAsset。");
+        }
+
+        return tileAsset;
+    }
+}
+
+[CustomEditor(typeof(TilemapLevelEditor))]
+public class TilemapLevelEditorInspector : Editor
+{
+    public override void OnInspectorGUI()
+    {
+        DrawDefaultInspector();
+
+        var levelEditor = (TilemapLevelEditor)target;
+
+        EditorGUILayout.Space(8);
+        EditorGUILayout.LabelField("当前编辑关卡", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("StageID", string.IsNullOrEmpty(levelEditor.StageID) ? "(未绑定)" : levelEditor.StageID);
+        EditorGUILayout.LabelField("关卡文件", string.IsNullOrEmpty(levelEditor.StageID) ? "(未绑定)" : $"Resources/Levels/{levelEditor.StageID}.json");
+        EditorGUILayout.LabelField("状态", levelEditor.LoadedExistingTemplate ? "已加载现有模板" : "新建空白模板");
+        if (!levelEditor.HasTileMappingConfig)
+        {
+            EditorGUILayout.HelpBox("TileMappingConfig 未配置，已有 JSON 无法正确回填到 Tilemap。", MessageType.Warning);
+        }
+
+        EditorGUILayout.Space(8);
+        if (GUILayout.Button("保存", GUILayout.Height(28)))
+        {
+            levelEditor.SaveLevel();
+        }
+
+        Color previousColor = GUI.backgroundColor;
+        GUI.backgroundColor = new Color(0.66f, 0.92f, 0.95f);
+        if (GUILayout.Button("保存并返回 BigMap", GUILayout.Height(34)))
+        {
+            levelEditor.SaveAndReturnToBigMap();
+        }
+        GUI.backgroundColor = previousColor;
+
+        if (GUILayout.Button("重新读取当前模板", GUILayout.Height(24)))
+        {
+            levelEditor.LoadLevelTemplate();
+        }
+    }
+}
+
+public static class TilemapLevelEditorSceneUtility
+{
+    public static string EnsureSceneExists(string scenePath)
+    {
+        if (File.Exists(scenePath))
+        {
+            return scenePath;
+        }
+
+        string directory = Path.GetDirectoryName(scenePath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+
+        Camera mainCamera = Camera.main;
+        if (mainCamera != null)
+        {
+            mainCamera.orthographic = true;
+            mainCamera.transform.position = new Vector3(0f, 0f, -10f);
+        }
+
+        var gridGo = new GameObject("LevelGrid");
+        var grid = gridGo.AddComponent<Grid>();
+
+        var groundGo = new GameObject("GroundTilemap");
+        groundGo.transform.SetParent(gridGo.transform);
+        var groundTilemap = groundGo.AddComponent<Tilemap>();
+        groundGo.AddComponent<TilemapRenderer>();
+
+        var editorRoot = new GameObject("TilemapLevelEditor");
+        var tilemapEditor = editorRoot.AddComponent<TilemapLevelEditor>();
+        var serializedObject = new SerializedObject(tilemapEditor);
+        serializedObject.FindProperty("_grid").objectReferenceValue = grid;
+        serializedObject.FindProperty("_groundTilemap").objectReferenceValue = groundTilemap;
+        serializedObject.ApplyModifiedPropertiesWithoutUndo();
+
+        EditorSceneManager.SaveScene(scene, scenePath);
+        AssetDatabase.Refresh();
+        return scenePath;
     }
 }
