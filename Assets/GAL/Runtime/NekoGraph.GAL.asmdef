@@ -1,0 +1,19 @@
+{
+    "name": "NekoGraph.GAL",
+    "rootNamespace": "GAL",
+    "references": [
+        "NekoGraph.Runtime",
+        "SpaceTUI",
+        "DOTween.Modules",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,20 @@
+{
+    "name": "NekoGraph.GAL.Editor",
+    "rootNamespace": "GAL.Editor",
+    "references": [
+        "NekoGraph.GAL",
+        "NekoGraph.Editor",
+        "NekoGraph.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
