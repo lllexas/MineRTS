@@ -242,17 +242,19 @@ public partial class GridSystem : SingletonMono<GridSystem>
     }
     public static Vector2Int GetMouseGridPos(Vector2Int size)
     {
-        Vector3 mousePos = Input.mousePosition;
-        mousePos.z = -Camera.main.transform.position.z;
-        Vector3 worldPos = Camera.main.ScreenToWorldPoint(mousePos);
+        Camera camera = CameraController.Instance != null ? CameraController.Instance.TargetCamera : Camera.main;
+        if (camera == null || !InStageRenderSpace.TryScreenToGround(camera, Input.mousePosition, out Vector2 logicPos))
+        {
+            return Vector2Int.zero;
+        }
 
         // 偶数尺寸（2, 4）需要减去 0.5 偏移，使 [0.5, 1.5] 范围映射到逻辑坐标 0
         float offsetX = (size.x % 2 == 0) ? 0.5f : 0f;
         float offsetY = (size.y % 2 == 0) ? 0.5f : 0f;
 
         return new Vector2Int(
-            Mathf.FloorToInt(worldPos.x - offsetX + 0.01f), // 加个极小值防止浮点数打架
-            Mathf.FloorToInt(worldPos.y - offsetY + 0.01f)
+            Mathf.FloorToInt(logicPos.x - offsetX + 0.01f), // 加个极小值防止浮点数打架
+            Mathf.FloorToInt(logicPos.y - offsetY + 0.01f)
         );
     }
     /// <summary>

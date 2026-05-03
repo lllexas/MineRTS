@@ -21,6 +21,7 @@ public class CameraController : SingletonMono<CameraController>
 
     [Header("平滑与边界")]
     public float lerpSpeed = 100f;           // 平滑跟随速度
+    public float edgeSafetyMargin = 0.5f;    // 视锥贴边时向内收缩的安全余量
 
     [Header("是否暂停")]
     public bool isPaused = false;           // 暂停状态，暂停时不处理输入
@@ -28,6 +29,7 @@ public class CameraController : SingletonMono<CameraController>
     [Header("操作模式")]
     // 直接使用 GameFlowController.GameState，不重复定义枚举
     private GameFlowController.GameState _currentGameState = GameFlowController.GameState.InStage;
+    [SerializeField] private CameraControlMode _controlMode = CameraControlMode.Flat2D;
 
     //------------------ 修改 ------------------------
     // 不再手动填写 mapBounds，改为由 SyncBounds 从 WholeComponent 计算得出
@@ -38,6 +40,8 @@ public class CameraController : SingletonMono<CameraController>
     private Camera _cam;
     private Vector3 _targetPos;
     private float _targetZoom;
+    private float _targetDistance;
+    private float _perspectiveDepthSign = -1f;
     private Vector3 _lastMouseScreenPos;   // 用于中键拖拽时记录上一帧鼠标屏幕位置
     private bool _isInitialized = false;
 
@@ -45,11 +49,20 @@ public class CameraController : SingletonMono<CameraController>
     /// 获取相机控制器是否已初始化
     /// </summary>
     public bool IsInitialized => _isInitialized;
+    public CameraControlMode ControlMode => _controlMode;
+    public Camera TargetCamera
+    {
+        get
+        {
+            EnsureCameraReference();
+            return _cam;
+        }
+    }
 
     protected override void Awake()
     {
         base.Awake();
-        _cam = GetComponent<Camera>();
+        EnsureCameraReference();
 
         // 检查相机组件
         if (_cam == null)
@@ -61,7 +74,9 @@ public class CameraController : SingletonMono<CameraController>
 
         // 初始化目标值为当前状态喵
         _targetPos = transform.position;
-        _targetZoom = _cam.orthographicSize = defaultZoom;
+        _targetZoom = _cam.orthographic ? _cam.orthographicSize : _cam.fieldOfView;
+        _targetDistance = Mathf.Abs(transform.position.z);
+        _perspectiveDepthSign = ResolveDepthSign(transform.position.z);
 
         Debug.Log("<color=cyan>[CameraController]</color> Awake完成，相机组件已获取");
     }
@@ -69,6 +84,7 @@ public class CameraController : SingletonMono<CameraController>
     private void Start()
     {
         // 检查相机组件
+        EnsureCameraReference();
         if (_cam == null)
         {
             Debug.LogError("<color=red>[CameraController]</color> 相机组件未找到，控制器将被禁用");
@@ -133,8 +149,8 @@ public class CameraController : SingletonMono<CameraController>
         if (moveInput != Vector3.zero)
         {
             // 基于缩放程度调整移动速度：镜头拉远时动快点，拉近时动慢点
-            float speedMultiplier = _cam.orthographicSize / defaultZoom;
-            _targetPos += moveInput.normalized * moveSpeed * speedMultiplier * Time.unscaledDeltaTime;
+            float speedMultiplier = GetZoomSpeedMultiplier();
+            RouteMovementInput(moveInput.normalized, speedMultiplier);
         }
 
         // --- 3. 左键抓屏 (BigMap 模式专属) ---
@@ -151,16 +167,7 @@ public class CameraController : SingletonMono<CameraController>
                 Vector3 screenDelta = currentMousePos - _lastMouseScreenPos;
 
                 // 计算当前缩放级别下，1 像素对应多少世界单位
-                float unitsPerPixel = (_cam.orthographicSize * 2f) / Screen.height;
-
-                // 计算世界位移（鼠标往右移，相机往左走，所以用负号）
-                Vector3 worldMove = new Vector3(
-                    screenDelta.x * unitsPerPixel,
-                    screenDelta.y * unitsPerPixel,
-                    0
-                );
-
-                _targetPos -= worldMove;
+                ApplyDragDelta(screenDelta);
                 _lastMouseScreenPos = currentMousePos;
             }
         }
@@ -179,17 +186,7 @@ public class CameraController : SingletonMono<CameraController>
 
             // 计算当前缩放级别下，1 像素对应多少世界单位
             // 正交相机下：屏幕高度 = orthoSize * 2
-            float unitsPerPixel = (_cam.orthographicSize * 2f) / Screen.height;
-
-            // 计算世界位移（鼠标往右移，相机往左走，所以用负号）
-            Vector3 worldMove = new Vector3(
-                screenDelta.x * unitsPerPixel,
-                screenDelta.y * unitsPerPixel,
-                0
-            );
-
-            // 直接修改目标位置，完全无视当前相机在哪，只针对目标点操作
-            _targetPos -= worldMove;
+            ApplyDragDelta(screenDelta);
 
             // 这一步至关重要：更新上一帧位置，确保位移是增量的
             _lastMouseScreenPos = currentMousePos;
@@ -199,16 +196,24 @@ public class CameraController : SingletonMono<CameraController>
         float scroll = Input.GetAxis("Mouse ScrollWheel");
         if (Mathf.Abs(scroll) > 0.001f)
         {
-            _targetZoom -= scroll * zoomSensitivity;
-            _targetZoom = Mathf.Clamp(_targetZoom, minZoom, maxZoom);
+            if (_cam.orthographic)
+            {
+                _targetZoom -= scroll * zoomSensitivity;
+                _targetZoom = Mathf.Clamp(_targetZoom, minZoom, maxZoom);
+            }
+            else
+            {
+                _targetDistance -= scroll * zoomSensitivity;
+                _targetDistance = Mathf.Clamp(_targetDistance, minZoom, maxZoom);
+                _targetPos.z = _perspectiveDepthSign * _targetDistance;
+            }
             UpdateMovementLimits();
         }
 
         // --- 6. 限制边界 ---
         if (_isInitialized)
         {
-            _targetPos.x = Mathf.Clamp(_targetPos.x, _currentMovementBounds.xMin, _currentMovementBounds.xMax);
-            _targetPos.y = Mathf.Clamp(_targetPos.y, _currentMovementBounds.yMin, _currentMovementBounds.yMax);
+            _targetPos = ClampTargetPosition(_targetPos);
         }
     }
 
@@ -216,7 +221,17 @@ public class CameraController : SingletonMono<CameraController>
     {
         // 平滑插值，让移动和缩放看起来像有惯性一样舒服
         transform.position = Vector3.Lerp(transform.position, _targetPos, Time.unscaledDeltaTime * lerpSpeed);
-        _cam.orthographicSize = Mathf.Lerp(_cam.orthographicSize, _targetZoom, Time.unscaledDeltaTime * lerpSpeed);
+
+        if (_cam.orthographic)
+        {
+            _cam.orthographicSize = Mathf.Lerp(_cam.orthographicSize, _targetZoom, Time.unscaledDeltaTime * lerpSpeed);
+        }
+        else
+        {
+            Vector3 currentPos = transform.position;
+            currentPos.z = Mathf.Lerp(currentPos.z, _perspectiveDepthSign * _targetDistance, Time.unscaledDeltaTime * lerpSpeed);
+            transform.position = currentPos;
+        }
     }
 
     // ==========================================
@@ -308,8 +323,18 @@ public class CameraController : SingletonMono<CameraController>
     /// </summary>
     private void UpdateMovementLimits()
     {
-        // 检查是否已初始化
-        if (!_isInitialized) return;
+        EnsureCameraReference();
+        if (_cam == null) return;
+        Rect safeWorldRect = GetSafeWorldRect();
+
+        if (!_cam.orthographic)
+        {
+            if (!TryBuildPerspectiveMovementBounds(safeWorldRect, out _currentMovementBounds))
+            {
+                _currentMovementBounds = safeWorldRect;
+            }
+            return;
+        }
 
         // 防止除零错误
         if (Screen.height <= 0)
@@ -320,13 +345,13 @@ public class CameraController : SingletonMono<CameraController>
             float camHalfWidth2 = camHalfHeight2 * (16f / 9f);
 
             // 计算边界（使用当前_worldRect）
-            float minX2 = _worldRect.xMin + camHalfWidth2;
-            float maxX2 = _worldRect.xMax - camHalfWidth2;
-            float minY2 = _worldRect.yMin + camHalfHeight2;
-            float maxY2 = _worldRect.yMax - camHalfHeight2;
+            float minX2 = safeWorldRect.xMin + camHalfWidth2;
+            float maxX2 = safeWorldRect.xMax - camHalfWidth2;
+            float minY2 = safeWorldRect.yMin + camHalfHeight2;
+            float maxY2 = safeWorldRect.yMax - camHalfHeight2;
 
-            if (minX2 > maxX2) minX2 = maxX2 = _worldRect.center.x;
-            if (minY2 > maxY2) minY2 = maxY2 = _worldRect.center.y;
+            if (minX2 > maxX2) minX2 = maxX2 = safeWorldRect.center.x;
+            if (minY2 > maxY2) minY2 = maxY2 = safeWorldRect.center.y;
 
             _currentMovementBounds = Rect.MinMaxRect(minX2, minY2, maxX2, maxY2);
             return;
@@ -338,16 +363,42 @@ public class CameraController : SingletonMono<CameraController>
         float camHalfWidth = camHalfHeight * ((float)Screen.width / Screen.height);
 
         // 计算中心点允许移动的 X 轴和 Y 轴范围
-        float minX = _worldRect.xMin + camHalfWidth;
-        float maxX = _worldRect.xMax - camHalfWidth;
-        float minY = _worldRect.yMin + camHalfHeight;
-        float maxY = _worldRect.yMax - camHalfHeight;
+        float minX = safeWorldRect.xMin + camHalfWidth;
+        float maxX = safeWorldRect.xMax - camHalfWidth;
+        float minY = safeWorldRect.yMin + camHalfHeight;
+        float maxY = safeWorldRect.yMax - camHalfHeight;
 
         // 如果地图比相机的视野还小，就强制锁定在地图中心
-        if (minX > maxX) minX = maxX = _worldRect.center.x;
-        if (minY > maxY) minY = maxY = _worldRect.center.y;
+        if (minX > maxX) minX = maxX = safeWorldRect.center.x;
+        if (minY > maxY) minY = maxY = safeWorldRect.center.y;
 
         _currentMovementBounds = Rect.MinMaxRect(minX, minY, maxX, maxY);
+    }
+
+    /// <summary>
+    /// 根据当前游戏状态同步相机上下文。
+    /// 外部只表达“切到了什么状态”，具体边界和输入模式路由都收在这里。
+    /// </summary>
+    public void ConfigureForState(GameFlowController.GameState gameState)
+    {
+        _currentGameState = gameState;
+
+        switch (gameState)
+        {
+            case GameFlowController.GameState.MainMenu:
+                SyncMainMenu();
+                break;
+
+            case GameFlowController.GameState.BigMap:
+                SyncBigMap();
+                break;
+
+            case GameFlowController.GameState.InStage:
+                SyncBounds();
+                break;
+        }
+
+        Debug.Log($"<color=cyan>[CameraController]</color> 状态上下文已同步：{_currentGameState}");
     }
 
     /// <summary>
@@ -355,7 +406,7 @@ public class CameraController : SingletonMono<CameraController>
     /// </summary>
     public void GoToOrigin()
     {
-        _targetPos = new Vector3(0, 0, transform.position.z);
+        _targetPos = new Vector3(0f, 0f, GetCurrentTargetDepth());
     }
 
     /// <summary>
@@ -363,7 +414,15 @@ public class CameraController : SingletonMono<CameraController>
     /// </summary>
     public void ResetZoom()
     {
-        _targetZoom = defaultZoom;
+        if (_cam != null && !_cam.orthographic)
+        {
+            _targetDistance = defaultZoom;
+            _targetPos.z = _perspectiveDepthSign * _targetDistance;
+        }
+        else
+        {
+            _targetZoom = defaultZoom;
+        }
         UpdateMovementLimits();
     }
 
@@ -372,7 +431,7 @@ public class CameraController : SingletonMono<CameraController>
     /// </summary>
     public void FocusOn(Vector2 worldPos)
     {
-        _targetPos = new Vector3(worldPos.x, worldPos.y, transform.position.z);
+        _targetPos = new Vector3(worldPos.x, worldPos.y, GetCurrentTargetDepth());
     }
 
     /// <summary>
@@ -384,7 +443,7 @@ public class CameraController : SingletonMono<CameraController>
         Debug.Log("<color=cyan>[CameraController]</color> 自动初始化摄像机...");
 
         // 1. 同步地图边界
-        SyncBounds();
+        ConfigureForState(_currentGameState);
 
         // 2. 重置缩放级别
         ResetZoom();
@@ -400,7 +459,254 @@ public class CameraController : SingletonMono<CameraController>
     /// </summary>
     public void SetGameMode(GameFlowController.GameState gameState)
     {
-        _currentGameState = gameState;
-        Debug.Log($"<color=cyan>[CameraController]</color> 操作模式已切换：{_currentGameState}");
+        ConfigureForState(gameState);
+    }
+
+    public void ApplyProfile(CameraProfileSO profile)
+    {
+        EnsureCameraReference();
+        if (profile == null || _cam == null)
+        {
+            return;
+        }
+
+        moveSpeed = profile.MoveSpeed;
+        dragSpeed = profile.DragSpeed;
+        edgeSize = profile.EdgeSize;
+        useEdgeScrolling = profile.UseEdgeScrolling;
+        defaultZoom = profile.DefaultZoom;
+        minZoom = profile.MinZoom;
+        maxZoom = profile.MaxZoom;
+        zoomSensitivity = profile.ZoomSensitivity;
+        lerpSpeed = profile.LerpSpeed;
+        _controlMode = profile.ControlMode;
+
+        _cam.orthographic = profile.ProjectionMode == CameraProjectionMode.Orthographic;
+        _cam.nearClipPlane = profile.NearClipPlane;
+        _cam.farClipPlane = profile.FarClipPlane;
+        _cam.orthographicSize = profile.OrthographicSize;
+        _cam.fieldOfView = profile.FieldOfView;
+
+        transform.position = profile.Position;
+        transform.rotation = Quaternion.Euler(profile.RotationEuler);
+        _targetPos = profile.Position;
+        _targetZoom = _cam.orthographic ? profile.OrthographicSize : profile.FieldOfView;
+        _targetDistance = Mathf.Abs(profile.Position.z);
+        _perspectiveDepthSign = ResolveDepthSign(profile.Position.z);
+
+        InStageRenderSpace.LayoutMode = _controlMode == CameraControlMode.Billboard3D
+            ? InStageRenderLayoutMode.Billboard3D
+            : InStageRenderLayoutMode.Flat2D;
+
+        UpdateMovementLimits();
+    }
+
+    private void EnsureCameraReference()
+    {
+        if (_cam == null)
+        {
+            _cam = GetComponent<Camera>();
+        }
+
+        if (_cam == null)
+        {
+            _cam = GetComponentInParent<Camera>();
+        }
+    }
+
+    private float GetZoomSpeedMultiplier()
+    {
+        if (Mathf.Abs(defaultZoom) <= 0.001f)
+        {
+            return 1f;
+        }
+
+        float currentZoom = _cam.orthographic ? _cam.orthographicSize : _targetDistance;
+        return currentZoom / defaultZoom;
+    }
+
+    private void RouteMovementInput(Vector3 moveInput, float speedMultiplier)
+    {
+        if (_cam.orthographic)
+        {
+            Vector3 delta = moveInput * moveSpeed * speedMultiplier * Time.unscaledDeltaTime;
+            AddMovement(delta);
+            return;
+        }
+
+        Vector3 rightOnPlane = GetPlaneProjectedAxis(transform.right, Vector3.right);
+        Vector3 upOnPlane = GetPlaneProjectedAxis(transform.up, Vector3.up);
+        Vector3 planarDirection = (rightOnPlane * moveInput.x) + (upOnPlane * moveInput.y);
+        if (planarDirection.sqrMagnitude <= 0.0001f)
+        {
+            return;
+        }
+
+        Vector3 deltaPerspective = planarDirection.normalized * moveSpeed * speedMultiplier * Time.unscaledDeltaTime;
+        AddMovement(new Vector3(deltaPerspective.x, deltaPerspective.y, 0f));
+    }
+
+    private void AddMovement(Vector3 delta)
+    {
+        _targetPos += delta;
+    }
+
+    private void ApplyDragDelta(Vector3 screenDelta)
+    {
+        if (_cam.orthographic)
+        {
+            float unitsPerPixel = (_cam.orthographicSize * 2f) / Mathf.Max(Screen.height, 1f);
+            Vector2 planarDelta = new Vector2(screenDelta.x * unitsPerPixel, screenDelta.y * unitsPerPixel) * dragSpeed;
+            _targetPos -= new Vector3(planarDelta.x, planarDelta.y, 0f);
+            return;
+        }
+
+        float planeZ = 0f;
+        Vector3 prevScreen = _lastMouseScreenPos;
+        Vector3 currScreen = prevScreen + screenDelta;
+        Vector3 prevWorld = ScreenToPlane(prevScreen, planeZ);
+        Vector3 currWorld = ScreenToPlane(currScreen, planeZ);
+        Vector3 worldDelta = (currWorld - prevWorld) * dragSpeed;
+        _targetPos -= new Vector3(worldDelta.x, worldDelta.y, 0f);
+    }
+
+    private Vector3 ClampTargetPosition(Vector3 targetPos)
+    {
+        targetPos.x = Mathf.Clamp(targetPos.x, _currentMovementBounds.xMin, _currentMovementBounds.xMax);
+        targetPos.y = Mathf.Clamp(targetPos.y, _currentMovementBounds.yMin, _currentMovementBounds.yMax);
+        return targetPos;
+    }
+
+    private Vector3 ScreenToPlane(Vector3 screenPos, float planeZ)
+    {
+        Ray ray = _cam.ScreenPointToRay(screenPos);
+        Plane plane = new Plane(Vector3.forward, new Vector3(0f, 0f, planeZ));
+        if (plane.Raycast(ray, out float enter))
+        {
+            return ray.GetPoint(enter);
+        }
+
+        return transform.position;
+    }
+
+    private bool TryBuildPerspectiveMovementBounds(Rect safeWorldRect, out Rect bounds)
+    {
+        bounds = safeWorldRect;
+        Vector3 targetCameraPos = GetPerspectiveTargetPosition();
+
+        Vector2[] viewportCorners =
+        {
+            new Vector2(0f, 0f),
+            new Vector2(0f, 1f),
+            new Vector2(1f, 0f),
+            new Vector2(1f, 1f)
+        };
+
+        bool hasOffset = false;
+        float minOffsetX = 0f;
+        float maxOffsetX = 0f;
+        float minOffsetY = 0f;
+        float maxOffsetY = 0f;
+
+        for (int i = 0; i < viewportCorners.Length; i++)
+        {
+            Vector2 corner = viewportCorners[i];
+            Ray viewportRay = _cam.ViewportPointToRay(corner);
+            Vector3 worldDirection = viewportRay.direction;
+            if (Mathf.Abs(worldDirection.z) <= 0.0001f)
+            {
+                return false;
+            }
+
+            float enter = -targetCameraPos.z / worldDirection.z;
+            if (enter <= 0f)
+            {
+                return false;
+            }
+
+            Vector3 worldPoint = targetCameraPos + worldDirection * enter;
+            Vector2 offset = new Vector2(worldPoint.x - targetCameraPos.x, worldPoint.y - targetCameraPos.y);
+            if (!hasOffset)
+            {
+                minOffsetX = maxOffsetX = offset.x;
+                minOffsetY = maxOffsetY = offset.y;
+                hasOffset = true;
+                continue;
+            }
+
+            minOffsetX = Mathf.Min(minOffsetX, offset.x);
+            maxOffsetX = Mathf.Max(maxOffsetX, offset.x);
+            minOffsetY = Mathf.Min(minOffsetY, offset.y);
+            maxOffsetY = Mathf.Max(maxOffsetY, offset.y);
+        }
+
+        float minX = safeWorldRect.xMin - minOffsetX;
+        float maxX = safeWorldRect.xMax - maxOffsetX;
+        float minY = safeWorldRect.yMin - minOffsetY;
+        float maxY = safeWorldRect.yMax - maxOffsetY;
+
+        if (minX > maxX)
+        {
+            minX = maxX = safeWorldRect.center.x;
+        }
+
+        if (minY > maxY)
+        {
+            minY = maxY = safeWorldRect.center.y;
+        }
+
+        bounds = Rect.MinMaxRect(minX, minY, maxX, maxY);
+        return true;
+    }
+
+    private Vector3 GetPlaneProjectedAxis(Vector3 sourceAxis, Vector3 fallbackAxis)
+    {
+        Vector3 projected = Vector3.ProjectOnPlane(sourceAxis, Vector3.forward);
+        if (projected.sqrMagnitude <= 0.0001f)
+        {
+            return fallbackAxis;
+        }
+
+        return projected.normalized;
+    }
+
+    private float ResolveDepthSign(float zValue)
+    {
+        if (Mathf.Abs(zValue) <= 0.001f)
+        {
+            return -1f;
+        }
+
+        return Mathf.Sign(zValue);
+    }
+
+    private float GetCurrentTargetDepth()
+    {
+        return _cam != null && !_cam.orthographic
+            ? _perspectiveDepthSign * _targetDistance
+            : transform.position.z;
+    }
+
+    private Vector3 GetPerspectiveTargetPosition()
+    {
+        return new Vector3(_targetPos.x, _targetPos.y, _perspectiveDepthSign * _targetDistance);
+    }
+
+    private Rect GetSafeWorldRect()
+    {
+        float margin = Mathf.Max(0f, edgeSafetyMargin);
+        if (margin <= 0.0001f)
+        {
+            return _worldRect;
+        }
+
+        float width = Mathf.Max(0f, _worldRect.width - margin * 2f);
+        float height = Mathf.Max(0f, _worldRect.height - margin * 2f);
+
+        return new Rect(
+            _worldRect.xMin + margin,
+            _worldRect.yMin + margin,
+            width,
+            height);
     }
 }

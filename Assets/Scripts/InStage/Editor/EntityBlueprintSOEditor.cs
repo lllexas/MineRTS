@@ -94,6 +94,7 @@ public class EntityBlueprintSOEditor : Editor
             var spriteIdProperty = serializedObject.FindProperty("SpriteId");
             if (spriteIdProperty != null)
                 DrawSpritePreview(spriteIdProperty.intValue, "Main Sprite");
+            DrawProperty("AnimationSetSO");
             DrawProperty("LogicSize");
             DrawProperty("VisualScale");
         }

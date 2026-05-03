@@ -4,8 +4,12 @@ using UnityEngine.Rendering;
 
 public class DrawSystem : SingletonMono<DrawSystem>
 {
+    private const float BillboardFootAnchorXOffset = 0f;
+    private const float BillboardFootAnchorYOffset = -0.16666667f;
+
     [Header("调试模式")]
     public bool UseDebugSpriteRenderers = false;
+    public bool DrawAtlasBillboardGizmos = false;
     [Header("血条设置")]
     public Material healthBarMaterial;
     private Material _hbMaterialInstance; // 【新增】血条材质副本，用于运行时修改 Queue
@@ -13,43 +17,24 @@ public class DrawSystem : SingletonMono<DrawSystem>
     private List<Matrix4x4> _hbMatrices = new List<Matrix4x4>(1024);
     private List<float> _hbFillAmounts = new List<float>(1024); // 存储每个实例的血量百分比
     private MaterialPropertyBlock _hbPropertyBlock; // 【关键】血条专用，防止与单位属性冲突
-
-
-    // --- 修改点 1：将矩阵池拆分为两组，对应不同的 Sorting Layer ---
-    private Dictionary<int, List<Matrix4x4>> _conveyorMatrices; // 对应 "Conveyor" 层
-    private Dictionary<int, List<Matrix4x4>> _unitMatrices;     // 对应 "Units" 层
-
-    private Dictionary<int, Material> _conveyorMatCache = new Dictionary<int, Material>();
-    private Dictionary<int, Material> _unitMatCache = new Dictionary<int, Material>();
-
-
-    // 缓存 Layer ID，避免每帧 String 转 Int 的开销
-    private int _layerIdConveyor;
-    private int _layerIdUnits;
-
-    private MaterialPropertyBlock _propertyBlock;
     private List<GameObject> _debugProxies;
     private Transform _debugRoot;
     private SpriteLib _spriteLib;
+    private SpriteInstanceRenderService _spriteRenderService;
+    private UnitAtlasBillboardRenderService _unitAtlasBillboardRenderService;
+    private readonly Dictionary<string, EntityBlueprintSO> _blueprintSoCache = new Dictionary<string, EntityBlueprintSO>();
+    private readonly List<AtlasBillboardDebugInfo> _atlasBillboardDebugInfos = new List<AtlasBillboardDebugInfo>(256);
 
 
     protected override void Awake()
     {
         base.Awake();
-
-        // 初始化两个字典
-        _conveyorMatrices = new Dictionary<int, List<Matrix4x4>>();
-        _unitMatrices = new Dictionary<int, List<Matrix4x4>>();
-
-        // 获取 Sorting Layer 的 ID
-        _layerIdConveyor = SortingLayer.NameToID("Conveyor");
-        _layerIdUnits = SortingLayer.NameToID("Units");
-
-        _propertyBlock = new MaterialPropertyBlock();
         _hbPropertyBlock = new MaterialPropertyBlock(); // 初始化血条属性块
         _debugProxies = new List<GameObject>();
         _debugRoot = new GameObject("--- [Debug] DrawSystem Proxies ---").transform;
         _spriteLib = SpriteLib.Instance;
+        _spriteRenderService = SpriteInstanceRenderService.Shared;
+        _unitAtlasBillboardRenderService = UnitAtlasBillboardRenderService.Shared;
 
         if (healthBarMaterial != null)
         {
@@ -188,13 +173,13 @@ public class DrawSystem : SingletonMono<DrawSystem>
 
         // 如果开启了 Instancing，把 Debug 的节点全关掉以节省性能
         if (_debugRoot.gameObject.activeSelf) _debugRoot.gameObject.SetActive(false);
-        if (count == 0) return;
 
         // 1. 清理上一帧的数据
-        foreach (var list in _conveyorMatrices.Values) list.Clear();
-        foreach (var list in _unitMatrices.Values) list.Clear();
+        _spriteRenderService.Clear();
+        _unitAtlasBillboardRenderService.Clear();
         _hbMatrices.Clear();
         _hbFillAmounts.Clear();
+        _atlasBillboardDebugInfos.Clear();
 
         // 2. 收集矩阵数据
         for (int i = 0; i < count; i++)
@@ -207,12 +192,7 @@ public class DrawSystem : SingletonMono<DrawSystem>
             int spriteId = draw.SpriteId;
 
             bool isConveyor = whole.workComponent[i].WorkType == WorkType.Conveyor;
-            var targetDict = isConveyor ? _conveyorMatrices : _unitMatrices;
-
-            if (!targetDict.ContainsKey(spriteId))
-                targetDict[spriteId] = new List<Matrix4x4>(1024);
-
-            float zPos = isConveyor ? -1f : -3f;
+            float zPos = isConveyor ? -1f : 0f;
 
             // --- 🔥【修正后的特技逻辑：拒绝抽搐】 ---
             float jumpOffset = 0f;
@@ -262,7 +242,19 @@ public class DrawSystem : SingletonMono<DrawSystem>
             // 基础安全检查
             if (scaleVal.sqrMagnitude < 0.001f) scaleVal = Vector3.one;
 
-            targetDict[spriteId].Add(Matrix4x4.TRS(pos, rot, scaleVal));
+            if (TryEnqueueAtlasBillboard(ref core, pos, scaleVal))
+            {
+                // atlas billboard 已接管该单位主绘制
+            }
+            else
+            {
+                _spriteRenderService.Enqueue(new SpriteInstanceDrawRequest
+                {
+                    SpriteId = spriteId,
+                    Band = isConveyor ? InStageRenderBand.Conveyor : InStageRenderBand.Unit,
+                    Matrix = InStageRenderSpace.MakeSpriteMatrix(new Vector2(pos.x, pos.y), rot, scaleVal, pos.z)
+                });
+            }
 
             // --- 血条逻辑 (同步 jumpOffset) ---
             bool shouldShowHB = (core.Type & (UnitType.Hero | UnitType.Minion | UnitType.Building)) != 0;
@@ -272,7 +264,7 @@ public class DrawSystem : SingletonMono<DrawSystem>
                 if (health.IsAlive && health.Health < health.MaxHealth)
                 {
                     // 血条跟随单位的 Position 和 jumpOffset
-                    Vector3 hbPos = new Vector3(core.Position.x, core.Position.y + 0.55f + jumpOffset, -5f);
+                    Vector3 hbPos = new Vector3(core.Position.x, core.Position.y + 0.55f + jumpOffset, 0f);
                     Vector3 hbScale = new Vector3(core.LogicSize.x * 0.8f, 0.12f, 1f);
 
                     _hbMatrices.Add(Matrix4x4.TRS(hbPos, Quaternion.identity, hbScale));
@@ -281,21 +273,9 @@ public class DrawSystem : SingletonMono<DrawSystem>
             }
         }
 
-
-        // --- 准备 PropertyBlock (单位用)---
-        if (_propertyBlock == null) _propertyBlock = new MaterialPropertyBlock();
-        _propertyBlock.Clear();
-        _propertyBlock.SetVector("_BaseColor", Color.white);
-        _propertyBlock.SetVector("_Color", Color.white);
-
         // 3. 绘制阶段
-        // 核心逻辑：先画传送带，再画单位，这样单位就会压在传送带上面
-
-        // 传送带底层: Priority 10, Queue 3000
-        DrawBatch(_conveyorMatrices, 10, 3000, _conveyorMatCache);
-
-        // 单位顶层: Priority 30, Queue 3010 (比物品的 3005 更高)
-        DrawBatch(_unitMatrices, 30, 3010, _unitMatCache);
+        _spriteRenderService.Flush(_spriteLib);
+        _unitAtlasBillboardRenderService.Flush();
 
         if (_hbMatrices.Count > 0)
         {
@@ -303,40 +283,103 @@ public class DrawSystem : SingletonMono<DrawSystem>
         }
     }
 
-    private void DrawBatch(Dictionary<int, List<Matrix4x4>> batchDict, int priority, int renderQueue, Dictionary<int, Material> cache)
+    private bool TryEnqueueAtlasBillboard(ref CoreComponent core, Vector3 pos, Vector3 scaleVal)
     {
-        foreach (var batch in batchDict)
+        EntityBlueprintSO blueprintSO = GetBlueprintSO(core.BlueprintName);
+        if (blueprintSO == null || blueprintSO.AnimationSetSO == null)
         {
-            int spriteId = batch.Key;
-            List<Matrix4x4> matrices = batch.Value;
-            if (matrices.Count == 0) continue;
-
-            // --- 【核心逻辑：材质副本处理】 ---
-            if (!cache.TryGetValue(spriteId, out Material layeredMat))
-            {
-                Material baseMat = _spriteLib.GetMaterial(spriteId);
-                if (baseMat == null) continue;
-
-                // 克隆材质并修改队列
-                layeredMat = new Material(baseMat);
-                layeredMat.renderQueue = renderQueue;
-                cache[spriteId] = layeredMat;
-            }
-
-            Mesh mesh = _spriteLib.GetMesh(spriteId);
-            if (mesh == null) continue;
-
-            RenderParams rp = new RenderParams(layeredMat) // 使用带队列偏移的材质
-            {
-                worldBounds = new Bounds(Vector3.zero, Vector3.one * 10000),
-                shadowCastingMode = ShadowCastingMode.Off,
-                receiveShadows = false,
-                matProps = _propertyBlock,
-                rendererPriority = priority
-            };
-
-            Graphics.RenderMeshInstanced(rp, mesh, 0, matrices);
+            return false;
         }
+
+        UnitAtlasAnimationSetSO animationSet = blueprintSO.AnimationSetSO;
+        if (animationSet.AtlasTexture == null)
+        {
+            return false;
+        }
+
+        AtlasFrameCoord frameCoord = ResolvePhaseOneDefaultFrame(animationSet);
+        Rect uvRect = animationSet.GetFrameUvRect(frameCoord);
+        Camera renderCamera = CameraController.Instance != null
+            ? CameraController.Instance.TargetCamera
+            : Camera.main;
+        Vector2 footAnchor = ResolveBillboardFootAnchor(core.Position, pos.y - core.Position.y);
+
+        Matrix4x4 matrix = InStageRenderSpace.MakeBillboardMatrix(
+            footAnchor,
+            scaleVal,
+            renderCamera,
+            pos.z);
+
+        _unitAtlasBillboardRenderService.Enqueue(new UnitAtlasBillboardDrawRequest
+        {
+            AtlasTexture = animationSet.AtlasTexture,
+            UvRect = uvRect,
+            Matrix = matrix
+        });
+
+        if (DrawAtlasBillboardGizmos)
+        {
+            _atlasBillboardDebugInfos.Add(new AtlasBillboardDebugInfo
+            {
+                Anchor = new Vector3(pos.x, pos.y, pos.z),
+                Matrix = matrix
+            });
+        }
+
+        return true;
+    }
+
+    private static Vector2 ResolveBillboardFootAnchor(Vector2 logicalPosition, float verticalVisualOffset)
+    {
+        return new Vector2(
+            logicalPosition.x + BillboardFootAnchorXOffset,
+            logicalPosition.y + BillboardFootAnchorYOffset + verticalVisualOffset);
+    }
+
+    private EntityBlueprintSO GetBlueprintSO(string blueprintId)
+    {
+        if (string.IsNullOrWhiteSpace(blueprintId))
+        {
+            return null;
+        }
+
+        if (_blueprintSoCache.TryGetValue(blueprintId, out EntityBlueprintSO cached))
+        {
+            return cached;
+        }
+
+        EntityBlueprintSO blueprint = MetaLib.GetObject<EntityBlueprintSO>(blueprintId);
+        _blueprintSoCache[blueprintId] = blueprint;
+        return blueprint;
+    }
+
+    private static AtlasFrameCoord ResolvePhaseOneDefaultFrame(UnitAtlasAnimationSetSO animationSet)
+    {
+        if (animationSet == null)
+        {
+            return default;
+        }
+
+        if (animationSet.TryGetClip(UnitAnimationStateId.Idle, out UnitAtlasClipDef idleClip) &&
+            idleClip.Frames != null &&
+            idleClip.Frames.Length > 0)
+        {
+            return idleClip.Frames[0];
+        }
+
+        if (animationSet.Clips != null)
+        {
+            for (int i = 0; i < animationSet.Clips.Count; i++)
+            {
+                AtlasFrameCoord[] frames = animationSet.Clips[i].Frames;
+                if (frames != null && frames.Length > 0)
+                {
+                    return frames[0];
+                }
+            }
+        }
+
+        return default;
     }
 
     private void DrawHealthBars()
@@ -358,5 +401,54 @@ public class DrawSystem : SingletonMono<DrawSystem>
         };
 
         Graphics.RenderMeshInstanced(rp, _quadMesh, 0, _hbMatrices);
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (!DrawAtlasBillboardGizmos || _atlasBillboardDebugInfos.Count == 0)
+        {
+            return;
+        }
+
+        Color previousColor = Gizmos.color;
+
+        foreach (AtlasBillboardDebugInfo debugInfo in _atlasBillboardDebugInfos)
+        {
+            DrawAtlasBillboardQuad(debugInfo.Matrix);
+            DrawAnchor(debugInfo.Anchor);
+        }
+
+        Gizmos.color = previousColor;
+    }
+
+    private static void DrawAtlasBillboardQuad(Matrix4x4 matrix)
+    {
+        Vector3 bl = matrix.MultiplyPoint3x4(new Vector3(-0.5f, 0f, 0f));
+        Vector3 br = matrix.MultiplyPoint3x4(new Vector3(0.5f, 0f, 0f));
+        Vector3 tl = matrix.MultiplyPoint3x4(new Vector3(-0.5f, 1f, 0f));
+        Vector3 tr = matrix.MultiplyPoint3x4(new Vector3(0.5f, 1f, 0f));
+
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawLine(bl, br);
+        Gizmos.DrawLine(br, tr);
+        Gizmos.DrawLine(tr, tl);
+        Gizmos.DrawLine(tl, bl);
+    }
+
+    private static void DrawAnchor(Vector3 anchor)
+    {
+        const float crossHalfSize = 0.12f;
+        const float normalSize = 0.2f;
+
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawLine(anchor + Vector3.left * crossHalfSize, anchor + Vector3.right * crossHalfSize);
+        Gizmos.DrawLine(anchor + Vector3.down * crossHalfSize, anchor + Vector3.up * crossHalfSize);
+        Gizmos.DrawLine(anchor, anchor + Vector3.forward * normalSize);
+    }
+
+    private struct AtlasBillboardDebugInfo
+    {
+        public Vector3 Anchor;
+        public Matrix4x4 Matrix;
     }
 }

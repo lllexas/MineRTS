@@ -20,6 +20,7 @@ public class GameFlowController : SingletonMono<GameFlowController>
 
     [Header("状态管理")]
     [SerializeField] private GameState _currentState = GameState.MainMenu;
+
     public GameState CurrentState
     {
         get => _currentState;
@@ -186,8 +187,8 @@ public class GameFlowController : SingletonMono<GameFlowController>
                 // 3. 摄像机层面：同步主菜单专用的限制边界
                 if (CameraController.Instance != null)
                 {
-                    CameraController.Instance.SyncMainMenu();
-                    CameraController.Instance.SetGameMode(GameState.MainMenu);
+                    CameraProfileDriver.Instance?.ApplyProfileForState(GameState.MainMenu);
+                    CameraController.Instance.ConfigureForState(GameState.MainMenu);
                 }
                 break;
 
@@ -212,9 +213,8 @@ public class GameFlowController : SingletonMono<GameFlowController>
                 // 3. 摄像机层面：同步大地图的边界范围并居中
                 if (CameraController.Instance != null)
                 {
-                    CameraController.Instance.SyncBigMap();
-                    CameraController.Instance.GoToOrigin(); // 切到大地图时默认回原点
-                    CameraController.Instance.SetGameMode(GameState.BigMap);
+                    CameraProfileDriver.Instance?.ApplyProfileForState(GameState.BigMap);
+                    CameraController.Instance.ConfigureForState(GameState.BigMap);
                 }
                 break;
 
@@ -240,10 +240,8 @@ public class GameFlowController : SingletonMono<GameFlowController>
                 // 3. 摄像机层面：根据 ECS 当前加载的关卡数据同步边界
                 if (CameraController.Instance != null)
                 {
-                    // 注意：因为 LoadStage 是在 EnterStage 触发的，此时 EntitySystem 里应该已经有数据了
-                    CameraController.Instance.SyncBounds();
-                    CameraController.Instance.InitializeCamera(); // 自动回原点并重置缩放
-                    CameraController.Instance.SetGameMode(GameState.InStage);
+                    CameraProfileDriver.Instance?.ApplyProfileForState(GameState.InStage);
+                    CameraController.Instance.ConfigureForState(GameState.InStage);
                 }
                 break;
         }

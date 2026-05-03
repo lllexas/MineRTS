@@ -123,10 +123,12 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
 
         ClearSelection();
 
-        // 1. 获取鼠标拖出来的世界空间矩形
-        Vector2 vMin = _mainCam.ScreenToWorldPoint(Vector3.Min(start, end));
-        Vector2 vMax = _mainCam.ScreenToWorldPoint(Vector3.Max(start, end));
-        Rect selectionRect = new Rect(vMin.x, vMin.y, vMax.x - vMin.x, vMax.y - vMin.y);
+        Camera activeCamera = CameraController.Instance != null ? CameraController.Instance.TargetCamera : _mainCam;
+        if (activeCamera == null)
+            return;
+
+        if (!TryBuildSelectionRect(activeCamera, start, end, out Rect selectionRect))
+            return;
 
         var whole = EntitySystem.Instance.wholeComponent;
         for (int i = 0; i < whole.entityCount; i++)
@@ -305,6 +307,47 @@ public class UserControlSystem : SingletonMono<UserControlSystem>
         // 注意：_skipLeftButtonRelease 在左键释放处理中清除
     }
     // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+    private bool TryBuildSelectionRect(Camera camera, Vector2 start, Vector2 end, out Rect selectionRect)
+    {
+        selectionRect = default;
+
+        Vector2[] screenCorners =
+        {
+            new Vector2(start.x, start.y),
+            new Vector2(start.x, end.y),
+            new Vector2(end.x, start.y),
+            new Vector2(end.x, end.y)
+        };
+
+        bool hasPoint = false;
+        float minX = 0f;
+        float minY = 0f;
+        float maxX = 0f;
+        float maxY = 0f;
+
+        for (int i = 0; i < screenCorners.Length; i++)
+        {
+            if (!InStageRenderSpace.TryScreenToGround(camera, screenCorners[i], out Vector2 logicPos))
+                return false;
+
+            if (!hasPoint)
+            {
+                minX = maxX = logicPos.x;
+                minY = maxY = logicPos.y;
+                hasPoint = true;
+                continue;
+            }
+
+            minX = Mathf.Min(minX, logicPos.x);
+            minY = Mathf.Min(minY, logicPos.y);
+            maxX = Mathf.Max(maxX, logicPos.x);
+            maxY = Mathf.Max(maxY, logicPos.y);
+        }
+
+        selectionRect = Rect.MinMaxRect(minX, minY, maxX, maxY);
+        return true;
+    }
 
     // 可以在这里画一个简单的 GUI 框选矩形
     void OnGUI()
