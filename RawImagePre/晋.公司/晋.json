@@ -1,0 +1,36 @@
+{ "skeleton": { "images": "G:/ProjectOfGame/MineRTS/RawImagePre/概念图/晋.公司/images/" },
+"bones": [
+	{ "name": "root" }
+],
+"slots": [
+	{ "name": "腿内", "bone": "root", "attachment": "腿内" },
+	{ "name": "背包", "bone": "root", "attachment": "背包" },
+	{ "name": "头", "bone": "root", "attachment": "头" },
+	{ "name": "躯干", "bone": "root", "attachment": "躯干" },
+	{ "name": "腿外", "bone": "root", "attachment": "腿外" },
+	{ "name": "手臂外", "bone": "root", "attachment": "手臂外" }
+],
+"skins": {
+	"default": {
+		"腿内": {
+			"腿内": { "x": 669, "y": -929.5, "width": 208, "height": 483 }
+		},
+		"背包": {
+			"背包": { "x": 383, "y": -575, "width": 322, "height": 816 }
+		},
+		"头": {
+			"头": { "x": 670, "y": -278.5, "width": 224, "height": 345 }
+		},
+		"躯干": {
+			"躯干": { "x": 595.5, "y": -555.5, "width": 369, "height": 381 }
+		},
+		"腿外": {
+			"腿外": { "x": 525, "y": -928, "width": 210, "height": 486 }
+		},
+		"手臂外": {
+			"手臂外": { "x": 705.5, "y": -701.5, "width": 553, "height": 651 }
+		}
+	}
+},
+"animations": { "animation": {} }
+}

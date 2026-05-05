@@ -1,0 +1,16 @@
+{ "skeleton": { "images": "G:/ProjectOfGame/MineRTS/RawImagePre/概念图/蠕虫/images/" },
+"bones": [
+	{ "name": "root" }
+],
+"slots": [
+	{ "name": "图层 1", "bone": "root", "attachment": "图层 1" }
+],
+"skins": {
+	"default": {
+		"图层 1": {
+			"图层 1": { "x": 627, "y": -614.5, "width": 1212, "height": 801 }
+		}
+	}
+},
+"animations": { "animation": {} }
+}

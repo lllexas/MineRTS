@@ -1,0 +1,36 @@
+{ "skeleton": { "images": "G:/ProjectOfGame/MineRTS/RawImagePre/概念图/机械狗/images/" },
+"bones": [
+	{ "name": "root" }
+],
+"slots": [
+	{ "name": "头", "bone": "root", "attachment": "头" },
+	{ "name": "左后腿", "bone": "root", "attachment": "左后腿" },
+	{ "name": "左前腿", "bone": "root", "attachment": "左前腿" },
+	{ "name": "躯体", "bone": "root", "attachment": "躯体" },
+	{ "name": "右后腿", "bone": "root", "attachment": "右后腿" },
+	{ "name": "右前腿", "bone": "root", "attachment": "右前腿" }
+],
+"skins": {
+	"default": {
+		"头": {
+			"头": { "x": 865.5, "y": -255, "width": 289, "height": 184 }
+		},
+		"左后腿": {
+			"左后腿": { "x": 477.5, "y": -711.5, "width": 299, "height": 667 }
+		},
+		"左前腿": {
+			"左前腿": { "x": 1035.5, "y": -733, "width": 331, "height": 678 }
+		},
+		"躯体": {
+			"躯体": { "x": 610, "y": -455, "width": 948, "height": 270 }
+		},
+		"右后腿": {
+			"右后腿": { "x": 224.5, "y": -722, "width": 331, "height": 680 }
+		},
+		"右前腿": {
+			"右前腿": { "x": 798, "y": -733.5, "width": 344, "height": 703 }
+		}
+	}
+},
+"animations": { "animation": {} }
+}

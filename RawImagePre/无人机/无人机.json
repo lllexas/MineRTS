@@ -1,0 +1,28 @@
+{ "skeleton": { "images": "G:/ProjectOfGame/MineRTS/RawImagePre/概念图/无人机/images/" },
+"bones": [
+	{ "name": "root" }
+],
+"slots": [
+	{ "name": "后悬臂", "bone": "root", "attachment": "后悬臂" },
+	{ "name": "左悬臂", "bone": "root", "attachment": "左悬臂" },
+	{ "name": "主体", "bone": "root", "attachment": "主体" },
+	{ "name": "右悬臂", "bone": "root", "attachment": "右悬臂" }
+],
+"skins": {
+	"default": {
+		"后悬臂": {
+			"后悬臂": { "x": 799, "y": -532.5, "width": 326, "height": 209 }
+		},
+		"左悬臂": {
+			"左悬臂": { "x": 300.5, "y": -602.5, "width": 433, "height": 163 }
+		},
+		"主体": {
+			"主体": { "x": 591, "y": -703, "width": 338, "height": 328 }
+		},
+		"右悬臂": {
+			"右悬臂": { "x": 951, "y": -734.5, "width": 544, "height": 203 }
+		}
+	}
+},
+"animations": { "animation": {} }
+}

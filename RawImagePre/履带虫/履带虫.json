@@ -1,0 +1,20 @@
+{ "skeleton": { "images": "G:/ProjectOfGame/MineRTS/RawImagePre/概念图/履带虫/images/" },
+"bones": [
+	{ "name": "root" }
+],
+"slots": [
+	{ "name": "虫部", "bone": "root", "attachment": "虫部" },
+	{ "name": "车部", "bone": "root", "attachment": "车部" }
+],
+"skins": {
+	"default": {
+		"虫部": {
+			"虫部": { "x": 405.5, "y": -645.5, "width": 771, "height": 407 }
+		},
+		"车部": {
+			"车部": { "x": 949.5, "y": -635, "width": 565, "height": 364 }
+		}
+	}
+},
+"animations": { "animation": {} }
+}

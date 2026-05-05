@@ -23,6 +23,8 @@ public class DrawSystem : SingletonMono<DrawSystem>
     private SpriteInstanceRenderService _spriteRenderService;
     private UnitAtlasBillboardRenderService _unitAtlasBillboardRenderService;
     private readonly Dictionary<string, EntityBlueprintSO> _blueprintSoCache = new Dictionary<string, EntityBlueprintSO>();
+    private readonly Dictionary<int, UnitAnimationPlaybackState> _atlasPlaybackStates = new Dictionary<int, UnitAnimationPlaybackState>();
+    private readonly HashSet<int> _activeAtlasPlaybackKeys = new HashSet<int>();
     private readonly List<AtlasBillboardDebugInfo> _atlasBillboardDebugInfos = new List<AtlasBillboardDebugInfo>(256);
 
 
@@ -180,6 +182,7 @@ public class DrawSystem : SingletonMono<DrawSystem>
         _hbMatrices.Clear();
         _hbFillAmounts.Clear();
         _atlasBillboardDebugInfos.Clear();
+        _activeAtlasPlaybackKeys.Clear();
 
         // 2. 收集矩阵数据
         for (int i = 0; i < count; i++)
@@ -242,7 +245,7 @@ public class DrawSystem : SingletonMono<DrawSystem>
             // 基础安全检查
             if (scaleVal.sqrMagnitude < 0.001f) scaleVal = Vector3.one;
 
-            if (TryEnqueueAtlasBillboard(ref core, pos, scaleVal))
+            if (TryEnqueueAtlasBillboard(whole, i, ref core, ref draw, pos, scaleVal))
             {
                 // atlas billboard 已接管该单位主绘制
             }
@@ -276,6 +279,7 @@ public class DrawSystem : SingletonMono<DrawSystem>
         // 3. 绘制阶段
         _spriteRenderService.Flush(_spriteLib);
         _unitAtlasBillboardRenderService.Flush();
+        PruneInactiveAtlasPlaybackStates();
 
         if (_hbMatrices.Count > 0)
         {
@@ -283,7 +287,7 @@ public class DrawSystem : SingletonMono<DrawSystem>
         }
     }
 
-    private bool TryEnqueueAtlasBillboard(ref CoreComponent core, Vector3 pos, Vector3 scaleVal)
+    private bool TryEnqueueAtlasBillboard(WholeComponent whole, int entityIndex, ref CoreComponent core, ref DrawComponent draw, Vector3 pos, Vector3 scaleVal)
     {
         EntityBlueprintSO blueprintSO = GetBlueprintSO(core.BlueprintName);
         if (blueprintSO == null || blueprintSO.AnimationSetSO == null)
@@ -297,18 +301,28 @@ public class DrawSystem : SingletonMono<DrawSystem>
             return false;
         }
 
-        AtlasFrameCoord frameCoord = ResolvePhaseOneDefaultFrame(animationSet);
+        if (!TryEvaluateAnimatedFrame(whole, entityIndex, ref core, ref draw, animationSet, out UnitAnimationFrameResult frameResult))
+        {
+            return false;
+        }
+
+        AtlasFrameCoord frameCoord = frameResult.FrameCoord;
         Rect uvRect = animationSet.GetFrameUvRect(frameCoord);
         Camera renderCamera = CameraController.Instance != null
             ? CameraController.Instance.TargetCamera
             : Camera.main;
         Vector2 footAnchor = ResolveBillboardFootAnchor(core.Position, pos.y - core.Position.y);
+        Vector3 billboardScale = scaleVal;
+        if (frameResult.FlipX && animationSet.AllowFlipX)
+        {
+            billboardScale.x = -billboardScale.x;
+        }
 
         Matrix4x4 matrix = InStageRenderSpace.MakeBillboardMatrix(
             footAnchor,
-            scaleVal,
+            billboardScale,
             renderCamera,
-            pos.z);
+            0f);
 
         _unitAtlasBillboardRenderService.Enqueue(new UnitAtlasBillboardDrawRequest
         {
@@ -321,7 +335,7 @@ public class DrawSystem : SingletonMono<DrawSystem>
         {
             _atlasBillboardDebugInfos.Add(new AtlasBillboardDebugInfo
             {
-                Anchor = new Vector3(pos.x, pos.y, pos.z),
+                Anchor = new Vector3(footAnchor.x, footAnchor.y, 0f),
                 Matrix = matrix
             });
         }
@@ -353,33 +367,88 @@ public class DrawSystem : SingletonMono<DrawSystem>
         return blueprint;
     }
 
-    private static AtlasFrameCoord ResolvePhaseOneDefaultFrame(UnitAtlasAnimationSetSO animationSet)
+    private bool TryEvaluateAnimatedFrame(
+        WholeComponent whole,
+        int entityIndex,
+        ref CoreComponent core,
+        ref DrawComponent draw,
+        UnitAtlasAnimationSetSO animationSet,
+        out UnitAnimationFrameResult frameResult)
+    {
+        frameResult = default;
+        if (animationSet == null)
+        {
+            return false;
+        }
+
+        int playbackKey = core.CreationIndex;
+        _activeAtlasPlaybackKeys.Add(playbackKey);
+
+        if (!_atlasPlaybackStates.TryGetValue(playbackKey, out UnitAnimationPlaybackState playbackState))
+        {
+            playbackState = default;
+        }
+
+        UnitAnimationIntent intent = UnitAnimationIntentBridge.Build(whole, entityIndex);
+        frameResult = UnitAnimationPlayback.Evaluate(animationSet, intent, ref playbackState, TimeTicker.GlobalTick);
+        _atlasPlaybackStates[playbackKey] = playbackState;
+
+        draw.AnimationFrame = frameResult.LocalFrame;
+
+        if (!HasValidFrame(animationSet, frameResult))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool HasValidFrame(UnitAtlasAnimationSetSO animationSet, UnitAnimationFrameResult frameResult)
     {
         if (animationSet == null)
         {
-            return default;
+            return false;
         }
 
-        if (animationSet.TryGetClip(UnitAnimationStateId.Idle, out UnitAtlasClipDef idleClip) &&
-            idleClip.Frames != null &&
-            idleClip.Frames.Length > 0)
+        if (!animationSet.TryGetClip(frameResult.State, out UnitAtlasClipDef clip))
         {
-            return idleClip.Frames[0];
+            return false;
         }
 
-        if (animationSet.Clips != null)
+        return clip.Frames != null &&
+               clip.Frames.Length > 0 &&
+               frameResult.LocalFrame >= 0 &&
+               frameResult.LocalFrame < clip.Frames.Length;
+    }
+
+    private void PruneInactiveAtlasPlaybackStates()
+    {
+        if (_atlasPlaybackStates.Count == 0)
         {
-            for (int i = 0; i < animationSet.Clips.Count; i++)
+            return;
+        }
+
+        List<int> staleKeys = null;
+        foreach (int playbackKey in _atlasPlaybackStates.Keys)
+        {
+            if (_activeAtlasPlaybackKeys.Contains(playbackKey))
             {
-                AtlasFrameCoord[] frames = animationSet.Clips[i].Frames;
-                if (frames != null && frames.Length > 0)
-                {
-                    return frames[0];
-                }
+                continue;
             }
+
+            staleKeys ??= new List<int>();
+            staleKeys.Add(playbackKey);
         }
 
-        return default;
+        if (staleKeys == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < staleKeys.Count; i++)
+        {
+            _atlasPlaybackStates.Remove(staleKeys[i]);
+        }
     }
 
     private void DrawHealthBars()

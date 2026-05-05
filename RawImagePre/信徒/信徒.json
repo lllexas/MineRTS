@@ -1,0 +1,36 @@
+{ "skeleton": { "images": "G:/ProjectOfGame/MineRTS/RawImagePre/概念图/信徒/images/" },
+"bones": [
+	{ "name": "root" }
+],
+"slots": [
+	{ "name": "右腿", "bone": "root", "attachment": "右腿" },
+	{ "name": "左腿", "bone": "root", "attachment": "左腿" },
+	{ "name": "头", "bone": "root", "attachment": "头" },
+	{ "name": "躯干", "bone": "root", "attachment": "躯干" },
+	{ "name": "枪", "bone": "root", "attachment": "枪" },
+	{ "name": "手臂", "bone": "root", "attachment": "手臂" }
+],
+"skins": {
+	"default": {
+		"右腿": {
+			"右腿": { "x": 782, "y": -955.5, "width": 216, "height": 471 }
+		},
+		"左腿": {
+			"左腿": { "x": 562.5, "y": -950.5, "width": 247, "height": 481 }
+		},
+		"头": {
+			"头": { "x": 662.5, "y": -273, "width": 503, "height": 470 }
+		},
+		"躯干": {
+			"躯干": { "x": 812.5, "y": -777, "width": 585, "height": 704 }
+		},
+		"枪": {
+			"枪": { "x": 425.5, "y": -728, "width": 737, "height": 308 }
+		},
+		"手臂": {
+			"手臂": { "x": 706.5, "y": -618.5, "width": 411, "height": 275 }
+		}
+	}
+},
+"animations": { "animation": {} }
+}

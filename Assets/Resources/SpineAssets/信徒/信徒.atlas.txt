@@ -1,0 +1,48 @@
+
+信徒.png
+size: 1822,725
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+右腿
+  rotate: true
+  xy: 589, 2
+  size: 216, 471
+  orig: 216, 471
+  offset: 0, 0
+  index: -1
+头
+  rotate: true
+  xy: 589, 220
+  size: 503, 470
+  orig: 503, 470
+  offset: 0, 0
+  index: -1
+左腿
+  rotate: true
+  xy: 1062, 166
+  size: 247, 481
+  orig: 247, 481
+  offset: 0, 0
+  index: -1
+手臂
+  rotate: true
+  xy: 1545, 2
+  size: 411, 275
+  orig: 411, 275
+  offset: 0, 0
+  index: -1
+枪
+  rotate: false
+  xy: 1061, 415
+  size: 736, 308
+  orig: 737, 308
+  offset: 0, 0
+  index: -1
+躯干
+  rotate: false
+  xy: 2, 19
+  size: 585, 704
+  orig: 585, 704
+  offset: 0, 0
+  index: -1

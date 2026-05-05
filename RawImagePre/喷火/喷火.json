@@ -1,0 +1,36 @@
+{ "skeleton": { "images": "G:/ProjectOfGame/MineRTS/RawImagePre/概念图/喷火/images/" },
+"bones": [
+	{ "name": "root" }
+],
+"slots": [
+	{ "name": "头", "bone": "root", "attachment": "头" },
+	{ "name": "右腿", "bone": "root", "attachment": "右腿" },
+	{ "name": "左腿", "bone": "root", "attachment": "左腿" },
+	{ "name": "身体", "bone": "root", "attachment": "身体" },
+	{ "name": "喷火器", "bone": "root", "attachment": "喷火器" },
+	{ "name": "手臂", "bone": "root", "attachment": "手臂" }
+],
+"skins": {
+	"default": {
+		"头": {
+			"头": { "x": 653, "y": -279.5, "width": 468, "height": 449 }
+		},
+		"右腿": {
+			"右腿": { "x": 772.5, "y": -977.5, "width": 201, "height": 427 }
+		},
+		"左腿": {
+			"左腿": { "x": 547.5, "y": -974.5, "width": 259, "height": 431 }
+		},
+		"身体": {
+			"身体": { "x": 760.5, "y": -785, "width": 649, "height": 694 }
+		},
+		"喷火器": {
+			"喷火器": { "x": 550, "y": -595.5, "width": 958, "height": 491 }
+		},
+		"手臂": {
+			"手臂": { "x": 674.5, "y": -613.5, "width": 415, "height": 355 }
+		}
+	}
+},
+"animations": { "animation": {} }
+}
