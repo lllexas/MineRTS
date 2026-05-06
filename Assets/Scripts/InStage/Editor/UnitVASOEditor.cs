@@ -69,6 +69,7 @@ public sealed class UnitVASOEditor : Editor
             DrawProperty("SourceAssetGuid");
             DrawProperty("SourceSpineVersion");
             DrawProperty("BakeSampleFps");
+            DrawProperty("FlipHorizontal");
 
             UnitVASO unitVA = (UnitVASO)target;
             EditorGUILayout.BeginHorizontal();
@@ -113,6 +114,7 @@ public sealed class UnitVASOEditor : Editor
         {
             DrawProperty("Mesh");
             DrawProperty("BaseTexture");
+            DrawProperty("DisplayScale");
             DrawProperty("VertexCount");
 
             UnitVASO unitVA = (UnitVASO)target;
@@ -158,6 +160,7 @@ public sealed class UnitVASOEditor : Editor
                 SerializedProperty stateProperty = clipProperty.FindPropertyRelative("State");
                 SerializedProperty ticksProperty = clipProperty.FindPropertyRelative("TicksPerFrame");
                 SerializedProperty loopProperty = clipProperty.FindPropertyRelative("Loop");
+                SerializedProperty lockProperty = clipProperty.FindPropertyRelative("LockUntilComplete");
                 SerializedProperty framesProperty = clipProperty.FindPropertyRelative("Frames");
 
                 string title = string.IsNullOrEmpty(sourceNameProperty.stringValue)
@@ -182,6 +185,7 @@ public sealed class UnitVASOEditor : Editor
                 EditorGUILayout.PropertyField(stateProperty);
                 EditorGUILayout.PropertyField(ticksProperty);
                 EditorGUILayout.PropertyField(loopProperty);
+                EditorGUILayout.PropertyField(lockProperty);
 
                 EditorGUILayout.LabelField("Frame Count", framesProperty.arraySize.ToString());
                 DrawBakeFrameExpectation(
@@ -340,6 +344,7 @@ public sealed class UnitVASOEditor : Editor
         EditorGUILayout.LabelField("Frames", clip.FrameCount.ToString());
         EditorGUILayout.LabelField("Vertices", unitVA.VertexCount.ToString());
         EditorGUILayout.LabelField("Loop", clip.Loop ? "True" : "False");
+        EditorGUILayout.LabelField("LockUntilComplete", clip.LockUntilComplete ? "True" : "False");
 
         EditorGUILayout.Space(8f);
         DrawPreviewPlaybackControls(unitVA, clip);
@@ -580,6 +585,7 @@ public sealed class UnitVASOEditor : Editor
                     State = sourceClip.State,
                     TicksPerFrame = sourceClip.TicksPerFrame,
                     Loop = sourceClip.Loop,
+                    LockUntilComplete = sourceClip.LockUntilComplete,
                     Frames = new List<UnitVAFrame>(sampleTimes.Count)
                 };
 
@@ -599,6 +605,12 @@ public sealed class UnitVASOEditor : Editor
 
                     Mesh generatedMesh = generatedFrame.Mesh;
                     int validVertexCount = generatedFrame.VertexCount;
+
+                    if (unitVA.FlipHorizontal)
+                    {
+                        FlipMeshHorizontally(generatedMesh);
+                    }
+
                     Vector3[] vertices = generatedMesh.vertices;
                     Vector2[] uvs = generatedMesh.uv;
                     int[] triangles = generatedMesh.triangles;
@@ -867,6 +879,27 @@ public sealed class UnitVASOEditor : Editor
         }
 
         return sampleTimes;
+    }
+
+    private static void FlipMeshHorizontally(Mesh mesh)
+    {
+        Vector3[] verts = mesh.vertices;
+        for (int i = 0; i < verts.Length; i++)
+        {
+            verts[i].x = -verts[i].x;
+        }
+
+        mesh.vertices = verts;
+
+        int[] tris = mesh.triangles;
+        for (int i = 0; i + 2 < tris.Length; i += 3)
+        {
+            int tmp = tris[i + 1];
+            tris[i + 1] = tris[i + 2];
+            tris[i + 2] = tmp;
+        }
+
+        mesh.triangles = tris;
     }
 
     private static bool HasStableGeometry(

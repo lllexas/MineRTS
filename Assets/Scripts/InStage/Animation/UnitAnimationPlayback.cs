@@ -2,25 +2,35 @@ using UnityEngine;
 
 public static class UnitAnimationPlayback
 {
+    /// <summary>
+    /// Animation frame rate at which Spine data was baked. Used to convert
+    /// TicksPerFrame (baked-frame count) into real-time seconds per animation frame.
+    /// </summary>
+    public const float BakeFrameRate = 60f;
+
+    // -----------------------------------------------------------------------
+    // Atlas animation path (billboard sprite-sheet)
+    // -----------------------------------------------------------------------
+
     public static UnitAnimationFrameResult Evaluate(
         UnitAtlasAnimationSetSO animationSet,
         UnitAnimationIntent intent,
         ref UnitAnimationPlaybackState playback,
-        long currentTick)
+        float currentTime)
     {
         UnitAnimationStateId targetState = UnitAnimationArbiter.Resolve(intent, playback, animationSet);
         if (playback.CurrentState != targetState)
         {
-            playback.Reset(targetState, currentTick, intent.FlipX);
+            playback.Reset(targetState, currentTime, intent.FlipX);
         }
-        else if (playback.LastTick == 0)
+        else if (playback.LastAdvanceTime == 0f)
         {
-            playback.Reset(targetState, currentTick, intent.FlipX);
+            playback.Reset(targetState, currentTime, intent.FlipX);
         }
         else
         {
             playback.FlipX = intent.FlipX;
-            AdvanceFrames(animationSet, ref playback, currentTick);
+            AdvanceFrames(animationSet, ref playback, currentTime);
         }
 
         return new UnitAnimationFrameResult
@@ -32,35 +42,31 @@ public static class UnitAnimationPlayback
         };
     }
 
-    private static void AdvanceFrames(UnitAtlasAnimationSetSO animationSet, ref UnitAnimationPlaybackState playback, long currentTick)
+    private static void AdvanceFrames(UnitAtlasAnimationSetSO animationSet, ref UnitAnimationPlaybackState playback, float currentTime)
     {
         if (animationSet == null)
         {
-            playback.LastTick = currentTick;
+            playback.LastAdvanceTime = currentTime;
             return;
         }
 
         if (!animationSet.TryGetClip(playback.CurrentState, out UnitAtlasClipDef clip))
         {
-            playback.LastTick = currentTick;
+            playback.LastAdvanceTime = currentTime;
             return;
         }
 
-        long deltaTickLong = Mathf.Max(0, (int)(currentTick - playback.LastTick));
-        playback.LastTick = currentTick;
-        if (deltaTickLong <= 0)
+        float deltaTime = Mathf.Max(0f, currentTime - playback.LastAdvanceTime);
+        playback.LastAdvanceTime = currentTime;
+        if (deltaTime <= 0f)
         {
             return;
         }
 
-        int accumulatedTicks = playback.TickRemainder + (int)deltaTickLong;
-        if (clip.TicksPerFrame <= 0)
-        {
-            clip.TicksPerFrame = 1;
-        }
-
-        int frameAdvance = accumulatedTicks / clip.TicksPerFrame;
-        playback.TickRemainder = accumulatedTicks % clip.TicksPerFrame;
+        float totalTime = playback.FrameTimeRemainder + deltaTime;
+        float frameDuration = Mathf.Max(1f / BakeFrameRate, clip.TicksPerFrame / BakeFrameRate);
+        int frameAdvance = (int)(totalTime / frameDuration);
+        playback.FrameTimeRemainder = totalTime % frameDuration;
         if (frameAdvance <= 0)
         {
             return;
@@ -103,94 +109,113 @@ public static class UnitAnimationPlayback
     // -----------------------------------------------------------------------
 
     /// <summary>
-    /// Evaluate animation for a VA-enabled entity.
-    /// Uses the same intent → state resolution as the atlas path
-    /// (Death > Attack > Work > Move > Idle), but resolves frames against
-    /// UnitVASO clips instead of atlas clip defs.
-    /// Returns local frame and state; the caller resolves the global buffer offset.
+    /// Step 1 — Resolve target animation state from the intent blackboard.
+    /// If ActionLockState is active and the clip is still playing (non-looping,
+    /// not yet at last frame), the lock overrides the interceptor chain.
+    /// Death always breaks the lock (highest priority).
     /// </summary>
-    public static UnitAnimationFrameVAResult EvaluateVA(
-        UnitVASO vaso,
-        UnitAnimationIntent intent,
-        ref UnitAnimationPlaybackState playback,
-        long currentTick)
+    public static UnitAnimationStateId ResolveVAState(
+        in UnitAnimationIntent intent,
+        in UnitAnimationPlaybackState playback)
     {
-        UnitAnimationStateId targetState = ResolveVAState(intent, ref playback, vaso);
-
-        if (playback.CurrentState != targetState || playback.LastTick == 0)
-        {
-            playback.Reset(targetState, currentTick, intent.FlipX);
-        }
-        else
-        {
-            playback.FlipX = intent.FlipX;
-            AdvanceVAFrames(vaso, ref playback, currentTick);
-        }
-
-        return new UnitAnimationFrameVAResult
-        {
-            State = playback.CurrentState,
-            LocalFrame = playback.LocalFrame,
-            FlipX = playback.FlipX
-        };
-    }
-
-    private static UnitAnimationStateId ResolveVAState(
-        UnitAnimationIntent intent,
-        ref UnitAnimationPlaybackState playback,
-        UnitVASO vaso)
-    {
+        // Death always breaks the action lock.
         if (intent.IsDead)
         {
             return UnitAnimationStateId.Death;
         }
 
-        // Note: UnitVAClip does not have LockUntilComplete.
-        // Interrupt/lock handling is deferred to a higher-level state machine.
-
-        if (intent.WantsAttack)
+        // Action lock: attack / work animations that must play through.
+        if (playback.ActionLockState != UnitAnimationStateId.None)
         {
-            return UnitAnimationStateId.Attack;
+            return playback.ActionLockState;
         }
 
-        if (intent.WantsWork)
-        {
-            return UnitAnimationStateId.Work;
-        }
-
-        if (intent.WantsMove)
-        {
-            return UnitAnimationStateId.Move;
-        }
-
-        return UnitAnimationStateId.Idle;
+        return VAInterceptorChain.Resolve(intent, playback);
     }
 
-    private static void AdvanceVAFrames(UnitVASO vaso, ref UnitAnimationPlaybackState playback, long currentTick)
+    /// <summary>
+    /// Step 2 — Apply state transition and advance frames using REAL TIME.
+    /// Manages the ActionLockState (LockUntilComplete):
+    ///   - Set on transition into a non-looping clip.
+    ///   - Cleared when the clip reaches its last frame.
+    ///   - Death breaks the lock (handled in ResolveVAState).
+    /// </summary>
+    public static void ApplyVAState(
+        UnitAnimationStateId targetState,
+        UnitVASO vaso,
+        in UnitAnimationIntent intent,
+        ref UnitAnimationPlaybackState playback,
+        float currentTime,
+        out int localFrame)
+    {
+        bool isStateChange = playback.CurrentState != targetState;
+
+        // Clear action lock if state changed (e.g. lock released or broken).
+        if (isStateChange && playback.ActionLockState != UnitAnimationStateId.None)
+        {
+            playback.ActionLockState = UnitAnimationStateId.None;
+        }
+
+        if (isStateChange || playback.LastAdvanceTime == 0f)
+        {
+            playback.Reset(targetState, currentTime, intent.FlipX);
+
+            // Lock clips that must play through (e.g. attack, death).
+            if (vaso != null && vaso.TryGetClip(targetState, out UnitVAClip clip) && clip.LockUntilComplete)
+            {
+                playback.ActionLockState = targetState;
+            }
+        }
+        else
+        {
+            playback.FlipX = intent.FlipX;
+            AdvanceVAFrames(vaso, ref playback, currentTime);
+
+            // Release lock when clip reaches its last frame.
+            if (playback.ActionLockState != UnitAnimationStateId.None)
+            {
+                if (vaso != null && vaso.TryGetClip(playback.CurrentState, out UnitVAClip currentClip))
+                {
+                    if (playback.LocalFrame >= Mathf.Max(1, currentClip.FrameCount) - 1)
+                    {
+                        playback.ActionLockState = UnitAnimationStateId.None;
+                    }
+                }
+                else
+                {
+                    playback.ActionLockState = UnitAnimationStateId.None;
+                }
+            }
+        }
+
+        localFrame = playback.LocalFrame;
+    }
+
+    private static void AdvanceVAFrames(UnitVASO vaso, ref UnitAnimationPlaybackState playback, float currentTime)
     {
         if (vaso == null)
         {
-            playback.LastTick = currentTick;
+            playback.LastAdvanceTime = currentTime;
             return;
         }
 
         if (!vaso.TryGetClip(playback.CurrentState, out UnitVAClip clip))
         {
-            playback.LastTick = currentTick;
+            playback.LastAdvanceTime = currentTime;
             return;
         }
 
-        long deltaTickLong = Mathf.Max(0, (int)(currentTick - playback.LastTick));
-        playback.LastTick = currentTick;
-        if (deltaTickLong <= 0)
+        float deltaTime = Mathf.Max(0f, currentTime - playback.LastAdvanceTime);
+        playback.LastAdvanceTime = currentTime;
+        if (deltaTime <= 0f)
         {
             return;
         }
 
-        int accumulatedTicks = playback.TickRemainder + (int)deltaTickLong;
-        int ticksPerFrame = Mathf.Max(1, clip.TicksPerFrame);
-        int frameAdvance = accumulatedTicks / ticksPerFrame;
-        playback.TickRemainder = accumulatedTicks % ticksPerFrame;
+        float totalTime = playback.FrameTimeRemainder + deltaTime;
+        float frameDuration = Mathf.Max(1f / BakeFrameRate, clip.TicksPerFrame / BakeFrameRate);
+        int frameAdvance = (int)(totalTime / frameDuration);
+        playback.FrameTimeRemainder = totalTime % frameDuration;
         if (frameAdvance <= 0)
         {
             return;

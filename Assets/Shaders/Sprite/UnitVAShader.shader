@@ -11,6 +11,7 @@ Shader "Custom/UnitVAShader"
         LOD 100
         Blend SrcAlpha OneMinusSrcAlpha
         ZWrite On
+        Cull Off
 
         Pass
         {
@@ -24,6 +25,7 @@ Shader "Custom/UnitVAShader"
 
             StructuredBuffer<float2> _VAPositions;
             uint _VAVertexCount;
+            float _VA_DisplayScale;
 
             struct appdata
             {
@@ -44,6 +46,8 @@ Shader "Custom/UnitVAShader"
 
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(float, _VA_FrameOffset)
+                UNITY_DEFINE_INSTANCED_PROP(float, _VA_FrameOffset2)
+                UNITY_DEFINE_INSTANCED_PROP(float, _VA_BlendWeight)
             UNITY_INSTANCING_BUFFER_END(Props)
 
             v2f vert(appdata v)
@@ -52,11 +56,20 @@ Shader "Custom/UnitVAShader"
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_TRANSFER_INSTANCE_ID(v, o);
 
-                uint frameOffset = (uint)UNITY_ACCESS_INSTANCED_PROP(Props, _VA_FrameOffset);
-                uint bufferIndex = frameOffset * _VAVertexCount + v.vertexID;
-                float2 vaPos = _VAPositions[bufferIndex];
+                uint frameOffsetA = (uint)UNITY_ACCESS_INSTANCED_PROP(Props, _VA_FrameOffset);
+                uint frameOffsetB = (uint)UNITY_ACCESS_INSTANCED_PROP(Props, _VA_FrameOffset2);
+                float blendWeight = UNITY_ACCESS_INSTANCED_PROP(Props, _VA_BlendWeight);
 
-                float3 localPos = float3(vaPos.x, vaPos.y, 0);
+                float2 vaPosA = _VAPositions[frameOffsetA * _VAVertexCount + v.vertexID];
+                float2 vaPosB = _VAPositions[frameOffsetB * _VAVertexCount + v.vertexID];
+                float2 vaPos = lerp(vaPosA, vaPosB, blendWeight);
+
+                // Slot draw-order via micro Z-offset.
+                // Vertices are ordered by Spine slot draw order: later slots have larger
+                // vertexID.  Subtle negative Z pushes later slots closer to camera so they
+                // pass ZTest LEqual and composite correctly over earlier slots.
+                float z = -(float)v.vertexID * 0.00001f;
+                float3 localPos = float3(vaPos.x * _VA_DisplayScale, vaPos.y * _VA_DisplayScale, z);
                 o.vertex = TransformObjectToHClip(localPos);
                 o.uv = v.uv;
 

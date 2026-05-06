@@ -167,8 +167,8 @@ public class SelectionOverlaySystem : SingletonMono<SelectionOverlaySystem>
             float width = size.x + edgeMargin * 2;
             float height = size.y + edgeMargin * 2;
 
-            // 位置：使用单位的插值位置，Z轴设为-1.1f (在单位之上但在UI之下)
-            Vector3 position = new Vector3(core.Position.x, core.Position.y, -1.1f);
+            // 位置：使用单位的插值位置，Z轴设为-0.01f (略微在单位之下)
+            Vector3 position = new Vector3(core.Position.x, core.Position.y, -0.01f);
 
             // 缩放：根据单位尺寸调整
             Vector3 scale = new Vector3(width, height, 1f);

@@ -51,6 +51,9 @@ public class IndustrialSystem : SingletonMono<IndustrialSystem>
             ref var work = ref whole.workComponent[i];
             if (work.WorkType == WorkType.None) continue;
 
+            // Push animation intent: this entity is actively working.
+            whole.animationIntentComponent[i].WantsWork = true;
+
             // 1. 机器内部运作（生产、燃烧、缓冲槽转移）
             HandleInternalWork(i, whole, deltaTime);
 

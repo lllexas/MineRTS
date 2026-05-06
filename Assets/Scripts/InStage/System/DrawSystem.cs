@@ -197,56 +197,42 @@ public class DrawSystem : SingletonMono<DrawSystem>
             if (!core.Active) continue;
 
             ref var draw = ref whole.drawComponent[i];
-            ref var move = ref whole.moveComponent[i];
+            // ref var move = ref whole.moveComponent[i]; // 旧的蹦跳动画已移除，move 暂无使用
             int spriteId = draw.SpriteId;
 
             bool isConveyor = whole.workComponent[i].WorkType == WorkType.Conveyor;
             float zPos = isConveyor ? -1f : 0f;
 
-            // --- 🔥【修正后的特技逻辑：拒绝抽搐】 ---
-            float jumpOffset = 0f;
-            float stretchX = 1f;
-            float stretchY = 1f;
+            // [已注释] 旧的 Sin 蹦跳凑数动画 — 现在由 VA / Atlas 动画系统接管
+            // float jumpOffset = 0f;
+            // float stretchX = 1f;
+            // float stretchY = 1f;
+            // bool isStepping = move.LogicalPosition != move.PreviousLogicalPosition;
+            // bool isCreature = (core.Type & (UnitType.Hero | UnitType.Minion)) != 0;
+            // if (isCreature && (isStepping || move.Timer > 0))
+            // {
+            //     float interval = move.MoveInterval;
+            //     if (interval > 0)
+            //     {
+            //         float t = 1.0f - Mathf.Clamp01(move.Timer / interval);
+            //         if (t > 0.0001f && t < 0.9999f)
+            //         {
+            //             jumpOffset = Mathf.Sin(t * Mathf.PI) * 0.35f;
+            //             float stretchFactor = 1.0f + (jumpOffset * 0.4f);
+            //             stretchY = stretchFactor;
+            //             stretchX = 1.0f / stretchFactor;
+            //         }
+            //     }
+            // }
 
-            // 判定条件：只要逻辑上还在“跨格子”（Previous != Logical），就说明在动
-            bool isStepping = move.LogicalPosition != move.PreviousLogicalPosition;
-            bool isCreature = (core.Type & (UnitType.Hero | UnitType.Minion)) != 0;
-
-            // 只要是在跨格子，或者是由于 SubTick 延迟导致 Timer 还没完全归零，就继续计算动画
-            if (isCreature && (isStepping || move.Timer > 0))
-            {
-                // 重新计算丝滑的 t (0 -> 1)
-                // 此时 move.Timer 已经是带 SubTickOffset 的平滑浮点数了
-                float interval = move.MoveInterval;
-                if (interval > 0)
-                {
-                    float t = 1.0f - Mathf.Clamp01(move.Timer / interval);
-
-                    // 🔥【移除 move.Timer > 0 的硬判断】
-                    // 只要 t 在有效范围内，我们就让 Sin 曲线自己走完
-                    if (t > 0.0001f && t < 0.9999f)
-                    {
-                        jumpOffset = Mathf.Sin(t * Mathf.PI) * 0.35f;
-                        float stretchFactor = 1.0f + (jumpOffset * 0.4f);
-                        stretchY = stretchFactor;
-                        stretchX = 1.0f / stretchFactor;
-                    }
-                }
-            }
-            // ----------------------------------------------------
-
-            // 1. 应用偏移到位置 (Position 使用 core.Position，它已经是插值后的了)
-            Vector3 pos = new Vector3(core.Position.x, core.Position.y + jumpOffset, zPos);
+            // 1. 位置
+            Vector3 pos = new Vector3(core.Position.x, core.Position.y, zPos);
 
             // 2. 旋转逻辑保持不变
             Quaternion rot = Quaternion.Euler(0, 0, Vector2.SignedAngle(Vector2.up, (Vector2Int)core.Rotation));
 
-            // 3. 应用形变到缩放
-            Vector3 scaleVal = new Vector3(
-                core.VisualScale.x * stretchX,
-                core.VisualScale.y * stretchY,
-                1
-            );
+            // 3. 缩放
+            Vector3 scaleVal = new Vector3(core.VisualScale.x, core.VisualScale.y, 1);
 
             // 基础安全检查
             if (scaleVal.sqrMagnitude < 0.001f) scaleVal = Vector3.one;
@@ -276,8 +262,8 @@ public class DrawSystem : SingletonMono<DrawSystem>
                 ref var health = ref whole.healthComponent[i];
                 if (health.IsAlive && health.Health < health.MaxHealth)
                 {
-                    // 血条跟随单位的 Position 和 jumpOffset
-                    Vector3 hbPos = new Vector3(core.Position.x, core.Position.y + 0.55f + jumpOffset, 0f);
+                    // 血条跟随单位的 Position
+                    Vector3 hbPos = new Vector3(core.Position.x, core.Position.y + 0.55f, 0f);
                     Vector3 hbScale = new Vector3(core.LogicSize.x * 0.8f, 0.12f, 1f);
 
                     _hbMatrices.Add(Matrix4x4.TRS(hbPos, Quaternion.identity, hbScale));
@@ -328,27 +314,36 @@ public class DrawSystem : SingletonMono<DrawSystem>
             playbackState = default;
         }
 
-        // 3. Evaluate animation intent → state → frame advance.
-        UnitAnimationIntent intent = UnitAnimationIntentBridge.Build(whole, entityIndex);
-        UnitAnimationFrameVAResult vaResult = UnitAnimationPlayback.EvaluateVA(
-            vaso, intent, ref playbackState, TimeTicker.GlobalTick);
+        // 3. Blackboard: read animation intent pushed by ECS systems.
+        UnitAnimationIntent intent = whole.animationIntentComponent[entityIndex];
+
+        // 4. Resolve: interceptor chain determines target state.
+        UnitAnimationStateId targetState = UnitAnimationPlayback.ResolveVAState(intent, playbackState);
+
+        // 5. Apply: state transition + frame advance (real time, not game ticks).
+        UnitAnimationPlayback.ApplyVAState(targetState, vaso, intent, ref playbackState, Time.time, out int localFrame);
 
         _vaPlaybackStates[playbackKey] = playbackState;
-        draw.AnimationFrame = vaResult.LocalFrame;
+        draw.AnimationFrame = localFrame;
 
-        // 4. Resolve state + local frame → global buffer offset.
-        if (!vaBufferMgr.TryGetGlobalFrameIndex(vaso, vaResult.State, vaResult.LocalFrame, out int globalFrameIndex))
+        // 6. Interpolate: compute sub-tick blend between frame N and N+1.
+        UnitVAInterpolator.VAInterpolationResult interp = UnitVAInterpolator.Compute(vaso, playbackState, targetState);
+
+        // 7. Resolve both local frames → global buffer offsets.
+        if (!vaBufferMgr.TryGetGlobalFrameIndices(vaso, targetState, interp.LocalFrameA, interp.LocalFrameB,
+                out int globalFrameA, out int globalFrameB))
         {
-            globalFrameIndex = 0;
+            globalFrameA = 0;
+            globalFrameB = 0;
         }
 
-        // 5. Compute billboard matrix (same foot-anchor logic as atlas path).
+        // 8. Compute billboard matrix (same foot-anchor logic as atlas path).
         Camera renderCamera = CameraController.Instance != null
             ? CameraController.Instance.TargetCamera
             : Camera.main;
         Vector2 footAnchor = ResolveBillboardFootAnchor(core.Position, pos.y - core.Position.y);
         Vector3 billboardScale = scaleVal;
-        if (vaResult.FlipX)
+        if (playbackState.FlipX)
         {
             billboardScale.x = -billboardScale.x;
         }
@@ -359,12 +354,14 @@ public class DrawSystem : SingletonMono<DrawSystem>
             renderCamera,
             0f);
 
-        // 6. Enqueue.
+        // 9. Enqueue with interpolated dual-frame data.
         _unitVARenderService.Enqueue(new UnitVADrawRequest
         {
             VASO = vaso,
             Matrix = matrix,
-            GlobalFrameIndex = globalFrameIndex
+            GlobalFrameIndexA = globalFrameA,
+            GlobalFrameIndexB = globalFrameB,
+            BlendWeight = interp.BlendWeight
         });
 
         return true;
@@ -472,8 +469,8 @@ public class DrawSystem : SingletonMono<DrawSystem>
             playbackState = default;
         }
 
-        UnitAnimationIntent intent = UnitAnimationIntentBridge.Build(whole, entityIndex);
-        frameResult = UnitAnimationPlayback.Evaluate(animationSet, intent, ref playbackState, TimeTicker.GlobalTick);
+        UnitAnimationIntent intent = whole.animationIntentComponent[entityIndex];
+        frameResult = UnitAnimationPlayback.Evaluate(animationSet, intent, ref playbackState, Time.time);
         _atlasPlaybackStates[playbackKey] = playbackState;
 
         draw.AnimationFrame = frameResult.LocalFrame;

@@ -20,6 +20,22 @@ using UnityEngine;
 /// </summary>
 public sealed class UnitVABufferManager : SingletonMono<UnitVABufferManager>
 {
+    // -----------------------------------------------------------------------
+    // Inspector: interceptor chain priority (read-only, synced from VAInterceptorChain)
+    // -----------------------------------------------------------------------
+
+    [Header("Animation State Arbitration")]
+    [Tooltip("Interceptor chain in priority order. First match wins.")]
+    [SerializeField] private List<InterceptorEntry> _interceptorChain = new List<InterceptorEntry>();
+
+    [Serializable]
+    private struct InterceptorEntry
+    {
+        [HideInInspector] public int Priority;
+        public string StateName;
+        public string Condition;
+    }
+
     /// <summary>
     /// Per-clip metadata stored on GPU side of the manager.
     /// GlobalFrameStart is the first frame index of this clip inside the flat buffer.
@@ -160,6 +176,34 @@ public sealed class UnitVABufferManager : SingletonMono<UnitVABufferManager>
     }
 
     /// <summary>
+    /// Convert two local frames for the same state to global buffer offsets.
+    /// Used by UnitVAInterpolator for sub-tick interpolation between frames.
+    /// </summary>
+    public bool TryGetGlobalFrameIndices(
+        UnitVASO vaso, UnitAnimationStateId state,
+        int localFrameA, int localFrameB,
+        out int globalA, out int globalB)
+    {
+        globalA = 0;
+        globalB = 0;
+        if (vaso == null || !_bufferData.TryGetValue(vaso, out VABufferData data))
+        {
+            return false;
+        }
+
+        if (!data.ClipMap.TryGetValue(state, out VAClipGPUInfo info))
+        {
+            return false;
+        }
+
+        int clampedA = Mathf.Clamp(localFrameA, 0, Mathf.Max(0, info.FrameCount - 1));
+        int clampedB = Mathf.Clamp(localFrameB, 0, Mathf.Max(0, info.FrameCount - 1));
+        globalA = info.GlobalFrameStart + clampedA;
+        globalB = info.GlobalFrameStart + clampedB;
+        return true;
+    }
+
+    /// <summary>
     /// Convert a resolved state + local frame to the global (flat) frame index
     /// used by the StructuredBuffer.
     /// </summary>
@@ -223,6 +267,24 @@ public sealed class UnitVABufferManager : SingletonMono<UnitVABufferManager>
     protected override void Awake()
     {
         base.Awake();
+        SyncInterceptorChainView();
+    }
+
+    private void SyncInterceptorChainView()
+    {
+        VAInterceptorChain.EnsureInitialized();
+        IReadOnlyList<VAInterceptorInfo> interceptors = VAInterceptorChain.Interceptors;
+
+        _interceptorChain.Clear();
+        for (int i = 0; i < interceptors.Count; i++)
+        {
+            _interceptorChain.Add(new InterceptorEntry
+            {
+                Priority = interceptors[i].Priority,
+                StateName = interceptors[i].Name,
+                Condition = interceptors[i].Description
+            });
+        }
     }
 
     private void OnDestroy()

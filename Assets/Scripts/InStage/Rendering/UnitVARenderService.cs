@@ -10,7 +10,9 @@ public struct UnitVADrawRequest
 {
     public UnitVASO VASO;
     public Matrix4x4 Matrix;
-    public int GlobalFrameIndex;
+    public int GlobalFrameIndexA;
+    public int GlobalFrameIndexB;
+    public float BlendWeight;
 }
 
 /// <summary>
@@ -49,7 +51,9 @@ public sealed class UnitVARenderService
         foreach (BatchData batch in _batches.Values)
         {
             batch.Matrices.Clear();
-            batch.FrameOffsets.Clear();
+            batch.FrameOffsetsA.Clear();
+            batch.FrameOffsetsB.Clear();
+            batch.BlendWeights.Clear();
         }
     }
 
@@ -70,7 +74,9 @@ public sealed class UnitVARenderService
         }
 
         batch.Matrices.Add(request.Matrix);
-        batch.FrameOffsets.Add(request.GlobalFrameIndex);
+        batch.FrameOffsetsA.Add(request.GlobalFrameIndexA);
+        batch.FrameOffsetsB.Add(request.GlobalFrameIndexB);
+        batch.BlendWeights.Add(request.BlendWeight);
     }
 
     /// <summary>
@@ -125,18 +131,23 @@ public sealed class UnitVARenderService
             {
                 int count = Mathf.Min(MaxInstancesPerDraw, batch.Matrices.Count - start);
                 List<Matrix4x4> matricesSlice = batch.Matrices.GetRange(start, count);
-                List<int> frameOffsetsSlice = batch.FrameOffsets.GetRange(start, count);
+                List<int> frameOffsetsASlice = batch.FrameOffsetsA.GetRange(start, count);
+                List<int> frameOffsetsBSlice = batch.FrameOffsetsB.GetRange(start, count);
+                List<float> blendWeightsSlice = batch.BlendWeights.GetRange(start, count);
 
                 _propertyBlock.Clear();
 
-                // Convert int frame offsets to float array for the shader's instanced property.
-                float[] frameOffsetsFloat = new float[frameOffsetsSlice.Count];
-                for (int i = 0; i < frameOffsetsSlice.Count; i++)
+                float[] offsetsAFloat = new float[count];
+                float[] offsetsBFloat = new float[count];
+                for (int i = 0; i < count; i++)
                 {
-                    frameOffsetsFloat[i] = frameOffsetsSlice[i];
+                    offsetsAFloat[i] = frameOffsetsASlice[i];
+                    offsetsBFloat[i] = frameOffsetsBSlice[i];
                 }
 
-                _propertyBlock.SetFloatArray("_VA_FrameOffset", frameOffsetsFloat);
+                _propertyBlock.SetFloatArray("_VA_FrameOffset", offsetsAFloat);
+                _propertyBlock.SetFloatArray("_VA_FrameOffset2", offsetsBFloat);
+                _propertyBlock.SetFloatArray("_VA_BlendWeight", blendWeightsSlice.ToArray());
 
                 Graphics.RenderMeshInstanced(renderParams, vaso.Mesh, 0, matricesSlice);
             }
@@ -180,6 +191,7 @@ public sealed class UnitVARenderService
         material.SetTexture("_MainTex", vaso.BaseTexture);
         material.SetBuffer("_VAPositions", bufferData.PositionBuffer);
         material.SetInt("_VAVertexCount", bufferData.VertexCount);
+        material.SetFloat("_VA_DisplayScale", vaso.DisplayScale);
 
         _materialCache[vaso] = material;
         return material;
@@ -192,6 +204,8 @@ public sealed class UnitVARenderService
     private sealed class BatchData
     {
         public List<Matrix4x4> Matrices { get; } = new List<Matrix4x4>(1024);
-        public List<int> FrameOffsets { get; } = new List<int>(1024);
+        public List<int> FrameOffsetsA { get; } = new List<int>(1024);
+        public List<int> FrameOffsetsB { get; } = new List<int>(1024);
+        public List<float> BlendWeights { get; } = new List<float>(1024);
     }
 }

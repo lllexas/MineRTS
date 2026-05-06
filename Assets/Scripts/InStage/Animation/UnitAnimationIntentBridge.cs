@@ -1,27 +1,41 @@
 using UnityEngine;
 
+/// <summary>
+/// Per-entity animation intent blackboard (BBBNexus PlayerRuntimeData equivalent).
+///
+/// Each ECS system PUSHES its own intent directly into animationIntentComponent[i]:
+///   DeathSystem     → IsDead
+///   AttackSystem    → WantsAttack  (only when actually performing an attack)
+///   IndustrialSystem → WantsWork   (when WorkType != None)
+///   MoveSystem      → WantsMove    (when MoveTimerTicks > 0)
+///   MoveSystem      → FlipX        (from Rotation.x)
+///
+/// DrawSystem reads the blackboard at render time.
+/// ResetAll is called at the end of EntitySystem.UpdateSystem to clear
+/// frame-level intent flags (BBBNexus ResetIntent equivalent).
+///
+/// Note: IsDead survives ResetAll — DeathSystem manages it explicitly.
+/// </summary>
 public static class UnitAnimationIntentBridge
 {
-    public static UnitAnimationIntent Build(WholeComponent whole, int entityIndex)
+    /// <summary>
+    /// Reset frame-level animation intent flags for all active entities.
+    /// Called at end of EntitySystem.UpdateSystem (BBBNexus ResetIntent equivalent).
+    /// Preserves IsDead (managed by DeathSystem).
+    /// </summary>
+    public static void ResetAll(WholeComponent whole)
     {
-        ref CoreComponent core = ref whole.coreComponent[entityIndex];
-        ref MoveComponent move = ref whole.moveComponent[entityIndex];
-        ref WorkComponent work = ref whole.workComponent[entityIndex];
-        ref AttackComponent attack = ref whole.attackComponent[entityIndex];
-        ref HealthComponent health = ref whole.healthComponent[entityIndex];
+        if (whole?.animationIntentComponent == null) return;
 
-        bool wantsMove = move.LogicalPosition != move.PreviousLogicalPosition || move.Timer > 0f;
-        bool wantsWork = work.WorkType != WorkType.None;
-        bool wantsAttack = attack.TargetEntityId != 0 && attack.TargetEntityId != -1;
-        bool flipX = core.Rotation.x < 0;
-
-        return new UnitAnimationIntent
+        for (int i = 0; i < whole.entityCount; i++)
         {
-            IsDead = !health.IsAlive || health.Health <= 0f,
-            WantsMove = wantsMove,
-            WantsWork = wantsWork,
-            WantsAttack = wantsAttack,
-            FlipX = flipX
-        };
+            if (whole.coreComponent[i].Active)
+            {
+                // Preserve IsDead — it's a persistent state, not a frame-level flag.
+                bool wasDead = whole.animationIntentComponent[i].IsDead;
+                whole.animationIntentComponent[i] = default;
+                whole.animationIntentComponent[i].IsDead = wasDead;
+            }
+        }
     }
 }

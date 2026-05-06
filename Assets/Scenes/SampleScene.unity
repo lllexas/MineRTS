@@ -213041,6 +213041,78 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 672197814}
   m_CullTransparentMesh: 1
+--- !u!1 &686171546
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 686171549}
+  - component: {fileID: 686171548}
+  - component: {fileID: 686171547}
+  m_Layer: 0
+  m_Name: VAAnimationSystems
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &686171547
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 686171546}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5ce0f53b11271ee41b3a1a2af2358233, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  DontDestroyOnLoadEnabled: 1
+  ShowInGameOverlay: 1
+  FontSize: 14
+  ShowOnlyMoving: 0
+  IdleColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  MoveColor: {r: 0, g: 1, b: 1, a: 1}
+  AttackColor: {r: 1, g: 0, b: 0, a: 1}
+  WorkColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  DeathColor: {r: 1, g: 0, b: 1, a: 1}
+  _interceptorChain: []
+  InspectorRefreshInterval: 0.5
+  _totalActive: 0
+  _entityStates: []
+--- !u!114 &686171548
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 686171546}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d45443c534bc9814c9da11497a5f5bbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  DontDestroyOnLoadEnabled: 1
+  _interceptorChain: []
+--- !u!4 &686171549
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 686171546}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &708235161
 GameObject:
   m_ObjectHideFlags: 0
@@ -224457,3 +224529,4 @@ SceneRoots:
   - {fileID: 970731854}
   - {fileID: 493985094}
   - {fileID: 1788741771}
+  - {fileID: 686171549}

@@ -188,6 +188,14 @@ public class MoveSystem : SingletonMono<MoveSystem>
             // 如果 Timer <= 0，通常 t = 1，直接吸附到 LogicalPosition
             Vector2 targetVisualPos = gridSystem.GridToWorld(move.LogicalPosition, size);
             core.Position = Vector2.Lerp(move.LastVisualPosition, targetVisualPos, t);
+
+            // Push animation intent: unit is moving while the move timer is active.
+            if (move.MoveTimerTicks > 0)
+            {
+                whole.animationIntentComponent[i].WantsMove = true;
+            }
+            // FlipX is always pushed (idle units still have a facing direction).
+            whole.animationIntentComponent[i].FlipX = core.Rotation.x < 0;
         }
 
         for (int i = 0; i < whole.entityCount; i++)

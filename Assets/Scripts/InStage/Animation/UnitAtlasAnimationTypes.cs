@@ -57,16 +57,40 @@ public struct UnitAnimationPlaybackState
 {
     public UnitAnimationStateId CurrentState;
     public int LocalFrame;
-    public int TickRemainder;
-    public long LastTick;
+
+    /// <summary>
+    /// Fractional seconds carried over since the last frame advance.
+    /// Replaces the old tick-based TickRemainder for real-time animation.
+    /// </summary>
+    public float FrameTimeRemainder;
+
+    /// <summary>
+    /// Time.time of the last frame advance. Used to compute real-time delta
+    /// between display frames, decoupled from game-logic ticks.
+    /// </summary>
+    public float LastAdvanceTime;
+
     public bool FlipX;
 
-    public void Reset(UnitAnimationStateId state, long currentTick, bool flipX)
+    /// <summary>
+    /// BBBNexus LockUntilComplete: when set to a non-None state, the interceptor
+    /// chain is bypassed and this state persists until the clip reaches its last
+    /// frame. Used for attack / death / stun animations that must play through.
+    /// Death always breaks the lock.
+    /// </summary>
+    public UnitAnimationStateId ActionLockState;
+
+    /// <summary>
+    /// Reset the playback to the first frame of a new state.
+    /// currentTime should be Time.time (real wall-clock time, not game tick).
+    /// Preserves ActionLockState (caller manages it).
+    /// </summary>
+    public void Reset(UnitAnimationStateId state, float currentTime, bool flipX)
     {
         CurrentState = state;
         LocalFrame = 0;
-        TickRemainder = 0;
-        LastTick = currentTick;
+        FrameTimeRemainder = 0f;
+        LastAdvanceTime = currentTime;
         FlipX = flipX;
     }
 }

@@ -92,6 +92,9 @@ public class AttackSystem : SingletonMono<AttackSystem>
 
                 // C. 重置冷却 (使用tick)
                 attack.LastAttackTick = TimeTicker.GlobalTick;
+
+                // Push animation intent: this entity is actively attacking.
+                whole.animationIntentComponent[i].WantsAttack = true;
             }
         }
     }

@@ -29,6 +29,9 @@ public class DeathSystem : SingletonMono<DeathSystem>
                 // 标记为死亡状态（如果尚未标记）
                 health.IsAlive = false;
 
+                // Push animation intent: entity is dead.
+                whole.animationIntentComponent[i].IsDead = true;
+
                 // 触发死亡效果（任务广播、殉爆等）
                 OnEntityDied(whole, i);
 

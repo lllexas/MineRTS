@@ -43,6 +43,7 @@ public sealed class UnitVAClip
 
     [Min(1)] public int TicksPerFrame = 1;
     public bool Loop = true;
+    public bool LockUntilComplete;
 
     /// <summary>
     /// Frames belonging to this clip. Frames are stored contiguously inside the clip, and
@@ -67,6 +68,12 @@ public sealed class UnitVASO : ScriptableObject
     public string SourceAssetPath;
     public string SourceSpineVersion;
     /// <summary>
+    /// When true, all baked vertex positions are mirrored on X and triangle winding
+    /// is reversed so the unit faces right (the project convention) regardless of the
+    /// source Spine asset's original facing direction.
+    /// </summary>
+    public bool FlipHorizontal;
+    /// <summary>
     /// Sampling FPS used by the Spine baker and by the editor clip preview.
     /// The default is UnitVASettings.DefaultBakeSampleFps, currently 60, matching
     /// the expected Spine authoring cadence. Values below 1 are repaired to the
@@ -77,6 +84,12 @@ public sealed class UnitVASO : ScriptableObject
     [Header("Static Runtime Assets")]
     public Mesh Mesh;
     public Texture2D BaseTexture;
+    /// <summary>
+    /// Per-asset display scale applied in the vertex shader (not CPU-side).
+    /// Multiplied directly onto VA positions before world transform.
+    /// Tune this so the unit height reads roughly 1.2 world units.
+    /// </summary>
+    [Min(0.01f)] public float DisplayScale = 1f;
 
     [Header("VA Layout")]
     [Min(0)] public int VertexCount;

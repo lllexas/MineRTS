@@ -90,6 +90,7 @@ public class EntitySystem : SingletonMono<EntitySystem>
             wholeComponent.powerComponent = new PowerComponent[maxEntityCount];
             wholeComponent.projectileComponent = new ProjectileComponent[maxEntityCount];
             wholeComponent.goComponent = new GoComponent[maxEntityCount];
+            wholeComponent.animationIntentComponent = new UnitAnimationIntent[maxEntityCount];
 
             // 重新分配地图数组
             wholeComponent.groundMap = new int[mapWidth * mapHeight];
@@ -127,6 +128,7 @@ public class EntitySystem : SingletonMono<EntitySystem>
             Array.Clear(wholeComponent.powerComponent, 0, maxEntityCount);
             Array.Clear(wholeComponent.projectileComponent, 0, maxEntityCount);
             Array.Clear(wholeComponent.goComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.animationIntentComponent, 0, maxEntityCount);
 
             // 清空地图数组
             Array.Clear(wholeComponent.groundMap, 0, wholeComponent.groundMap.Length);
@@ -694,6 +696,8 @@ public class EntitySystem : SingletonMono<EntitySystem>
             wholeComponent.workComponent = new WorkComponent[maxEntityCount];
         if (wholeComponent.conveyorComponent == null)
             wholeComponent.conveyorComponent = new ConveyorComponent[maxEntityCount];
+        if (wholeComponent.animationIntentComponent == null)
+            wholeComponent.animationIntentComponent = new UnitAnimationIntent[maxEntityCount];
         // 地图数组
         int mapSize = wholeComponent.mapWidth * wholeComponent.mapHeight;
         if (wholeComponent.groundMap == null)
@@ -947,6 +951,9 @@ public class EntitySystem : SingletonMono<EntitySystem>
 
         // 【核心新增】再画传送带上的物品（使用 Item Layer 盖在 Conveyor Layer 上）
         TransportDrawSystem.Instance.UpdateTransportDraws(wholeComponent);
+
+        // 7. 帧末清理：重置动画意图黑板 (BBBNexus ResetIntent 等价物)
+        UnitAnimationIntentBridge.ResetAll(wholeComponent);
     }
 }
 
@@ -996,6 +1003,10 @@ public class WholeComponent
     // --- 【围棋规则】(稀疏序列化) ---
     [JsonConverter(typeof(SparseArrayConverter<GoComponent>))]
     public GoComponent[] goComponent;
+
+    // --- 【动画意图黑板】(每帧重建，帧末清零) ---
+    [JsonConverter(typeof(SparseArrayConverter<UnitAnimationIntent>))]
+    public UnitAnimationIntent[] animationIntentComponent;
 
     [JsonIgnore]
     public int[] groundMap;
