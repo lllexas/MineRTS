@@ -97,4 +97,112 @@ public static class UnitAnimationPlayback
         int localFrame = Mathf.Clamp(playback.LocalFrame, 0, frameCount - 1);
         return clip.Frames[localFrame];
     }
+
+    // -----------------------------------------------------------------------
+    // VA (vertex animation) evaluation
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Evaluate animation for a VA-enabled entity.
+    /// Uses the same intent → state resolution as the atlas path
+    /// (Death > Attack > Work > Move > Idle), but resolves frames against
+    /// UnitVASO clips instead of atlas clip defs.
+    /// Returns local frame and state; the caller resolves the global buffer offset.
+    /// </summary>
+    public static UnitAnimationFrameVAResult EvaluateVA(
+        UnitVASO vaso,
+        UnitAnimationIntent intent,
+        ref UnitAnimationPlaybackState playback,
+        long currentTick)
+    {
+        UnitAnimationStateId targetState = ResolveVAState(intent, ref playback, vaso);
+
+        if (playback.CurrentState != targetState || playback.LastTick == 0)
+        {
+            playback.Reset(targetState, currentTick, intent.FlipX);
+        }
+        else
+        {
+            playback.FlipX = intent.FlipX;
+            AdvanceVAFrames(vaso, ref playback, currentTick);
+        }
+
+        return new UnitAnimationFrameVAResult
+        {
+            State = playback.CurrentState,
+            LocalFrame = playback.LocalFrame,
+            FlipX = playback.FlipX
+        };
+    }
+
+    private static UnitAnimationStateId ResolveVAState(
+        UnitAnimationIntent intent,
+        ref UnitAnimationPlaybackState playback,
+        UnitVASO vaso)
+    {
+        if (intent.IsDead)
+        {
+            return UnitAnimationStateId.Death;
+        }
+
+        // Note: UnitVAClip does not have LockUntilComplete.
+        // Interrupt/lock handling is deferred to a higher-level state machine.
+
+        if (intent.WantsAttack)
+        {
+            return UnitAnimationStateId.Attack;
+        }
+
+        if (intent.WantsWork)
+        {
+            return UnitAnimationStateId.Work;
+        }
+
+        if (intent.WantsMove)
+        {
+            return UnitAnimationStateId.Move;
+        }
+
+        return UnitAnimationStateId.Idle;
+    }
+
+    private static void AdvanceVAFrames(UnitVASO vaso, ref UnitAnimationPlaybackState playback, long currentTick)
+    {
+        if (vaso == null)
+        {
+            playback.LastTick = currentTick;
+            return;
+        }
+
+        if (!vaso.TryGetClip(playback.CurrentState, out UnitVAClip clip))
+        {
+            playback.LastTick = currentTick;
+            return;
+        }
+
+        long deltaTickLong = Mathf.Max(0, (int)(currentTick - playback.LastTick));
+        playback.LastTick = currentTick;
+        if (deltaTickLong <= 0)
+        {
+            return;
+        }
+
+        int accumulatedTicks = playback.TickRemainder + (int)deltaTickLong;
+        int ticksPerFrame = Mathf.Max(1, clip.TicksPerFrame);
+        int frameAdvance = accumulatedTicks / ticksPerFrame;
+        playback.TickRemainder = accumulatedTicks % ticksPerFrame;
+        if (frameAdvance <= 0)
+        {
+            return;
+        }
+
+        if (clip.Loop)
+        {
+            int frameCount = Mathf.Max(1, clip.FrameCount);
+            playback.LocalFrame = (playback.LocalFrame + frameAdvance) % frameCount;
+            return;
+        }
+
+        playback.LocalFrame = Mathf.Min(playback.LocalFrame + frameAdvance, Mathf.Max(0, clip.FrameCount - 1));
+    }
 }

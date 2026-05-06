@@ -22,9 +22,12 @@ public class DrawSystem : SingletonMono<DrawSystem>
     private SpriteLib _spriteLib;
     private SpriteInstanceRenderService _spriteRenderService;
     private UnitAtlasBillboardRenderService _unitAtlasBillboardRenderService;
+    private UnitVARenderService _unitVARenderService;
     private readonly Dictionary<string, EntityBlueprintSO> _blueprintSoCache = new Dictionary<string, EntityBlueprintSO>();
     private readonly Dictionary<int, UnitAnimationPlaybackState> _atlasPlaybackStates = new Dictionary<int, UnitAnimationPlaybackState>();
     private readonly HashSet<int> _activeAtlasPlaybackKeys = new HashSet<int>();
+    private readonly Dictionary<int, UnitAnimationPlaybackState> _vaPlaybackStates = new Dictionary<int, UnitAnimationPlaybackState>();
+    private readonly HashSet<int> _activeVaPlaybackKeys = new HashSet<int>();
     private readonly List<AtlasBillboardDebugInfo> _atlasBillboardDebugInfos = new List<AtlasBillboardDebugInfo>(256);
 
 
@@ -37,6 +40,7 @@ public class DrawSystem : SingletonMono<DrawSystem>
         _spriteLib = SpriteLib.Instance;
         _spriteRenderService = SpriteInstanceRenderService.Shared;
         _unitAtlasBillboardRenderService = UnitAtlasBillboardRenderService.Shared;
+        _unitVARenderService = UnitVARenderService.Shared;
 
         if (healthBarMaterial != null)
         {
@@ -179,10 +183,12 @@ public class DrawSystem : SingletonMono<DrawSystem>
         // 1. 清理上一帧的数据
         _spriteRenderService.Clear();
         _unitAtlasBillboardRenderService.Clear();
+        _unitVARenderService.Clear();
         _hbMatrices.Clear();
         _hbFillAmounts.Clear();
         _atlasBillboardDebugInfos.Clear();
         _activeAtlasPlaybackKeys.Clear();
+        _activeVaPlaybackKeys.Clear();
 
         // 2. 收集矩阵数据
         for (int i = 0; i < count; i++)
@@ -245,7 +251,11 @@ public class DrawSystem : SingletonMono<DrawSystem>
             // 基础安全检查
             if (scaleVal.sqrMagnitude < 0.001f) scaleVal = Vector3.one;
 
-            if (TryEnqueueAtlasBillboard(whole, i, ref core, ref draw, pos, scaleVal))
+            if (TryEnqueueVA(whole, i, ref core, ref draw, pos, scaleVal))
+            {
+                // VA vertex animation 已接管该单位主绘制
+            }
+            else if (TryEnqueueAtlasBillboard(whole, i, ref core, ref draw, pos, scaleVal))
             {
                 // atlas billboard 已接管该单位主绘制
             }
@@ -279,12 +289,85 @@ public class DrawSystem : SingletonMono<DrawSystem>
         // 3. 绘制阶段
         _spriteRenderService.Flush(_spriteLib);
         _unitAtlasBillboardRenderService.Flush();
-        PruneInactiveAtlasPlaybackStates();
+        _unitVARenderService.Flush();
+        PruneInactivePlaybackStates();
 
         if (_hbMatrices.Count > 0)
         {
             DrawHealthBars();
         }
+    }
+
+    private bool TryEnqueueVA(WholeComponent whole, int entityIndex, ref CoreComponent core, ref DrawComponent draw, Vector3 pos, Vector3 scaleVal)
+    {
+        EntityBlueprintSO blueprintSO = GetBlueprintSO(core.BlueprintName);
+        if (blueprintSO == null || blueprintSO.UnitVASO == null)
+        {
+            return false;
+        }
+
+        UnitVASO vaso = blueprintSO.UnitVASO;
+        if (vaso.Mesh == null || vaso.BaseTexture == null)
+        {
+            return false;
+        }
+
+        // 1. Lazy GPU buffer upload.
+        UnitVABufferManager vaBufferMgr = UnitVABufferManager.Instance;
+        if (!vaBufferMgr.IsRegistered(vaso))
+        {
+            vaBufferMgr.RegisterVASO(vaso);
+        }
+
+        // 2. Get or create VA playback state.
+        int playbackKey = core.CreationIndex;
+        _activeVaPlaybackKeys.Add(playbackKey);
+
+        if (!_vaPlaybackStates.TryGetValue(playbackKey, out UnitAnimationPlaybackState playbackState))
+        {
+            playbackState = default;
+        }
+
+        // 3. Evaluate animation intent → state → frame advance.
+        UnitAnimationIntent intent = UnitAnimationIntentBridge.Build(whole, entityIndex);
+        UnitAnimationFrameVAResult vaResult = UnitAnimationPlayback.EvaluateVA(
+            vaso, intent, ref playbackState, TimeTicker.GlobalTick);
+
+        _vaPlaybackStates[playbackKey] = playbackState;
+        draw.AnimationFrame = vaResult.LocalFrame;
+
+        // 4. Resolve state + local frame → global buffer offset.
+        if (!vaBufferMgr.TryGetGlobalFrameIndex(vaso, vaResult.State, vaResult.LocalFrame, out int globalFrameIndex))
+        {
+            globalFrameIndex = 0;
+        }
+
+        // 5. Compute billboard matrix (same foot-anchor logic as atlas path).
+        Camera renderCamera = CameraController.Instance != null
+            ? CameraController.Instance.TargetCamera
+            : Camera.main;
+        Vector2 footAnchor = ResolveBillboardFootAnchor(core.Position, pos.y - core.Position.y);
+        Vector3 billboardScale = scaleVal;
+        if (vaResult.FlipX)
+        {
+            billboardScale.x = -billboardScale.x;
+        }
+
+        Matrix4x4 matrix = InStageRenderSpace.MakeBillboardMatrix(
+            footAnchor,
+            billboardScale,
+            renderCamera,
+            0f);
+
+        // 6. Enqueue.
+        _unitVARenderService.Enqueue(new UnitVADrawRequest
+        {
+            VASO = vaso,
+            Matrix = matrix,
+            GlobalFrameIndex = globalFrameIndex
+        });
+
+        return true;
     }
 
     private bool TryEnqueueAtlasBillboard(WholeComponent whole, int entityIndex, ref CoreComponent core, ref DrawComponent draw, Vector3 pos, Vector3 scaleVal)
@@ -421,17 +504,23 @@ public class DrawSystem : SingletonMono<DrawSystem>
                frameResult.LocalFrame < clip.Frames.Length;
     }
 
-    private void PruneInactiveAtlasPlaybackStates()
+    private void PruneInactivePlaybackStates()
     {
-        if (_atlasPlaybackStates.Count == 0)
+        PruneDictionaryFromActiveKeys(_atlasPlaybackStates, _activeAtlasPlaybackKeys);
+        PruneDictionaryFromActiveKeys(_vaPlaybackStates, _activeVaPlaybackKeys);
+    }
+
+    private static void PruneDictionaryFromActiveKeys(Dictionary<int, UnitAnimationPlaybackState> states, HashSet<int> activeKeys)
+    {
+        if (states.Count == 0)
         {
             return;
         }
 
         List<int> staleKeys = null;
-        foreach (int playbackKey in _atlasPlaybackStates.Keys)
+        foreach (int playbackKey in states.Keys)
         {
-            if (_activeAtlasPlaybackKeys.Contains(playbackKey))
+            if (activeKeys.Contains(playbackKey))
             {
                 continue;
             }
@@ -447,7 +536,7 @@ public class DrawSystem : SingletonMono<DrawSystem>
 
         for (int i = 0; i < staleKeys.Count; i++)
         {
-            _atlasPlaybackStates.Remove(staleKeys[i]);
+            states.Remove(staleKeys[i]);
         }
     }
 

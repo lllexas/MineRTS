@@ -79,3 +79,16 @@ public struct UnitAnimationFrameResult
     public AtlasFrameCoord FrameCoord;
     public bool FlipX;
 }
+
+/// <summary>
+/// VA-style animation evaluation result.
+/// LocalFrame is the frame index within the resolved clip.
+/// The global buffer offset is resolved later by UnitVABufferManager.TryGetGlobalFrameIndex.
+/// </summary>
+[Serializable]
+public struct UnitAnimationFrameVAResult
+{
+    public UnitAnimationStateId State;
+    public int LocalFrame;
+    public bool FlipX;
+}

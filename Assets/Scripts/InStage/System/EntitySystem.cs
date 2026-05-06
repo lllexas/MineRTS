@@ -888,6 +888,13 @@ public class EntitySystem : SingletonMono<EntitySystem>
             TilemapSyncManager.Instance.SetTilemapActive(false);
         }
 
+        // 8. 释放 VA GPU 资源
+        UnitVABufferManager vaMgr = FindObjectOfType<UnitVABufferManager>();
+        if (vaMgr != null)
+        {
+            vaMgr.ReleaseAll();
+        }
+
         Debug.Log("<color=red>[EntitySystem]</color> 世界已核平，所有数据归零。");
     }
     private void Update()
