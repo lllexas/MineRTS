@@ -10,6 +10,7 @@ public class EntityBlueprintSO : ScriptableObject
     [Header("Visual")]
     public int SpriteId;
     public UnitAtlasAnimationSetSO AnimationSetSO;
+    public UnitVASO UnitVASO;
     public Vector2Int LogicSize = Vector2Int.one;
     public Vector2 VisualScale = Vector2.one;
 

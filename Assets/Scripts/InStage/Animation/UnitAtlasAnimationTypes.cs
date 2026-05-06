@@ -8,7 +8,8 @@ public enum UnitAnimationStateId
     Move = 2,
     Work = 3,
     Attack = 4,
-    Death = 5
+    Death = 5,
+    Stun = 6
 }
 
 public enum UnitAnimationFrameTier

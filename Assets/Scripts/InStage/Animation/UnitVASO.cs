@@ -2,24 +2,56 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum UnitVAPositionFormat
+public static class UnitVASettings
 {
-    RG16 = 0,
-    RG16F = 1
+    /// <summary>
+    /// Project-level default for Spine-to-VA baking and clip preview playback.
+    /// A preview speed of 1 means one baked frame is advanced at this FPS.
+    /// Individual UnitVASO assets may override BakeSampleFps; this value is only
+    /// the default used when a new or invalid asset value needs initialization.
+    /// </summary>
+    public const int DefaultBakeSampleFps = 60;
+
+    public const int MinBakeSampleFps = 1;
+
+    public static int NormalizeBakeSampleFps(int sampleFps)
+    {
+        return sampleFps < MinBakeSampleFps ? DefaultBakeSampleFps : sampleFps;
+    }
 }
 
 [Serializable]
-public struct UnitVAClipDef
+public sealed class UnitVAFrame
 {
-    public UnitAnimationStateId State;
     /// <summary>
-    /// Start frame in the flattened position stream. Frames in the same clip must be contiguous.
+    /// All vertex positions for this animation frame, in mesh vertex order.
+    /// Layout rule for this authoring asset:
+    /// clip -> frame -> vertex -> xy.
+    /// Positions[vertexIndex] is the local-space xy of that mesh vertex at this frame.
+    /// This array is intentionally not a serialized GPU buffer. Runtime upload code may
+    /// flatten and quantize all frames later, but this asset stores the baked VA structure
+    /// in the same hierarchy that the Spine baker produces.
     /// </summary>
-    [Min(0)] public int FrameStart;
-    [Min(0)] public int FrameCount;
-    [Min(1)] public int TicksPerFrame;
-    public bool Loop;
-    public bool LockUntilComplete;
+    public Vector2[] Positions = Array.Empty<Vector2>();
+}
+
+[Serializable]
+public sealed class UnitVAClip
+{
+    public string SourceAnimationName;
+    public UnitAnimationStateId State;
+
+    [Min(1)] public int TicksPerFrame = 1;
+    public bool Loop = true;
+
+    /// <summary>
+    /// Frames belonging to this clip. Frames are stored contiguously inside the clip, and
+    /// every frame must contain exactly UnitVASO.VertexCount xy entries in mesh vertex order.
+    /// Runtime buffer layout, if needed, should be derived from clip order then frame order.
+    /// </summary>
+    public List<UnitVAFrame> Frames = new List<UnitVAFrame>();
+
+    public int FrameCount => Frames?.Count ?? 0;
 }
 
 [CreateAssetMenu(fileName = "UnitVASO", menuName = "MineRTS/Animation/Unit VASO")]
@@ -28,96 +60,125 @@ public sealed class UnitVASO : ScriptableObject
     [Header("Identity")]
     public string UnitTypeId;
 
+    [Header("Source Trace")]
+    public TextAsset SourceJson;
+    public UnityEngine.Object SourceSkeletonDataAsset;
+    public string SourceAssetGuid;
+    public string SourceAssetPath;
+    public string SourceSpineVersion;
+    /// <summary>
+    /// Sampling FPS used by the Spine baker and by the editor clip preview.
+    /// The default is UnitVASettings.DefaultBakeSampleFps, currently 60, matching
+    /// the expected Spine authoring cadence. Values below 1 are repaired to the
+    /// project default; valid per-asset overrides are otherwise preserved.
+    /// </summary>
+    [Min(1)] public int BakeSampleFps = UnitVASettings.DefaultBakeSampleFps;
+
     [Header("Static Runtime Assets")]
     public Mesh Mesh;
     public Texture2D BaseTexture;
 
     [Header("VA Layout")]
     [Min(0)] public int VertexCount;
-    public UnitVAPositionFormat PositionFormat = UnitVAPositionFormat.RG16F;
 
     [Header("Clips")]
-    public List<UnitVAClipDef> Clips = new List<UnitVAClipDef>();
-
-    [Header("Animation Data")]
     /// <summary>
-    /// Flattened vertex animation stream.
-    /// Layout:
-    /// clip block -> frame block -> vertex block -> xy.
-    /// Clips reserve contiguous frame ranges through <see cref="UnitVAClipDef.FrameStart"/> and
-    /// <see cref="UnitVAClipDef.FrameCount"/>. Each frame stores all vertices in mesh vertex order.
-    /// Index rule:
-    /// bufferIndex = ((clip.FrameStart + localFrame) * VertexCount) + vertexIndex.
-    /// Byte offset:
-    /// byteOffset = bufferIndex * BytesPerVertex.
-    /// Per-vertex element order is always x then y.
-    /// For RG16: byte 0..1 = x as UInt16, byte 2..3 = y as UInt16.
-    /// For RG16F: byte 0..1 = x as Half, byte 2..3 = y as Half.
+    /// Baked vertex animation data grouped by clip, then by frame.
+    /// This SO is the conversion result of Spine organization -> VA organization.
+    /// It should usually be generated next to the source Spine json/atlas/texture files
+    /// so the derived asset is easy to inspect and regenerate.
     /// </summary>
-    public byte[] PositionData = Array.Empty<byte>();
-
-    public int BytesPerVertex => PositionFormat switch
-    {
-        UnitVAPositionFormat.RG16 => 4,
-        UnitVAPositionFormat.RG16F => 4,
-        _ => 4
-    };
+    public List<UnitVAClip> Clips = new List<UnitVAClip>();
 
     public int TotalFrameCount
     {
         get
         {
-            int maxFrame = 0;
+            int total = 0;
             if (Clips == null)
             {
-                return maxFrame;
+                return total;
             }
 
             for (int i = 0; i < Clips.Count; i++)
             {
-                UnitVAClipDef clip = Clips[i];
-                maxFrame = Mathf.Max(maxFrame, clip.FrameStart + clip.FrameCount);
+                total += Clips[i]?.FrameCount ?? 0;
             }
 
-            return maxFrame;
+            return total;
         }
     }
 
-    public int ExpectedPositionDataBytes => Mathf.Max(0, VertexCount) * TotalFrameCount * BytesPerVertex;
+    public int ExpectedPositionCount => Mathf.Max(0, VertexCount) * TotalFrameCount;
 
-    public bool TryGetClip(UnitAnimationStateId state, out UnitVAClipDef clip)
+    public bool TryGetClip(UnitAnimationStateId state, out UnitVAClip clip)
     {
         if (Clips != null)
         {
             for (int i = 0; i < Clips.Count; i++)
             {
-                if (Clips[i].State == state)
+                UnitVAClip candidate = Clips[i];
+                if (candidate != null && candidate.State == state)
                 {
-                    clip = Clips[i];
+                    clip = candidate;
                     return true;
                 }
             }
         }
 
-        clip = default;
+        clip = null;
         return false;
     }
 
-    public int GetPositionByteOffset(int frameIndex, int vertexIndex)
+    public bool TryGetPosition(UnitVAClip clip, int frameIndex, int vertexIndex, out Vector2 position)
     {
-        int safeVertexCount = Mathf.Max(1, VertexCount);
-        return ((frameIndex * safeVertexCount) + vertexIndex) * BytesPerVertex;
+        if (clip?.Frames == null ||
+            frameIndex < 0 ||
+            frameIndex >= clip.Frames.Count ||
+            vertexIndex < 0 ||
+            vertexIndex >= VertexCount)
+        {
+            position = default;
+            return false;
+        }
+
+        UnitVAFrame frame = clip.Frames[frameIndex];
+        if (frame?.Positions == null || vertexIndex >= frame.Positions.Length)
+        {
+            position = default;
+            return false;
+        }
+
+        position = frame.Positions[vertexIndex];
+        return true;
     }
 
-    public int GetPositionByteOffset(UnitVAClipDef clip, int localFrame, int vertexIndex)
+    public bool HasExpectedFrameVertexCounts()
     {
-        int clampedFrame = Mathf.Clamp(localFrame, 0, Mathf.Max(0, clip.FrameCount - 1));
-        return GetPositionByteOffset(clip.FrameStart + clampedFrame, vertexIndex);
-    }
+        if (Clips == null)
+        {
+            return true;
+        }
 
-    public bool HasExpectedPositionDataLength()
-    {
-        return PositionData != null && PositionData.Length == ExpectedPositionDataBytes;
+        for (int clipIndex = 0; clipIndex < Clips.Count; clipIndex++)
+        {
+            UnitVAClip clip = Clips[clipIndex];
+            if (clip?.Frames == null)
+            {
+                return false;
+            }
+
+            for (int frameIndex = 0; frameIndex < clip.Frames.Count; frameIndex++)
+            {
+                UnitVAFrame frame = clip.Frames[frameIndex];
+                if (frame?.Positions == null || frame.Positions.Length != VertexCount)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     private void OnValidate()
@@ -131,21 +192,37 @@ public sealed class UnitVASO : ScriptableObject
             VertexCount = Mathf.Max(0, VertexCount);
         }
 
+        BakeSampleFps = UnitVASettings.NormalizeBakeSampleFps(BakeSampleFps);
+
         if (Clips == null)
         {
-            Clips = new List<UnitVAClipDef>();
+            Clips = new List<UnitVAClip>();
             return;
         }
 
-        for (int i = 0; i < Clips.Count; i++)
+        for (int clipIndex = 0; clipIndex < Clips.Count; clipIndex++)
         {
-            UnitVAClipDef clip = Clips[i];
-            clip.FrameStart = Mathf.Max(0, clip.FrameStart);
-            clip.FrameCount = Mathf.Max(0, clip.FrameCount);
-            clip.TicksPerFrame = Mathf.Max(1, clip.TicksPerFrame);
-            Clips[i] = clip;
-        }
+            UnitVAClip clip = Clips[clipIndex];
+            if (clip == null)
+            {
+                clip = new UnitVAClip();
+                Clips[clipIndex] = clip;
+            }
 
-        PositionData ??= Array.Empty<byte>();
+            clip.TicksPerFrame = Mathf.Max(1, clip.TicksPerFrame);
+            clip.Frames ??= new List<UnitVAFrame>();
+
+            for (int frameIndex = 0; frameIndex < clip.Frames.Count; frameIndex++)
+            {
+                UnitVAFrame frame = clip.Frames[frameIndex];
+                if (frame == null)
+                {
+                    frame = new UnitVAFrame();
+                    clip.Frames[frameIndex] = frame;
+                }
+
+                frame.Positions ??= Array.Empty<Vector2>();
+            }
+        }
     }
 }

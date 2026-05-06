@@ -95,6 +95,7 @@ public class EntityBlueprintSOEditor : Editor
             if (spriteIdProperty != null)
                 DrawSpritePreview(spriteIdProperty.intValue, "Main Sprite");
             DrawProperty("AnimationSetSO");
+            DrawProperty("UnitVASO");
             DrawProperty("LogicSize");
             DrawProperty("VisualScale");
         }
