@@ -60,40 +60,15 @@ public class AttackSystem : SingletonMono<AttackSystem>
 
             if (dist <= attack.AttackRange + 0.5f)
             {
-                // --- 执行攻击 ---
-
                 // A. 调整朝向 (看向目标)
                 Vector2 dir = ((Vector2)(targetCore.Position - core.Position)).normalized;
                 if (dir != Vector2.zero)
                 {
-                    // 将方向向量转为网格方向 Vector2Int (-1~1)
                     core.Rotation = new Vector2Int(Mathf.RoundToInt(dir.x), Mathf.RoundToInt(dir.y));
                 }
 
-                // B. 判定攻击模式
-                if (attack.ProjectileSpriteId < 0)
-                {
-                    // === 近战逻辑 ===
-                    // 使用统一的伤害函数，处理扣血、击杀、销毁、网格释放
-                    ApplyDamage(whole, targetHandle, attack.AttackDamage, core.Team);
-
-                    // 如果目标被打死了，清理本单位的目标锁定
-                    if (!targetHealth.IsAlive)
-                    {
-                        attack.TargetEntityId = -1;
-                        if (ai.TargetEntity == targetHandle) ai.TargetEntity = EntityHandle.None;
-                    }
-                }
-                else
-                {
-                    // === 远程逻辑 ===
-                    SpawnProjectile(whole, i, targetIndex);
-                }
-
-                // C. 重置冷却 (使用tick)
+                // B. 启动攻击动画 (伤害/弹丸由 AttackEventSystem 在命中帧 tag 触发)
                 attack.LastAttackTick = TimeTicker.GlobalTick;
-
-                // Push animation intent: this entity is actively attacking.
                 whole.animationIntentComponent[i].WantsAttack = true;
             }
         }

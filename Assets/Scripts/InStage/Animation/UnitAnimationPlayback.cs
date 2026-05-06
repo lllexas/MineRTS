@@ -146,8 +146,10 @@ public static class UnitAnimationPlayback
         in UnitAnimationIntent intent,
         ref UnitAnimationPlaybackState playback,
         float currentTime,
-        out int localFrame)
+        out int localFrame,
+        out UnitVAEventTag crossedTags)
     {
+        crossedTags = UnitVAEventTag.None;
         bool isStateChange = playback.CurrentState != targetState;
 
         // Clear action lock if state changed (e.g. lock released or broken).
@@ -169,7 +171,7 @@ public static class UnitAnimationPlayback
         else
         {
             playback.FlipX = intent.FlipX;
-            AdvanceVAFrames(vaso, ref playback, currentTime);
+            crossedTags = AdvanceVAFrames(vaso, ref playback, currentTime);
 
             // Release lock when clip reaches its last frame.
             if (playback.ActionLockState != UnitAnimationStateId.None)
@@ -191,25 +193,30 @@ public static class UnitAnimationPlayback
         localFrame = playback.LocalFrame;
     }
 
-    private static void AdvanceVAFrames(UnitVASO vaso, ref UnitAnimationPlaybackState playback, float currentTime)
+    /// <summary>
+    /// Advance VA frames and return the bitmask of all event tags crossed.
+    /// </summary>
+    private static UnitVAEventTag AdvanceVAFrames(UnitVASO vaso, ref UnitAnimationPlaybackState playback, float currentTime)
     {
+        UnitVAEventTag crossed = UnitVAEventTag.None;
+
         if (vaso == null)
         {
             playback.LastAdvanceTime = currentTime;
-            return;
+            return crossed;
         }
 
         if (!vaso.TryGetClip(playback.CurrentState, out UnitVAClip clip))
         {
             playback.LastAdvanceTime = currentTime;
-            return;
+            return crossed;
         }
 
         float deltaTime = Mathf.Max(0f, currentTime - playback.LastAdvanceTime);
         playback.LastAdvanceTime = currentTime;
         if (deltaTime <= 0f)
         {
-            return;
+            return crossed;
         }
 
         float totalTime = playback.FrameTimeRemainder + deltaTime;
@@ -218,16 +225,42 @@ public static class UnitAnimationPlayback
         playback.FrameTimeRemainder = totalTime % frameDuration;
         if (frameAdvance <= 0)
         {
-            return;
+            return crossed;
         }
+
+        int oldFrame = playback.LocalFrame;
+        int frameCount = Mathf.Max(1, clip.FrameCount);
 
         if (clip.Loop)
         {
-            int frameCount = Mathf.Max(1, clip.FrameCount);
-            playback.LocalFrame = (playback.LocalFrame + frameAdvance) % frameCount;
-            return;
+            int newFrame = (oldFrame + frameAdvance) % frameCount;
+
+            if (oldFrame + frameAdvance >= frameCount)
+            {
+                // Wrapped around: collect tags from oldFrame+1 to end, then 0 to newFrame.
+                for (int f = oldFrame + 1; f < frameCount; f++)
+                    crossed |= clip.GetTagsForFrame(f);
+                for (int f = 0; f <= newFrame; f++)
+                    crossed |= clip.GetTagsForFrame(f);
+            }
+            else
+            {
+                for (int f = oldFrame + 1; f <= newFrame; f++)
+                    crossed |= clip.GetTagsForFrame(f);
+            }
+
+            playback.LocalFrame = newFrame;
+        }
+        else
+        {
+            int newFrame = Mathf.Min(oldFrame + frameAdvance, frameCount - 1);
+
+            for (int f = oldFrame + 1; f <= newFrame; f++)
+                crossed |= clip.GetTagsForFrame(f);
+
+            playback.LocalFrame = newFrame;
         }
 
-        playback.LocalFrame = Mathf.Min(playback.LocalFrame + frameAdvance, Mathf.Max(0, clip.FrameCount - 1));
+        return crossed;
     }
 }

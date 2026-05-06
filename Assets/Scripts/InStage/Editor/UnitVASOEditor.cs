@@ -350,6 +350,8 @@ public sealed class UnitVASOEditor : Editor
         DrawPreviewPlaybackControls(unitVA, clip);
         EditorGUILayout.Space(8f);
         DrawPreviewFrameOrder(clip);
+        EditorGUILayout.Space(8f);
+        DrawFrameTagEditor(clip);
     }
 
     private static void DrawPreviewPlaybackControls(UnitVASO unitVA, UnitVAClip clip)
@@ -409,13 +411,20 @@ public sealed class UnitVASOEditor : Editor
             {
                 int frameIndex = i + col;
                 bool active = frameIndex == UnitVAClipPreviewSession.CurrentFrame;
+                bool hasTag = clip.GetTagsForFrame(frameIndex) != UnitVAEventTag.None;
+
                 Color previousColor = GUI.backgroundColor;
                 if (active)
                 {
                     GUI.backgroundColor = new Color(0.55f, 0.8f, 1f, 1f);
                 }
+                else if (hasTag)
+                {
+                    GUI.backgroundColor = new Color(0.9f, 0.6f, 0.2f, 1f);
+                }
 
-                if (GUILayout.Button(frameIndex.ToString(), GUILayout.Width(42f)))
+                string label = hasTag ? $"{frameIndex}·" : frameIndex.ToString();
+                if (GUILayout.Button(label, GUILayout.Width(42f)))
                 {
                     UnitVAClipPreviewSession.CurrentFrame = frameIndex;
                     UnitVAClipPreviewSession.IsPlaying = false;
@@ -428,6 +437,50 @@ public sealed class UnitVASOEditor : Editor
         }
 
         EditorGUILayout.EndScrollView();
+    }
+
+    private static void DrawFrameTagEditor(UnitVAClip clip)
+    {
+        int frame = UnitVAClipPreviewSession.CurrentFrame;
+        EditorGUILayout.LabelField($"Frame {frame} Tags", EditorStyles.boldLabel);
+
+        UnitVAEventTag currentTags = clip.GetTagsForFrame(frame);
+
+        EditorGUILayout.BeginHorizontal();
+        bool hasMelee = (currentTags & UnitVAEventTag.MeleeHit) != 0;
+        bool newMelee = EditorGUILayout.ToggleLeft("MeleeHit", hasMelee, GUILayout.Width(100f));
+        if (newMelee != hasMelee)
+        {
+            clip.SetTagOnFrame(frame, UnitVAEventTag.MeleeHit, newMelee);
+            EditorUtility.SetDirty(UnitVAClipPreviewSession.ActiveAsset);
+        }
+
+        bool hasProjectile = (currentTags & UnitVAEventTag.ProjectileSpawn) != 0;
+        bool newProjectile = EditorGUILayout.ToggleLeft("Projectile", hasProjectile, GUILayout.Width(100f));
+        if (newProjectile != hasProjectile)
+        {
+            clip.SetTagOnFrame(frame, UnitVAEventTag.ProjectileSpawn, newProjectile);
+            EditorUtility.SetDirty(UnitVAClipPreviewSession.ActiveAsset);
+        }
+        EditorGUILayout.EndHorizontal();
+
+        EditorGUILayout.BeginHorizontal();
+        bool hasFootstep = (currentTags & UnitVAEventTag.Footstep) != 0;
+        bool newFootstep = EditorGUILayout.ToggleLeft("Footstep", hasFootstep, GUILayout.Width(100f));
+        if (newFootstep != hasFootstep)
+        {
+            clip.SetTagOnFrame(frame, UnitVAEventTag.Footstep, newFootstep);
+            EditorUtility.SetDirty(UnitVAClipPreviewSession.ActiveAsset);
+        }
+
+        bool hasEffect = (currentTags & UnitVAEventTag.Effect) != 0;
+        bool newEffect = EditorGUILayout.ToggleLeft("Effect", hasEffect, GUILayout.Width(100f));
+        if (newEffect != hasEffect)
+        {
+            clip.SetTagOnFrame(frame, UnitVAEventTag.Effect, newEffect);
+            EditorUtility.SetDirty(UnitVAClipPreviewSession.ActiveAsset);
+        }
+        EditorGUILayout.EndHorizontal();
     }
 
     private static void DrawFrameSummary(SerializedProperty framesProperty, int vertexCount)

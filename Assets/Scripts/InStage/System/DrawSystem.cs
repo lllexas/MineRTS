@@ -321,7 +321,13 @@ public class DrawSystem : SingletonMono<DrawSystem>
         UnitAnimationStateId targetState = UnitAnimationPlayback.ResolveVAState(intent, playbackState);
 
         // 5. Apply: state transition + frame advance (real time, not game ticks).
-        UnitAnimationPlayback.ApplyVAState(targetState, vaso, intent, ref playbackState, Time.time, out int localFrame);
+        UnitAnimationPlayback.ApplyVAState(targetState, vaso, intent, ref playbackState, Time.time,
+            out int localFrame, out UnitVAEventTag crossedTags);
+
+        if (crossedTags != UnitVAEventTag.None)
+        {
+            whole.animationEventComponent[entityIndex].CrossedTags |= crossedTags;
+        }
 
         _vaPlaybackStates[playbackKey] = playbackState;
         draw.AnimationFrame = localFrame;

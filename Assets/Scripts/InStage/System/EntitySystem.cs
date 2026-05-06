@@ -91,6 +91,7 @@ public class EntitySystem : SingletonMono<EntitySystem>
             wholeComponent.projectileComponent = new ProjectileComponent[maxEntityCount];
             wholeComponent.goComponent = new GoComponent[maxEntityCount];
             wholeComponent.animationIntentComponent = new UnitAnimationIntent[maxEntityCount];
+            wholeComponent.animationEventComponent = new AnimationEventComponent[maxEntityCount];
 
             // 重新分配地图数组
             wholeComponent.groundMap = new int[mapWidth * mapHeight];
@@ -129,6 +130,7 @@ public class EntitySystem : SingletonMono<EntitySystem>
             Array.Clear(wholeComponent.projectileComponent, 0, maxEntityCount);
             Array.Clear(wholeComponent.goComponent, 0, maxEntityCount);
             Array.Clear(wholeComponent.animationIntentComponent, 0, maxEntityCount);
+            Array.Clear(wholeComponent.animationEventComponent, 0, maxEntityCount);
 
             // 清空地图数组
             Array.Clear(wholeComponent.groundMap, 0, wholeComponent.groundMap.Length);
@@ -698,6 +700,8 @@ public class EntitySystem : SingletonMono<EntitySystem>
             wholeComponent.conveyorComponent = new ConveyorComponent[maxEntityCount];
         if (wholeComponent.animationIntentComponent == null)
             wholeComponent.animationIntentComponent = new UnitAnimationIntent[maxEntityCount];
+        if (wholeComponent.animationEventComponent == null)
+            wholeComponent.animationEventComponent = new AnimationEventComponent[maxEntityCount];
         // 地图数组
         int mapSize = wholeComponent.mapWidth * wholeComponent.mapHeight;
         if (wholeComponent.groundMap == null)
@@ -947,6 +951,10 @@ public class EntitySystem : SingletonMono<EntitySystem>
         // 6. 表现层渲染
         // 先画基础单位（建筑、小兵）
         DrawSystem.Instance.UpdateDraws(wholeComponent, deltaTime);
+
+        // Consume frame-tag events before reset (melee hit / projectile spawn).
+        AttackEventSystem.Instance.UpdateEvents(wholeComponent);
+
         SelectionOverlaySystem.Instance.UpdateRender();
 
         // 【核心新增】再画传送带上的物品（使用 Item Layer 盖在 Conveyor Layer 上）
@@ -1007,6 +1015,9 @@ public class WholeComponent
     // --- 【动画意图黑板】(每帧重建，帧末清零) ---
     [JsonConverter(typeof(SparseArrayConverter<UnitAnimationIntent>))]
     public UnitAnimationIntent[] animationIntentComponent;
+
+    [JsonConverter(typeof(SparseArrayConverter<AnimationEventComponent>))]
+    public AnimationEventComponent[] animationEventComponent;
 
     [JsonIgnore]
     public int[] groundMap;

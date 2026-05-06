@@ -1,0 +1,48 @@
+
+机械狗.png
+size: 1241,1030
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+右前腿
+  rotate: true
+  xy: 274, 684
+  size: 344, 703
+  orig: 344, 703
+  offset: 0, 0
+  index: -1
+右后腿
+  rotate: false
+  xy: 274, 2
+  size: 331, 680
+  orig: 331, 680
+  offset: 0, 0
+  index: -1
+头
+  rotate: false
+  xy: 979, 844
+  size: 224, 184
+  orig: 289, 184
+  offset: 65, 0
+  index: -1
+左前腿
+  rotate: false
+  xy: 607, 4
+  size: 331, 678
+  orig: 331, 678
+  offset: 0, 0
+  index: -1
+左后腿
+  rotate: false
+  xy: 940, 15
+  size: 299, 667
+  orig: 299, 667
+  offset: 0, 0
+  index: -1
+躯体
+  rotate: true
+  xy: 2, 80
+  size: 948, 270
+  orig: 948, 270
+  offset: 0, 0
+  index: -1

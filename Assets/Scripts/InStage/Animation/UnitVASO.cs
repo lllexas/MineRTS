@@ -2,6 +2,31 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// Frame-level semantic tags for vertex animation clips.
+/// Marked per-frame in the preview inspector; consumed by ECS systems at runtime.
+/// </summary>
+[Flags]
+public enum UnitVAEventTag : uint
+{
+    None            = 0,
+    MeleeHit        = 1 << 0,   // 近战出伤帧
+    ProjectileSpawn = 1 << 1,   // 远程发射帧
+    Footstep        = 1 << 2,   // 脚步声
+    Effect          = 1 << 3,   // 特效触发
+}
+
+/// <summary>
+/// One tagged frame within a UnitVAClip. Stored as a separate list
+/// (not on UnitVAFrame) to keep baked vertex data and editor metadata apart.
+/// </summary>
+[Serializable]
+public sealed class UnitVAFrameTagEntry
+{
+    public int FrameIndex;
+    public UnitVAEventTag Tag;
+}
+
 public static class UnitVASettings
 {
     /// <summary>
@@ -52,7 +77,46 @@ public sealed class UnitVAClip
     /// </summary>
     public List<UnitVAFrame> Frames = new List<UnitVAFrame>();
 
+    /// <summary>
+    /// Per-frame event tags. Each entry marks a frame index with one or more
+    /// semantic tags (MeleeHit, Footstep, etc.). Stored separately from the
+    /// baked vertex data in UnitVAFrame.
+    /// </summary>
+    public List<UnitVAFrameTagEntry> FrameTags = new List<UnitVAFrameTagEntry>();
+
     public int FrameCount => Frames?.Count ?? 0;
+
+    /// <summary>
+    /// Get the combined tag bitmask for a given frame index, or None.
+    /// </summary>
+    public UnitVAEventTag GetTagsForFrame(int frameIndex)
+    {
+        UnitVAEventTag result = UnitVAEventTag.None;
+        for (int i = 0; i < FrameTags.Count; i++)
+        {
+            if (FrameTags[i].FrameIndex == frameIndex)
+                result |= FrameTags[i].Tag;
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Set (or clear) a specific tag on a frame.
+    /// </summary>
+    public void SetTagOnFrame(int frameIndex, UnitVAEventTag tag, bool enabled)
+    {
+        // Remove existing entries for this tag on this frame.
+        for (int i = FrameTags.Count - 1; i >= 0; i--)
+        {
+            if (FrameTags[i].FrameIndex == frameIndex && FrameTags[i].Tag == tag)
+                FrameTags.RemoveAt(i);
+        }
+
+        if (enabled)
+        {
+            FrameTags.Add(new UnitVAFrameTagEntry { FrameIndex = frameIndex, Tag = tag });
+        }
+    }
 }
 
 [CreateAssetMenu(fileName = "UnitVASO", menuName = "MineRTS/Animation/Unit VASO")]

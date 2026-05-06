@@ -35,6 +35,7 @@ public static class UnitAnimationIntentBridge
                 bool wasDead = whole.animationIntentComponent[i].IsDead;
                 whole.animationIntentComponent[i] = default;
                 whole.animationIntentComponent[i].IsDead = wasDead;
+                whole.animationEventComponent[i] = default;
             }
         }
     }
